@@ -29,10 +29,10 @@ export async function runSeeder() {
   try {
     console.log("🌱 Executando seeder...");
 
-    // Executar migrações primeiro - criar todas as tabelas
+    // Primeiro, garantir que todas as tabelas existem
     await runInitialMigrations();
     
-    // Depois executar migração da coluna description
+    // A coluna description já está incluída no schema principal
     await addDescriptionColumn();
 
     // Verificar se já existe pelo menos um usuário administrador
