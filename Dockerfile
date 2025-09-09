@@ -14,6 +14,7 @@ COPY vite.config.ts ./
 COPY tailwind.config.ts ./
 COPY postcss.config.js ./
 COPY drizzle.config.ts ./
+COPY theme.json ./
 
 # Instalar dependências
 RUN npm ci
