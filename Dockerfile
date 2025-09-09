@@ -16,11 +16,14 @@ COPY postcss.config.js ./
 COPY drizzle.config.ts ./
 COPY theme.json ./
 
-# Instalar dependências
-RUN npm ci
+# Instalar dependências apenas
+RUN npm ci --only=production=false
 
 # Copiar código fonte
 COPY . .
+
+# Fazer build da aplicação
+RUN npm run build
 
 # Criar diretório para uploads
 RUN mkdir -p public/uploads/profile_pictures
@@ -28,5 +31,5 @@ RUN mkdir -p public/uploads/profile_pictures
 # Expor porta
 EXPOSE 5000
 
-# Comando padrão para desenvolvimento
-CMD ["npm", "run", "dev"]
+# Comando para produção
+CMD ["npm", "start"]
