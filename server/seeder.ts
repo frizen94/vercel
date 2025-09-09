@@ -10,7 +10,7 @@
 import { storage } from "./db-storage";
 import { hashPassword } from "./auth";
 import type { InsertUser } from "@shared/schema";
-import { addDescriptionColumn } from "./migrate-description";
+import { runInitialMigrations, addDescriptionColumn } from "./schema-setup";
 
 // Credenciais do administrador padrão
 const DEFAULT_ADMIN = {
@@ -29,7 +29,10 @@ export async function runSeeder() {
   try {
     console.log("🌱 Executando seeder...");
 
-    // Executar migrações primeiro
+    // Executar migrações primeiro - criar todas as tabelas
+    await runInitialMigrations();
+    
+    // Depois executar migração da coluna description
     await addDescriptionColumn();
 
     // Verificar se já existe pelo menos um usuário administrador
