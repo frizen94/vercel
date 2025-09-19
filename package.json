@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx server/seeder.ts",
     "db:migrate-portfolios": "tsx server/schema-setup.ts",
+    "db:migrate-missing": "node migrate-missing-tables.js",
     "fix-label-duplicates": "tsx server/scripts/fix-label-duplicates.ts"
   },
   "dependencies": {

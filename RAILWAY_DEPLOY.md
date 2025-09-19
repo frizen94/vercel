@@ -1,49 +1,78 @@
 # Deploy no Railway - Solução para Problemas de Banco
 
 ## 🎯 Problema Atual
-"Não estou conseguindo interagir com o banco de dados"
+"Aqui no banco do railway faltou algumas migrations"
 
 ## 🔍 Diagnóstico
-O problema é que o Railway precisa das variáveis de ambiente configuradas corretamente para conectar ao banco PostgreSQL.
+Algumas tabelas importantes estão faltando no banco do Railway, especialmente:
+- ❌ **notifications** - Sistema de notificações
+- ❌ Algumas colunas adicionais em tabelas existentes
+- ❌ Índices de performance
 
 ## 🛠️ Solução Passo a Passo
 
-### 1. Verificar se o PostgreSQL está ativo no Railway
-1. Acesse seu projeto no Railway
-2. Confirme que há um serviço PostgreSQL rodando
-3. Se não houver, clique em "+ New" > "Database" > "PostgreSQL"
+### 1. Verificar Tabelas Existentes
+No Railway dashboard, você pode ver que existem as tabelas básicas mas faltam:
+- `notifications` (sistema de notificações)
+- Algumas colunas adicionais
 
-### 2. Configurar Variáveis de Ambiente
-No Railway dashboard, na aba "Variables", configure:
+### 2. Executar Migrações Automáticas
+As migrações serão executadas automaticamente quando o aplicativo iniciar, mas você pode forçar a execução:
 
-```env
-# Banco de dados (gerado automaticamente pelo Railway)
-DATABASE_URL=postgresql://postgres:senha@host:5432/railway
+```bash
+# No Railway, acesse o terminal e execute:
+npm run db:migrate
 
-# Sessão (OBRIGATÓRIO)
-SESSION_SECRET=sua-chave-secreta-super-forte-aqui-123456789
-
-# Ambiente
-NODE_ENV=production
-
-# SSL para produção
-FORCE_DB_SSL=true
+# Ou se precisar executar migrações específicas:
+npm run db:migrate-missing
 ```
 
 ### 3. Como o Código Foi Atualizado
-O arquivo `server/database.ts` foi modificado para:
-- ✅ Detectar automaticamente variáveis do Railway
-- ✅ Construir DATABASE_URL a partir de variáveis individuais se necessário
-- ✅ Habilitar SSL automaticamente em produção/Railway
-- ✅ Melhor tratamento de erros de conexão
+O arquivo `server/schema-setup.ts` foi modificado para:
+- ✅ Criar automaticamente a tabela `notifications`
+- ✅ Adicionar colunas faltantes em tabelas existentes
+- ✅ Criar índices de performance
+- ✅ Executar todas as migrações SQL automaticamente
 
 ### 4. Verificação no Railway
-Após o deploy, nos logs você deve ver:
+Após o deploy, verifique nos logs se aparecem:
 ```
-🔧 DATABASE_URL construída a partir de variáveis individuais
-🔒 Database SSL habilitado via configuração (sslmode=require)
-🔄 Tentativa de conexão com o banco... (1/10)
-✅ Banco de dados conectado com sucesso!
+🔄 Running missing SQL migrations...
+✅ Missing SQL migrations completed successfully!
+```
+
+### 5. Tabelas que Serão Criadas
+As seguintes tabelas/colunas serão adicionadas:
+
+#### Tabela `notifications`
+```sql
+CREATE TABLE notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  read BOOLEAN NOT NULL DEFAULT FALSE,
+  action_url TEXT,
+  related_card_id INTEGER REFERENCES cards(id),
+  related_checklist_item_id INTEGER REFERENCES checklist_items(id),
+  from_user_id INTEGER REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### Colunas Adicionais
+- `comments.checklist_item_id` - Para comentários em itens de checklist
+- `checklist_items.description` - Descrição dos itens
+- `checklist_items.parent_item_id` - Para sub-tarefas
+
+#### Tabela `checklist_item_members`
+```sql
+CREATE TABLE checklist_item_members (
+  checklist_item_id INTEGER NOT NULL REFERENCES checklist_items(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  PRIMARY KEY (checklist_item_id, user_id)
+);
 ```
 
 ## 🚪 Próximos Passos

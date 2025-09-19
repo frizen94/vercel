@@ -204,20 +204,42 @@ export async function runMissingSqlMigrations() {
   try {
     console.log('🔄 Running missing SQL migrations...');
     
-    // 1. Add checklist_item_id to comments (from 20250917_add_checklist_item_id_to_comments.sql)
+    // 1. Create notifications table (from 20250131_add_notifications_table.sql)
+    await sql`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        read BOOLEAN NOT NULL DEFAULT FALSE,
+        action_url TEXT,
+        related_card_id INTEGER REFERENCES cards(id),
+        related_checklist_item_id INTEGER REFERENCES checklist_items(id),
+        from_user_id INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `;
+    
+    // Create indices for notifications
+    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);`;
+    
+    // 2. Add checklist_item_id to comments (from 20250917_add_checklist_item_id_to_comments.sql)
     await sql`
       ALTER TABLE comments
       ADD COLUMN IF NOT EXISTS checklist_item_id INTEGER REFERENCES checklist_items(id);
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_comments_checklist_item_id ON comments(checklist_item_id);`;
     
-    // 2. Add description to checklist_items (from 20250917_add_description_to_checklist_items.sql)
+    // 3. Add description to checklist_items (from 20250917_add_description_to_checklist_items.sql)
     await sql`
       ALTER TABLE checklist_items
       ADD COLUMN IF NOT EXISTS description TEXT;
     `;
     
-    // 3. Add parent_item_id to checklist_items (from 20250917_add_parent_item_to_checklist_items.sql)
+    // 4. Add parent_item_id to checklist_items (from 20250917_add_parent_item_to_checklist_items.sql)
     await sql`
       ALTER TABLE checklist_items
       ADD COLUMN IF NOT EXISTS parent_item_id INTEGER;
@@ -240,7 +262,7 @@ export async function runMissingSqlMigrations() {
     
     await sql`CREATE INDEX IF NOT EXISTS idx_checklist_items_parent ON checklist_items(parent_item_id);`;
     
-    // 4. Create checklist_item_members table (from 20250917_create_checklist_item_members.sql)
+    // 5. Create checklist_item_members table (from 20250917_create_checklist_item_members.sql)
     await sql`
       CREATE TABLE IF NOT EXISTS checklist_item_members (
         checklist_item_id INTEGER NOT NULL REFERENCES checklist_items(id),
