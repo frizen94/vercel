@@ -4,7 +4,7 @@ import { useBoardContext } from "@/lib/board-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { Trash2, Plus, Edit2, Calendar, User as UserIcon, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -434,10 +434,12 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                     {items.map(item => (
                       <li key={item.id} className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <Checkbox 
+                          <input
+                            type="checkbox"
                             checked={item.completed} 
-                            onCheckedChange={() => handleToggleItem(item)}
+                            onChange={() => handleToggleItem(item)}
                             id={`item-${item.id}`}
+                            className="h-4 w-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                           />
 
                           {editingItemId === item.id ? (
@@ -465,8 +467,7 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                             </div>
                           ) : (
                             <>
-                              <label 
-                                htmlFor={`item-${item.id}`}
+                              <span 
                                 className={`flex-1 text-sm cursor-pointer ${item.completed ? 'line-through text-muted-foreground' : ''}`}
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -475,7 +476,7 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                                 }}
                               >
                                 {item.content}
-                              </label>
+                              </span>
 
                               <div className="flex items-center gap-1">
                                 {/* Botão de atribuir membro */}
@@ -725,7 +726,7 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                           <span onClick={() => { setEditingTitle(subtaskModalData?.content || ''); setIsEditingTitle(true); }} className="cursor-pointer">{subtaskModalData?.content}</span>
                         )}
                       </h2>
-                      {(subtaskModalData as any)?.checklistTitle && (
+                      {subtaskModalData && (subtaskModalData as any).checklistTitle && (
                         <p className="text-sm text-[#5E6C84] mt-1">da checklist: {(subtaskModalData as any).checklistTitle}</p>
                       )}
                     </div>
