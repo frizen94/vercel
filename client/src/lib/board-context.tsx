@@ -451,8 +451,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   const fetchComments = async (cardId: number, checklistItemId?: number): Promise<Comment[]> => {
     try {
       const query = checklistItemId ? `?checklistItemId=${checklistItemId}` : '';
-      const response = await apiRequest("GET", `/api/cards/${cardId}/comments${query}`);
-      const fetchedComments: Comment[] = await response.json();
+      const fetchedComments: Comment[] = await apiRequest("GET", `/api/cards/${cardId}/comments${query}`);
       
       // Update the comments state
       setComments(prevComments => ({
@@ -472,9 +471,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
       const body: any = { content, cardId, userName: userName || "Anonymous" };
       if (typeof checklistItemId !== 'undefined') body.checklistItemId = checklistItemId;
 
-      const response = await apiRequest("POST", "/api/comments", body);
-      
-      const newComment: Comment = await response.json();
+      const newComment: Comment = await apiRequest("POST", "/api/comments", body);
       
       // Update the comments state
       setComments(prevComments => ({
@@ -510,8 +507,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   // Label methods
   const fetchLabels = async (boardId: number): Promise<Label[]> => {
     try {
-      const response = await apiRequest("GET", `/api/boards/${boardId}/labels`);
-      const fetchedLabels: Label[] = await response.json();
+      const fetchedLabels: Label[] = await apiRequest("GET", `/api/boards/${boardId}/labels`);
       
       setLabels(fetchedLabels);
       return fetchedLabels;
@@ -523,13 +519,12 @@ export function BoardProvider({ children }: BoardProviderProps) {
   
   const createLabel = async (name: string, color: string, boardId: number): Promise<Label> => {
     try {
-      const response = await apiRequest("POST", "/api/labels", {
+      const newLabel: Label = await apiRequest("POST", "/api/labels", {
         name,
         color,
         boardId
       });
       
-      const newLabel: Label = await response.json();
       setLabels(prevLabels => [...prevLabels, newLabel]);
       
       return newLabel;
@@ -541,8 +536,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   
   const fetchCardLabels = async (cardId: number): Promise<Label[]> => {
     try {
-      const response = await apiRequest("GET", `/api/cards/${cardId}/labels`);
-      const fetchedCardLabels: CardLabel[] = await response.json();
+      const fetchedCardLabels: CardLabel[] = await apiRequest("GET", `/api/cards/${cardId}/labels`);
       
       // We need to map the label IDs to actual label objects
       const cardLabelObjects = fetchedCardLabels.map(cl => {
@@ -639,8 +633,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   // Card Members methods
   const fetchUsers = async (): Promise<User[]> => {
     try {
-      const response = await apiRequest("GET", "/api/users");
-      const fetchedUsers: User[] = await response.json();
+      const fetchedUsers: User[] = await apiRequest("GET", "/api/users");
       
       setUsers(fetchedUsers);
       return fetchedUsers;
@@ -652,8 +645,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   
   const fetchCardMembers = async (cardId: number): Promise<User[]> => {
     try {
-      const response = await apiRequest("GET", `/api/cards/${cardId}/members`);
-      const fetchedMembers: User[] = await response.json();
+      const fetchedMembers: User[] = await apiRequest("GET", `/api/cards/${cardId}/members`);
       
       // Update the card members state
       setCardMembers(prevCardMembers => ({
@@ -710,8 +702,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   // Checklist methods
   const fetchChecklists = async (cardId: number): Promise<Checklist[]> => {
     try {
-      const response = await apiRequest("GET", `/api/cards/${cardId}/checklists`);
-      const fetchedChecklists: Checklist[] = await response.json();
+      const fetchedChecklists: Checklist[] = await apiRequest("GET", `/api/cards/${cardId}/checklists`);
       
       // Update the checklists state
       setChecklists(prevChecklists => ({
@@ -731,13 +722,11 @@ export function BoardProvider({ children }: BoardProviderProps) {
       // Get existing checklists to determine order
       const cardChecklists = checklists[cardId] || [];
       
-      const response = await apiRequest("POST", "/api/checklists", {
+      const newChecklist: Checklist = await apiRequest("POST", "/api/checklists", {
         title,
         cardId,
         order: cardChecklists.length
       });
-      
-      const newChecklist: Checklist = await response.json();
       
       // Update the checklists state
       setChecklists(prevChecklists => ({
@@ -760,8 +749,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   
   const updateChecklist = async (id: number, updates: Partial<Checklist>): Promise<Checklist> => {
     try {
-      const response = await apiRequest("PATCH", `/api/checklists/${id}`, updates);
-      const updatedChecklist: Checklist = await response.json();
+      const updatedChecklist: Checklist = await apiRequest("PATCH", `/api/checklists/${id}`, updates);
       
       // Find which card this checklist belongs to
       let cardId = 0;
@@ -829,8 +817,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   // Checklist Item methods
   const fetchChecklistItems = async (checklistId: number): Promise<ChecklistItem[]> => {
     try {
-      const response = await apiRequest("GET", `/api/checklists/${checklistId}/items`);
-      const fetchedItems: ChecklistItem[] = await response.json();
+      const fetchedItems: ChecklistItem[] = await apiRequest("GET", `/api/checklists/${checklistId}/items`);
       
       // Update the checklistItems state
       setChecklistItems(prevItems => ({
@@ -859,9 +846,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
         body.parentItemId = options.parentItemId;
       }
 
-      const response = await apiRequest("POST", "/api/checklist-items", body);
-      
-      const newItem: ChecklistItem = await response.json();
+      const newItem: ChecklistItem = await apiRequest("POST", "/api/checklist-items", body);
       
       // Update the checklistItems state
       setChecklistItems(prevItems => ({
@@ -878,8 +863,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   
   const updateChecklistItem = async (id: number, updates: Partial<ChecklistItem>): Promise<ChecklistItem> => {
     try {
-      const response = await apiRequest("PATCH", `/api/checklist-items/${id}`, updates);
-      const updatedItem: ChecklistItem = await response.json();
+      const updatedItem: ChecklistItem = await apiRequest("PATCH", `/api/checklist-items/${id}`, updates);
       
       // Find which checklist this item belongs to
       let checklistId = 0;
@@ -1025,8 +1009,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
     deleteChecklistItem,
     // Checklist item members
     fetchChecklistItemMembers: async (checklistItemId: number): Promise<User[]> => {
-      const response = await apiRequest("GET", `/api/checklist-items/${checklistItemId}/members`);
-      const members: User[] = await response.json();
+      const members: User[] = await apiRequest("GET", `/api/checklist-items/${checklistItemId}/members`);
       return members;
     },
     addMemberToChecklistItem: async (checklistItemId: number, userId: number): Promise<void> => {
