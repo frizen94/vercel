@@ -30,7 +30,20 @@ export async function apiRequest(
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  return response.json();
+  // Handle responses with no content (204 No Content)
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return null;
+  }
+
+  // Check if response has JSON content
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  // For other content types or empty responses, return text
+  const text = await response.text();
+  return text || null;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

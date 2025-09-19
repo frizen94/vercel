@@ -814,6 +814,39 @@ export function BoardProvider({ children }: BoardProviderProps) {
       });
     } catch (error) {
       console.error("Erro ao excluir checklist:", error);
+      
+      // If it's a 404 error, the checklist was already deleted, so update UI anyway
+      if (error instanceof Error && error.message.includes('404')) {
+        // Find which card this checklist belongs to
+        let cardId = 0;
+        for (const [cId, checklistList] of Object.entries(checklists)) {
+          if (checklistList.some(cl => cl.id === id)) {
+            cardId = Number(cId);
+            break;
+          }
+        }
+        
+        if (cardId > 0) {
+          // Remove checklist from state since it doesn't exist on server
+          setChecklists(prevChecklists => {
+            const cardChecklists = prevChecklists[cardId] || [];
+            return {
+              ...prevChecklists,
+              [cardId]: cardChecklists.filter(cl => cl.id !== id)
+            };
+          });
+        }
+        
+        // Also remove all items for this checklist
+        setChecklistItems(prevItems => {
+          const newItems = { ...prevItems };
+          delete newItems[id];
+          return newItems;
+        });
+        
+        return; // Don't throw error for 404, just update UI
+      }
+      
       throw new Error("Falha ao excluir checklist");
     }
   };

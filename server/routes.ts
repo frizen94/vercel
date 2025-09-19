@@ -1810,14 +1810,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID inválido" });
       }
 
+      // First check if checklist exists
+      const existingChecklist = await appStorage.getChecklist(id);
+      if (!existingChecklist) {
+        return res.status(404).json({ message: "Checklist não encontrada" });
+      }
+
       const success = await appStorage.deleteChecklist(id);
 
       if (!success) {
-        return res.status(404).json({ message: "Checklist não encontrada" });
+        return res.status(500).json({ message: "Falha ao excluir checklist no banco de dados" });
       }
 
       res.status(204).end();
     } catch (error) {
+      console.error("Erro ao excluir checklist:", error);
       res.status(500).json({ message: "Falha ao excluir checklist" });
     }
   });
