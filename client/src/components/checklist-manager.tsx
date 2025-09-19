@@ -472,7 +472,7 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setOpenSubtaskModalId(item.id);
-                                  setSubtaskModalData({...item, checklistTitle: checklist.title});
+                                  setSubtaskModalData(item);
                                 }}
                               >
                                 {item.content}
@@ -1190,12 +1190,7 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                                       }
                                       
                                       try {
-                                        const response = await addMemberToChecklistItem(subtaskModalData!.id, user.id);
-                                        if (response.status === 409) {
-                                          // User is already a member - this shouldn't happen due to our checks, but handle gracefully
-                                          console.warn('Attempted to add user who is already a member');
-                                          return;
-                                        }
+                                        await addMemberToChecklistItem(subtaskModalData!.id, user.id);
                                         const members = await fetchChecklistItemMembers(subtaskModalData!.id);
                                         setSubtaskMembers(members);
                                       } catch (err) { 

@@ -246,7 +246,7 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
           newDueDate.getDate()
         );
 
-        await updateCard(card.id, { dueDate: localDate.toISOString() });
+        await updateCard(card.id, { dueDate: localDate });
       }
     } catch (error) {
       console.error("Error updating due date:", error);
@@ -673,14 +673,7 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
                   className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={() => {
                     // Criar uma cópia do cartão na mesma lista
-                    const cardCopy = {
-                      title: `${card.title} (Cópia)`,
-                      description: card.description,
-                      listId: card.listId,
-                      dueDate: card.dueDate
-                    };
-                    
-                    createCard(cardCopy, list.id).then(() => {
+                    createCard(`${card.title} (Cópia)`, list.id).then(() => {
                       onClose();
                     });
                   }}
