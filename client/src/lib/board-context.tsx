@@ -218,20 +218,18 @@ export function BoardProvider({ children }: BoardProviderProps) {
   }, []);
 
   const createList = async (title: string, boardId: number): Promise<List> => {
-    const response = await apiRequest("POST", "/api/lists", { 
+    const newList = await apiRequest("POST", "/api/lists", { 
       title, 
       boardId, 
       order: lists.length 
     });
-    const newList = await response.json();
     setLists(prevLists => [...prevLists, newList]);
     setCards(prevCards => ({ ...prevCards, [newList.id]: [] }));
     return newList;
   };
 
   const updateList = async (id: number, updates: Partial<List>): Promise<List> => {
-    const response = await apiRequest("PATCH", `/api/lists/${id}`, updates);
-    const updatedList = await response.json();
+    const updatedList = await apiRequest("PATCH", `/api/lists/${id}`, updates);
     setLists(prevLists => 
       prevLists.map(list => list.id === id ? updatedList : list)
     );
@@ -250,12 +248,11 @@ export function BoardProvider({ children }: BoardProviderProps) {
 
   const createCard = async (title: string, listId: number): Promise<Card> => {
     const listCards = cards[listId] || [];
-    const response = await apiRequest("POST", "/api/cards", { 
+    const newCard = await apiRequest("POST", "/api/cards", { 
       title, 
       listId, 
       order: listCards.length 
     });
-    const newCard = await response.json();
     
     // Atualizar cards e também o visibleCards para consistência
     const updatedCards = {
@@ -920,8 +917,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   // Board methods
   const createBoard = async (boardData: { title: string, color?: string, userId?: number | undefined }): Promise<Board> => {
     try {
-      const response = await apiRequest("POST", "/api/boards", boardData);
-      const newBoard: Board = await response.json();
+      const newBoard: Board = await apiRequest("POST", "/api/boards", boardData);
       await fetchBoards(); // Refresh boards list after creation
       return newBoard;
     } catch (error) {
@@ -932,8 +928,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
 
   const updateBoard = async (id: number, updates: Partial<Board>): Promise<Board> => {
     try {
-      const response = await apiRequest("PATCH", `/api/boards/${id}`, updates);
-      const updatedBoard: Board = await response.json();
+      const updatedBoard: Board = await apiRequest("PATCH", `/api/boards/${id}`, updates);
       
       if (currentBoard && currentBoard.id === id) {
         setCurrentBoard(updatedBoard);
