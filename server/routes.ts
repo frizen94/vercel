@@ -1885,6 +1885,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[api] PATCH /api/checklist-items/${id} - body: <unserializable>`);
       }
 
+      // Buscar item atual para comparar mudanças
+      const currentItem = await appStorage.getChecklistItem(id);
+      if (!currentItem) {
+        return res.status(404).json({ message: "Item não encontrado" });
+      }
+
       // Preparando os dados do item para atualização
       const itemData = { ...req.body };
 
@@ -1897,6 +1903,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const item = await appStorage.updateChecklistItem(id, itemData);
+
+      // Criar notificação se um usuário foi atribuído
+      if (req.user && itemData.assignedToUserId && itemData.assignedToUserId !== currentItem.assignedToUserId) {
+        try {
+          const checklist = await appStorage.getChecklist(currentItem.checklistId);
+          const card = checklist ? await appStorage.getCard(checklist.cardId) : null;
+          const list = card ? await appStorage.getList(card.listId) : null;
+          const boardId = list?.boardId;
+
+          await appStorage.createNotification({
+            userId: itemData.assignedToUserId,
+            type: 'task_assigned',
+            title: 'Você foi atribuído a uma subtarefa',
+            message: `Você foi atribuído à subtarefa "${currentItem.content}"${card ? ` no cartão "${card.title}"` : ''}`,
+            relatedChecklistItemId: id,
+            relatedCardId: card?.id,
+            fromUserId: req.user.id,
+            actionUrl: boardId && card ? `/boards/${boardId}/cards/${card.id}` : undefined
+          });
+        } catch (notificationError) {
+          console.error('Erro ao criar notificação de atribuição de subtarefa:', notificationError);
+        }
+      }
 
       // Log the updated item returned from storage
       try {
@@ -2063,6 +2092,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       res.status(500).json({ message: "Falha ao remover membro do quadro" });
+    }
+  });
+
+  /**
+   * Rota para verificar e notificar tarefas/subtarefas atrasadas
+   */
+  app.post("/api/check-overdue-tasks", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      let notificationsCreated = 0;
+      const now = new Date();
+
+      // Buscar quadros acessíveis pelo usuário
+      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
+
+      for (const board of boards) {
+        try {
+          const lists = await appStorage.getLists(board.id);
+
+          for (const list of lists) {
+            const cards = await appStorage.getCards(list.id);
+
+            for (const card of cards) {
+              // Verificar cards atrasados
+              if (card.dueDate && new Date(card.dueDate) < now) {
+                const cardMembers = await appStorage.getCardMembers(card.id);
+                
+                for (const member of cardMembers) {
+                  // Verificar se já existe notificação de atraso para este card e usuário nas últimas 24h
+                  const existingNotifications = await appStorage.getNotifications(member.id, { limit: 50 });
+                  const hasRecentOverdueNotification = existingNotifications.some(n => 
+                    n.type === 'deadline' && 
+                    n.relatedCardId === card.id && 
+                    new Date(n.createdAt) > new Date(now.getTime() - 24 * 60 * 60 * 1000)
+                  );
+
+                  if (!hasRecentOverdueNotification) {
+                    await appStorage.createNotification({
+                      userId: member.id,
+                      type: 'deadline',
+                      title: 'Tarefa atrasada',
+                      message: `A tarefa "${card.title}" está atrasada desde ${new Date(card.dueDate).toLocaleDateString('pt-BR')}`,
+                      relatedCardId: card.id,
+                      actionUrl: `/boards/${board.id}/cards/${card.id}`
+                    });
+                    notificationsCreated++;
+                  }
+                }
+              }
+
+              // Verificar subtarefas atrasadas
+              const checklists = await appStorage.getChecklists(card.id);
+              for (const checklist of checklists) {
+                const items = await appStorage.getChecklistItems(checklist.id);
+                
+                for (const item of items) {
+                  if (item.dueDate && new Date(item.dueDate) < now && item.assignedToUserId) {
+                    // Verificar se já existe notificação de atraso para esta subtarefa nas últimas 24h
+                    const existingNotifications = await appStorage.getNotifications(item.assignedToUserId, { limit: 50 });
+                    const hasRecentOverdueNotification = existingNotifications.some(n => 
+                      n.type === 'deadline' && 
+                      n.relatedChecklistItemId === item.id && 
+                      new Date(n.createdAt) > new Date(now.getTime() - 24 * 60 * 60 * 1000)
+                    );
+
+                    if (!hasRecentOverdueNotification) {
+                      await appStorage.createNotification({
+                        userId: item.assignedToUserId,
+                        type: 'deadline',
+                        title: 'Subtarefa atrasada',
+                        message: `A subtarefa "${item.content}" no cartão "${card.title}" está atrasada desde ${new Date(item.dueDate).toLocaleDateString('pt-BR')}`,
+                        relatedChecklistItemId: item.id,
+                        relatedCardId: card.id,
+                        actionUrl: `/boards/${board.id}/cards/${card.id}`
+                      });
+                      notificationsCreated++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`Erro ao processar quadro ${board.id}:`, error);
+          continue;
+        }
+      }
+
+      res.json({ success: true, notificationsCreated });
+    } catch (error) {
+      console.error('Erro ao verificar tarefas atrasadas:', error);
+      res.status(500).json({ message: 'Erro ao verificar tarefas atrasadas' });
     }
   });
 

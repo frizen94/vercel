@@ -650,9 +650,11 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                             {item.dueDate && (
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                <span className={item.dueDate && isItemOverdue(item.dueDate) && !item.completed ? "text-red-500 font-medium" : ""}>
+                                <span className={item.dueDate && isItemOverdue(item.dueDate) && !item.completed 
+                                  ? "text-red-600 font-bold bg-red-100 px-1 rounded animate-pulse" 
+                                  : ""}>
                                   {item.dueDate && formatDateBR(item.dueDate)}
-                                  {item.dueDate && isItemOverdue(item.dueDate) && !item.completed && " (Atrasado)"}
+                                  {item.dueDate && isItemOverdue(item.dueDate) && !item.completed && " ⚠️ ATRASADO"}
                                 </span>
                               </div>
                             )}

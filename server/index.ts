@@ -88,6 +88,27 @@ app.use((req, res, next) => {
         log("✅ Database connected, running seeder...");
         await runSeeder();
         log("🎉 Application fully initialized!");
+        
+        // Iniciar verificação periódica de tarefas atrasadas (a cada 6 horas)
+        setInterval(async () => {
+          try {
+            log("🕐 Verificando tarefas atrasadas...");
+            const response = await fetch('http://localhost:5000/api/check-overdue-tasks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              log(`✅ Verificação de tarefas atrasadas concluída. ${result.notificationsCreated} notificações criadas.`);
+            } else {
+              log("⚠️ Falha na verificação de tarefas atrasadas");
+            }
+          } catch (error) {
+            log(`❌ Erro na verificação automática de tarefas atrasadas: ${error}`);
+          }
+        }, 6 * 60 * 60 * 1000); // 6 horas
+        
       } else {
         log("⚠️ Database connection failed, will retry...");
         // Retry every 30 seconds

@@ -2,16 +2,17 @@ import React, { useState, useEffect } from "react";
 import { Card as CardType, Label } from "@shared/schema";
 import { useBoardContext } from "@/lib/board-context";
 import { Draggable } from "react-beautiful-dnd";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "lucide-react";
 
 interface CardProps {
   card: CardType;
@@ -22,43 +23,43 @@ interface CardProps {
 export function Card({ card, index, openCardModal }: CardProps) {
   const { cardLabels, fetchCardLabels, deleteCard, updateCard, createCard, cardMembers, fetchCardMembers } = useBoardContext();
   const { toast } = useToast();
-  
+
   // Função para verificar se um cartão está atrasado
   const isCardOverdue = (dueDate: string | Date | null): boolean => {
     if (!dueDate) return false;
-    
+
     // Criar uma data com apenas ano, mês e dia (sem horas)
     const dueDateObj = new Date(dueDate);
     const today = new Date();
-    
+
     // Remove a parte de tempo para comparar apenas as datas
     const dueDateTime = new Date(
-      dueDateObj.getFullYear(), 
-      dueDateObj.getMonth(), 
+      dueDateObj.getFullYear(),
+      dueDateObj.getMonth(),
       dueDateObj.getDate()
     ).getTime();
-    
+
     const todayTime = new Date(
       today.getFullYear(),
       today.getMonth(),
       today.getDate()
     ).getTime();
-    
+
     return dueDateTime < todayTime;
   };
-  
+
   // Função para formatar a data sem o problema de fuso horário
   const formatDateBR = (date: string | Date): string => {
     if (!date) return '';
-    
+
     const dateObj = new Date(date);
     const day = dateObj.getUTCDate().toString().padStart(2, '0');
     const month = (dateObj.getUTCMonth() + 1).toString().padStart(2, '0');
     const year = dateObj.getUTCFullYear();
-    
+
     return `${day}/${month}/${year}`;
   };
-  
+
   const { checklists, checklistItems } = useBoardContext();
 
   // Fetch labels for this card if they don't exist yet
@@ -74,15 +75,15 @@ export function Card({ card, index, openCardModal }: CardProps) {
       fetchCardMembers(card.id).catch(() => {});
     }
   }, [card.id, cardMembers, fetchCardMembers]);
-  
+
   const handleCardClick = () => {
     openCardModal(card.id);
   };
-  
+
   // Handler para excluir cartão
   const handleDeleteCard = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Previne que o cartão seja aberto quando clicamos nas reticências
-    
+
     try {
       await deleteCard(card.id);
       toast({
@@ -97,19 +98,19 @@ export function Card({ card, index, openCardModal }: CardProps) {
       });
     }
   };
-  
+
   // Handler para editar o título do cartão (vai para a modal de edição completa)
   const handleEditCard = (e: React.MouseEvent) => {
     e.stopPropagation(); // Previne que o cartão seja aberto quando clicamos nas reticências
-    
+
     // Simplesmente abre o modal do cartão para edição
     openCardModal(card.id);
   };
-  
+
   // Handler para copiar o cartão
   const handleCopyCard = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Previne que o cartão seja aberto quando clicamos nas reticências
-    
+
     try {
       // Criar uma cópia do cartão na mesma lista
       const cardCopy = {
@@ -117,7 +118,7 @@ export function Card({ card, index, openCardModal }: CardProps) {
         description: card.description,
         dueDate: card.dueDate
       };
-      
+
       await createCard(cardCopy.title, card.listId);
       toast({
         title: "Cartão copiado",
@@ -146,16 +147,16 @@ export function Card({ card, index, openCardModal }: CardProps) {
           {cardLabels[card.id] && cardLabels[card.id].length > 0 && (
             <div className="labels flex flex-wrap gap-1 mb-2">
               {cardLabels[card.id].map((label: Label) => (
-                <div 
-                  key={label.id} 
-                  className="block h-2 w-10 rounded-full" 
+                <div
+                  key={label.id}
+                  className="block h-2 w-10 rounded-full"
                   style={{ backgroundColor: label.color }}
                   title={label.name}
                 />
               ))}
             </div>
           )}
-          
+
           {/* Content wrapper: ensures title occupies its own row so side elements don't push it */}
           <div className="flex justify-between items-start mb-2">
             <div className="flex-1">
@@ -163,7 +164,7 @@ export function Card({ card, index, openCardModal }: CardProps) {
                 <p className="text-sm break-words">{card.title}</p>
               </div>
             </div>
-            
+
             {/* Right-side: checklist badge + menu */}
             <div className="relative flex items-center gap-2" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               {/* Checklist badge: show completed / total for top-level items */}
