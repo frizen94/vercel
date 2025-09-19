@@ -333,6 +333,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Rota para buscar quadros do usuário logado especificamente
+   */
+  app.get("/api/user-boards", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const userId = req.user.id;
+      const userBoards = await appStorage.getBoardsUserCanAccess(userId);
+      res.json(userBoards);
+    } catch (error) {
+      console.error("Erro ao buscar quadros do usuário:", error);
+      res.status(500).json({ message: "Falha ao buscar quadros do usuário" });
+    }
+  });
+
+  /**
    * Rotas para gerenciar Quadros (Boards)
    * 
    * Estas rotas controlam:
@@ -1209,6 +1227,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * Rotas para o Dashboard - Monitoramento de Tarefas com Checklists
    */
+
+  /**
+   * Obtém colaboradores do dashboard
+   * Retorna usuários que são membros dos quadros acessíveis pelo usuário
+   */
+  app.get("/api/dashboard/collaborators", async (req: Request, res: Response) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+
+    try {
+      // Buscar quadros acessíveis pelo usuário
+      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
+      const collaboratorIds = new Set<number>();
+      
+      // Coletar IDs únicos de colaboradores
+      for (const board of boards) {
+        try {
+          const members = await appStorage.getBoardMembers(board.id);
+          members.forEach((member: any) => {
+            if (member.id !== req.user?.id) {
+              collaboratorIds.add(member.id);
+            }
+          });
+        } catch (error) {
+          console.warn(`Erro ao buscar membros do quadro ${board.id}:`, error);
+          continue;
+        }
+      }
+
+      // Buscar informações dos colaboradores
+      const collaborators = [];
+      for (const userId of collaboratorIds) {
+        try {
+          const user = await appStorage.getUser(userId);
+          if (user) {
+            collaborators.push({
+              id: user.id,
+              name: user.name,
+              username: user.username,
+              profilePicture: user.profilePicture,
+              role: user.role,
+              lastSeen: new Date().toISOString() // Placeholder - pode ser implementado no futuro
+            });
+          }
+        } catch (error) {
+          console.warn(`Erro ao buscar usuário ${userId}:`, error);
+          continue;
+        }
+      }
+
+      res.json(collaborators);
+    } catch (error) {
+      console.error("Erro ao buscar colaboradores do dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
+   * Obtém estatísticas do dashboard
+   * Retorna contadores e métricas para o usuário logado
+   */
+  app.get("/api/dashboard/stats", async (req: Request, res: Response) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+
+    try {
+      // Buscar quadros acessíveis pelo usuário
+      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
+      let totalCards = 0;
+      let completedCards = 0;
+      let overdueCards = 0;
+      const now = new Date();
+
+      for (const board of boards) {
+        try {
+          const lists = await appStorage.getLists(board.id);
+
+          for (const list of lists) {
+            const cards = await appStorage.getCards(list.id);
+            totalCards += cards.length;
+
+            for (const card of cards) {
+              // Verificar se está atrasado
+              if (card.dueDate && new Date(card.dueDate) < now) {
+                overdueCards++;
+              }
+
+              // Verificar se está concluído (assumindo que cartões em listas com "concluído" no nome são concluídos)
+              if (list.title.toLowerCase().includes('concluído') || 
+                  list.title.toLowerCase().includes('done') || 
+                  list.title.toLowerCase().includes('finalizado')) {
+                completedCards++;
+              }
+            }
+          }
+        } catch (listError) {
+          console.warn(`Erro ao processar listas do quadro ${board.id}:`, listError);
+          continue;
+        }
+      }
+
+      const completionRate = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
+
+      // Para admin, incluir total de usuários
+      let totalUsers = 0;
+      if (req.user.role === 'admin') {
+        const users = await appStorage.getUsers();
+        totalUsers = users.length;
+      }
+
+      const stats = {
+        totalBoards: boards.length,
+        totalCards,
+        completedCards,
+        overdueCards,
+        completionRate,
+        totalUsers
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Erro ao buscar estatísticas do dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
+   * Obtém tarefas recentes do dashboard
+   * Retorna cartões recentemente atualizados dos quadros acessíveis pelo usuário
+   */
+  app.get("/api/dashboard/recent-tasks", async (req: Request, res: Response) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+
+    try {
+      // Buscar quadros acessíveis pelo usuário
+      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
+      const recentTasks: any[] = [];
+
+      for (const board of boards) {
+        try {
+          const lists = await appStorage.getLists(board.id);
+
+          for (const list of lists) {
+            const cards = await appStorage.getCards(list.id);
+
+            // Filtrar cartões e adicionar informações
+            for (const card of cards) {
+              // Verificar se o usuário é membro do cartão ou se é recente
+              const cardMembers = await appStorage.getCardMembers(card.id);
+              const isCardMember = cardMembers.some((member: any) => member.id === req.user?.id);
+              
+              if (isCardMember || !card.dueDate || new Date(card.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
+                recentTasks.push({
+                  id: card.id,
+                  title: card.title,
+                  description: card.description,
+                  priority: card.dueDate ? (new Date(card.dueDate) < new Date() ? 'alta' : 'média') : 'baixa',
+                  status: list.title,
+                  dueDate: card.dueDate,
+                  boardId: board.id,
+                  boardName: board.title,
+                  listName: list.title,
+                  createdAt: card.createdAt,
+                  updatedAt: card.updatedAt
+                });
+              }
+            }
+          }
+        } catch (listError) {
+          console.warn(`Erro ao processar listas do quadro ${board.id}:`, listError);
+          continue;
+        }
+      }
+
+      // Ordenar por data de atualização (mais recentes primeiro) e limitar a 10
+      recentTasks.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+      const limitedTasks = recentTasks.slice(0, 10);
+
+      res.json(limitedTasks);
+    } catch (error) {
+      console.error("Erro ao buscar tarefas recentes do dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
 
   /**
    * Obtém cartões com checklists para o dashboard
