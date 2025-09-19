@@ -68,6 +68,14 @@ export const useBoardContext = () => {
   return context;
 }
 
+export const useBoard = () => {
+  const context = useContext(BoardContext);
+  if (context === undefined) {
+    throw new Error("useBoard must be used within a BoardProvider");
+  }
+  return context;
+}
+
 interface BoardProviderProps {
   children: ReactNode;
 }
@@ -1074,10 +1082,3 @@ export function BoardProvider({ children }: BoardProviderProps) {
   );
 }
 
-export const useBoard = () => {
-  const context = useContext(BoardContext);
-  if (!context) {
-    throw new Error("useBoard must be used within a BoardProvider");
-  }
-  return context;
-};
