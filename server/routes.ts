@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const portfolio = await appStorage.createPortfolio(validatedData);
       console.log("Portfolio created:", portfolio);
-      
+
       res.status(201).json(portfolio);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -982,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[api] POST /api/checklist-items/${id}/members - adding userId: ${userId} to itemId: ${id}`);
 
       await appStorage.addMemberToChecklistItem(id, userId);
-      
+
       // Criar notificação para o usuário atribuído à subtarefa
       if (req.user && req.user.id !== userId) {
         try {
@@ -991,7 +991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const card = checklist ? await appStorage.getCard(checklist.cardId) : null;
           const list = card ? await appStorage.getList(card.listId) : null;
           const boardId = list?.boardId;
-          
+
           await appStorage.createNotification({
             userId: userId,
             type: 'task_assigned',
@@ -1006,7 +1006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Erro ao criar notificação de atribuição de subtarefa:', notificationError);
         }
       }
-      
+
       res.status(201).end();
     } catch (err) {
       console.error(`[api] POST /api/checklist-items/${req.params.id}/members - error:`, err);
@@ -1027,9 +1027,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar informações antes de remover o membro
       const item = await appStorage.getChecklistItem(id);
       if (!item) return res.status(404).json({ message: 'Checklist item not found' });
-      
+
       await appStorage.removeMemberFromChecklistItem(id, userId);
-      
+
       // Criar notificação para o usuário removido da subtarefa
       if (req.user && req.user.id !== userId) {
         try {
@@ -1038,7 +1038,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const card = checklist ? await appStorage.getCard(checklist.cardId) : null;
           const list = card ? await appStorage.getList(card.listId) : null;
           const boardId = list?.boardId;
-          
+
           await appStorage.createNotification({
             userId: userId,
             type: 'task_unassigned',
@@ -1053,7 +1053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Erro ao criar notificação de remoção de subtarefa:', notificationError);
         }
       }
-      
+
       res.status(204).end();
     } catch (err) {
       res.status(500).json({ message: 'Failed to remove member from checklist item' });
@@ -1241,7 +1241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar quadros acessíveis pelo usuário
       const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
       const collaboratorIds = new Set<number>();
-      
+
       // Coletar IDs únicos de colaboradores
       for (const board of boards) {
         try {
@@ -1381,7 +1381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Verificar se o usuário é membro do cartão ou se é recente
               const cardMembers = await appStorage.getCardMembers(card.id);
               const isCardMember = cardMembers.some((member: any) => member.id === req.user?.id);
-              
+
               if (isCardMember || !card.dueDate || new Date(card.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
                 recentTasks.push({
                   id: card.id,
@@ -1413,132 +1413,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao buscar tarefas recentes do dashboard:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-
-  /**
-   * Obtém cartões com checklists para o dashboard
-   * Retorna cartões que têm pelo menos um checklist e:
-   * - Estão atribuídos ao usuário logado, ou
-   * - Têm data de vencimento próxima ou já vencida
-   */
-  app.get("/api/cards/checklists-dashboard", async (req: Request, res: Response) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Não autenticado" });
-    }
-
-    // Validate user ID
-    if (!req.user.id || typeof req.user.id !== 'number') {
-      return res.status(400).json({ message: "ID do usuário inválido" });
-    }
-
-    try {
-      // Buscar quadros acessíveis pelo usuário
-      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
-      const checklistCards: any[] = [];
-
-      for (const board of boards) {
-        try {
-          const lists = await appStorage.getLists(board.id);
-
-          for (const list of lists) {
-            const cards = await appStorage.getCards(list.id);
-
-            for (const card of cards) {
-              const checklists = await appStorage.getChecklists(card.id);
-
-              for (const checklist of checklists) {
-                const items = await appStorage.getChecklistItems(checklist.id);
-                const totalItems = items.length;
-                const completedItems = items.filter(item => item.completed).length;
-
-                // Filtrar itens atrasados
-                const overdueItems = items.filter(item => 
-                  item.dueDate && new Date(item.dueDate) < new Date() && !item.completed
-                );
-
-                checklistCards.push({
-                  id: card.id,
-                  title: card.title,
-                  dueDate: card.dueDate,
-                  listName: list.title,
-                  boardId: board.id,
-                  boardName: board.title,
-                  checklistTitle: checklist.title,
-                  checklistId: checklist.id,
-                  totalItems,
-                  completedItems,
-                  overdueItems: overdueItems.length > 0 ? overdueItems : undefined,
-                  items
-                });
-              }
-            }
-          }
-        } catch (listError) {
-          console.warn(`Erro ao processar listas do quadro ${board.id}:`, listError);
-          continue;
-        }
-      }
-
-      return res.json(checklistCards);
-    } catch (error) {
-      console.error("Erro ao buscar cartões com checklists:", error);
-      return res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-
-  /**
-   * Obtém cartões atrasados para o dashboard
-   * Retorna cartões que:
-   * - Estão em quadros acessíveis ao usuário
-   * - Têm data de vencimento que já passou
-   */
-  app.get("/api/cards/overdue-dashboard", async (req: Request, res: Response) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Não autenticado" });
-    }
-
-    // Validate user ID
-    if (!req.user.id || typeof req.user.id !== 'number') {
-      return res.status(400).json({ message: "ID do usuário inválido" });
-    }
-
-    try {
-      // Buscar quadros acessíveis pelo usuário
-      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
-      const overdueCards: any[] = [];
-      const now = new Date();
-
-      for (const board of boards) {
-        try {
-          const lists = await appStorage.getLists(board.id);
-
-          for (const list of lists) {
-            const cards = await appStorage.getCards(list.id);
-
-            for (const card of cards) {
-              if (card.dueDate && new Date(card.dueDate) < now) {
-                overdueCards.push({
-                  id: card.id,
-                  title: card.title,
-                  dueDate: card.dueDate,
-                  listName: list.title,
-                  boardName: board.title,
-                  boardId: board.id
-                });
-              }
-            }
-          }
-        } catch (listError) {
-          console.warn(`Erro ao processar listas do quadro ${board.id}:`, listError);
-          continue;
-        }
-      }
-
-      return res.json(overdueCards);
-    } catch (error) {
-      console.error("Erro ao buscar cartões atrasados:", error);
-      return res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
 
@@ -1777,14 +1651,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cardMember = await appStorage.addMemberToCard(validatedData);
-      
+
       // Criar notificação para o usuário atribuído
       if (req.user && req.user.id !== validatedData.userId) {
         try {
           // Buscar lista para obter boardId
           const list = await appStorage.getList(card.listId);
           const boardId = list?.boardId;
-          
+
           await appStorage.createNotification({
             userId: validatedData.userId,
             type: 'task_assigned',
@@ -1798,7 +1672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Erro ao criar notificação de atribuição:', notificationError);
         }
       }
-      
+
       res.status(201).json(cardMember);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1834,7 +1708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Buscar lista para obter boardId
           const list = await appStorage.getList(card.listId);
           const boardId = list?.boardId;
-          
+
           await appStorage.createNotification({
             userId: userId,
             type: 'task_unassigned',
