@@ -1221,6 +1221,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Não autenticado" });
     }
 
+    // Validate user ID
+    if (!req.user.id || typeof req.user.id !== 'number') {
+      return res.status(400).json({ message: "ID do usuário inválido" });
+    }
+
     try {
       // Buscar quadros acessíveis pelo usuário
       const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
@@ -1272,7 +1277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(checklistCards);
     } catch (error) {
       console.error("Erro ao buscar cartões com checklists:", error);
-      return res.json([]); // Retorna array vazio em caso de erro para não quebrar o frontend
+      return res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
 
@@ -1285,6 +1290,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/cards/overdue-dashboard", async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: "Não autenticado" });
+    }
+
+    // Validate user ID
+    if (!req.user.id || typeof req.user.id !== 'number') {
+      return res.status(400).json({ message: "ID do usuário inválido" });
     }
 
     try {
@@ -1322,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(overdueCards);
     } catch (error) {
       console.error("Erro ao buscar cartões atrasados:", error);
-      return res.json([]); // Retorna array vazio em caso de erro para não quebrar o frontend
+      return res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
 
