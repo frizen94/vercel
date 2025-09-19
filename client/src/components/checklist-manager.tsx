@@ -471,7 +471,7 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setOpenSubtaskModalId(item.id);
-                                  setSubtaskModalData(item);
+                                  setSubtaskModalData({...item, checklistTitle: checklist.title});
                                 }}
                               >
                                 {item.content}
@@ -706,24 +706,29 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                       <polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
-                    <h2 className="text-xl font-semibold">
-                      {isEditingTitle ? (
-                        <div className="flex items-center gap-2">
-                          <Input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="h-8" />
-                          <Button size="sm" onClick={async () => {
-                            if (!subtaskModalData) return;
-                            try {
-                              await updateChecklistItem(subtaskModalData.id, { content: editingTitle });
-                              setSubtaskModalData({ ...subtaskModalData, content: editingTitle });
-                              setIsEditingTitle(false);
-                            } catch (err) { console.error(err); }
-                          }}>Salvar</Button>
-                          <Button size="sm" variant="ghost" onClick={() => setIsEditingTitle(false)}>Cancelar</Button>
-                        </div>
-                      ) : (
-                        <span onClick={() => { setEditingTitle(subtaskModalData?.content || ''); setIsEditingTitle(true); }} className="cursor-pointer">{subtaskModalData?.content}</span>
+                    <div className="flex flex-col">
+                      <h2 className="text-xl font-semibold">
+                        {isEditingTitle ? (
+                          <div className="flex items-center gap-2">
+                            <Input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="h-8" />
+                            <Button size="sm" onClick={async () => {
+                              if (!subtaskModalData) return;
+                              try {
+                                await updateChecklistItem(subtaskModalData.id, { content: editingTitle });
+                                setSubtaskModalData({ ...subtaskModalData, content: editingTitle });
+                                setIsEditingTitle(false);
+                              } catch (err) { console.error(err); }
+                            }}>Salvar</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setIsEditingTitle(false)}>Cancelar</Button>
+                          </div>
+                        ) : (
+                          <span onClick={() => { setEditingTitle(subtaskModalData?.content || ''); setIsEditingTitle(true); }} className="cursor-pointer">{subtaskModalData?.content}</span>
+                        )}
+                      </h2>
+                      {(subtaskModalData as any)?.checklistTitle && (
+                        <p className="text-sm text-[#5E6C84] mt-1">da checklist: {(subtaskModalData as any).checklistTitle}</p>
                       )}
-                    </h2>
+                    </div>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <span>Esta tarefa é visível para pessoas que podem ver a tarefa principal.</span>

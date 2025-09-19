@@ -265,8 +265,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
   };
 
   const updateCard = async (id: number, updates: Partial<Card>): Promise<Card> => {
-    const response = await apiRequest("PATCH", `/api/cards/${id}`, updates);
-    const updatedCard = await response.json();
+    const updatedCard = await apiRequest("PATCH", `/api/cards/${id}`, updates);
     
     setCards(prevCards => {
       const newCards = { ...prevCards };
