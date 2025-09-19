@@ -144,7 +144,7 @@ export default function UserManagement() {
   const createUserMutation = useMutation({
     mutationFn: async (userData: CreateUserFormValues) => {
       const res = await apiRequest('POST', '/api/register', userData);
-      return await res.json();
+      return res; // apiRequest já retorna JSON parseado
     },
     onSuccess: () => {
       toast({
@@ -167,7 +167,7 @@ export default function UserManagement() {
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, userData }: { id: number, userData: UpdateUserFormValues }) => {
       const res = await apiRequest('PATCH', `/api/users/${id}`, userData);
-      return await res.json();
+      return res; // apiRequest já retorna JSON parseado
     },
     onSuccess: () => {
       toast({
@@ -248,7 +248,7 @@ export default function UserManagement() {
   const changePasswordMutation = useMutation({
     mutationFn: async ({ id, passwordData }: { id: number, passwordData: ChangePasswordFormValues }) => {
       const res = await apiRequest('POST', `/api/users/${id}/change-password`, passwordData);
-      return await res.json();
+      return res; // apiRequest já retorna JSON parseado
     },
     onSuccess: () => {
       toast({
