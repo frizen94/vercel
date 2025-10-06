@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Board, List, Card, Comment, Label, CardLabel, User, Checklist, ChecklistItem } from "@shared/schema";
 
 interface BoardContextType {
@@ -679,6 +679,10 @@ export function BoardProvider({ children }: BoardProviderProps) {
           [cardId]: [...(prevCardMembers[cardId] || []), user]
         }));
       }
+      
+      // Invalidar cache de notificações para atualizar contador e lista
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     } catch (error) {
       console.error("Erro ao adicionar membro ao cartão:", error);
       throw new Error("Falha ao adicionar membro ao cartão");
@@ -920,6 +924,12 @@ export function BoardProvider({ children }: BoardProviderProps) {
             [checklistId]: items.map(item => item.id === id ? updatedItem : item)
           };
         });
+      }
+      
+      // Se foi atribuído um usuário ou alterado assignedToUserId, invalidar cache de notificações
+      if (updates.assignedToUserId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       }
       
       return updatedItem;

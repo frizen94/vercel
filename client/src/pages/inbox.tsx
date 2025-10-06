@@ -44,6 +44,11 @@ export default function Inbox() {
 
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
+    queryFn: () => apiRequest('GET', '/api/notifications'),
+    enabled: !!user,
+    staleTime: 5 * 1000,
+    refetchInterval: 10 * 1000, // Atualiza a cada 10 segundos
+    retry: false,
   });
 
   const filteredNotifications = (notifications as Notification[]).filter((notification: Notification) => {
@@ -61,7 +66,7 @@ export default function Inbox() {
       case "comment": return <MessageCircle className="h-4 w-4" />;
       case "mention": return <AlertCircle className="h-4 w-4" />;
       case "invitation": return <UserPlus className="h-4 w-4" />;
-      case "deadline": return <Bell className="h-4 w-4" />;
+      case "deadline": return <AlertCircle className="h-4 w-4 text-red-600" />;
       default: return <Bell className="h-4 w-4" />;
     }
   };
@@ -73,7 +78,7 @@ export default function Inbox() {
       case "comment": return "Comentário";
       case "mention": return "Menção";
       case "invitation": return "Convite";
-      case "deadline": return "Prazo";
+      case "deadline": return "⚠️ Prazo Vencido";
       default: return "Notificação";
     }
   };
@@ -169,6 +174,8 @@ export default function Inbox() {
                   key={notification.id} 
                   className={`hover:shadow-md transition-shadow cursor-pointer ${
                     !notification.read ? "border-primary/50 bg-primary/5" : ""
+                  } ${
+                    notification.type === 'deadline' ? "border-l-4 border-l-orange-500 bg-orange-50/50" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                   data-testid={`notification-${notification.id}`}
@@ -187,7 +194,12 @@ export default function Inbox() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           {getIcon(notification.type)}
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs ${
+                              notification.type === 'deadline' ? 'bg-orange-100 text-orange-800' : ''
+                            }`}
+                          >
                             {getTypeLabel(notification.type)}
                           </Badge>
                           {!notification.read && (
@@ -195,7 +207,9 @@ export default function Inbox() {
                           )}
                         </div>
                         
-                        <h4 className="font-medium text-sm mb-1">
+                        <h4 className={`font-medium text-sm mb-1 ${
+                          notification.type === 'deadline' ? 'text-red-600' : ''
+                        }`}>
                           {notification.title}
                         </h4>
                         

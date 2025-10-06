@@ -172,8 +172,8 @@ export function AppSidebar() {
     queryKey: ['/api/notifications/unread-count'],
     queryFn: () => apiRequest('GET', '/api/notifications/unread-count'),
     enabled: !!user,
-    staleTime: 10 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 5 * 1000,
+    refetchInterval: 10 * 1000, // Reduzido de 30s para 10s
     retry: false,
   });
   const unreadCount = unreadData?.unreadCount ?? 0;

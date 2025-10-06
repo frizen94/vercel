@@ -101,7 +101,7 @@ export function NotificationsBell() {
       case 'comment': return 'bg-green-100 text-green-800';
       case 'mention': return 'bg-yellow-100 text-yellow-800';
       case 'invitation': return 'bg-purple-100 text-purple-800';
-      case 'deadline': return 'bg-orange-100 text-orange-800';
+      case 'deadline': return 'bg-red-100 text-red-800 font-semibold';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -159,6 +159,8 @@ export function NotificationsBell() {
                   key={notification.id}
                   className={`p-3 hover:bg-muted/50 cursor-pointer ${
                     !notification.read ? 'bg-muted/30' : ''
+                  } ${
+                    notification.type === 'deadline' ? 'border-l-4 border-l-orange-500 bg-orange-50/50' : ''
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
@@ -169,14 +171,16 @@ export function NotificationsBell() {
                           variant="secondary"
                           className={`text-xs ${getTypeColor(notification.type)}`}
                         >
-                          {notification.type.replace('_', ' ')}
+                          {notification.type === 'deadline' ? '⚠️ Prazo Vencido' : notification.type.replace('_', ' ')}
                         </Badge>
                         {!notification.read && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full" />
                         )}
                       </div>
                       
-                      <p className="font-medium text-sm line-clamp-1">
+                      <p className={`font-medium text-sm line-clamp-1 ${
+                        notification.type === 'deadline' ? 'text-red-600' : ''
+                      }`}>
                         {notification.title}
                       </p>
                       
