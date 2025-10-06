@@ -2107,89 +2107,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
    */
   app.post("/api/check-overdue-tasks", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Usuário não autenticado" });
-      }
-
-      let notificationsCreated = 0;
-      const now = new Date();
-
-      // Buscar quadros acessíveis pelo usuário
-      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
-
-      for (const board of boards) {
-        try {
-          const lists = await appStorage.getLists(board.id);
-
-          for (const list of lists) {
-            const cards = await appStorage.getCards(list.id);
-
-            for (const card of cards) {
-              // Verificar cards atrasados
-              if (card.dueDate && new Date(card.dueDate) < now) {
-                const cardMembers = await appStorage.getCardMembers(card.id);
-                
-                for (const member of cardMembers) {
-                  // Verificar se já existe notificação de atraso para este card e usuário nas últimas 24h
-                  const existingNotifications = await appStorage.getNotifications(member.id, { limit: 50 });
-                  const hasRecentOverdueNotification = existingNotifications.some(n => 
-                    n.type === 'deadline' && 
-                    n.relatedCardId === card.id && 
-                    new Date(n.createdAt) > new Date(now.getTime() - 24 * 60 * 60 * 1000)
-                  );
-
-                  if (!hasRecentOverdueNotification) {
-                    await appStorage.createNotification({
-                      userId: member.id,
-                      type: 'deadline',
-                      title: 'Tarefa atrasada',
-                      message: `A tarefa "${card.title}" está atrasada desde ${new Date(card.dueDate).toLocaleDateString('pt-BR')}`,
-                      relatedCardId: card.id,
-                      actionUrl: `/boards/${board.id}/cards/${card.id}`
-                    });
-                    notificationsCreated++;
-                  }
-                }
-              }
-
-              // Verificar subtarefas atrasadas
-              const checklists = await appStorage.getChecklists(card.id);
-              for (const checklist of checklists) {
-                const items = await appStorage.getChecklistItems(checklist.id);
-                
-                for (const item of items) {
-                  if (item.dueDate && new Date(item.dueDate) < now && item.assignedToUserId) {
-                    // Verificar se já existe notificação de atraso para esta subtarefa nas últimas 24h
-                    const existingNotifications = await appStorage.getNotifications(item.assignedToUserId, { limit: 50 });
-                    const hasRecentOverdueNotification = existingNotifications.some(n => 
-                      n.type === 'deadline' && 
-                      n.relatedChecklistItemId === item.id && 
-                      new Date(n.createdAt) > new Date(now.getTime() - 24 * 60 * 60 * 1000)
-                    );
-
-                    if (!hasRecentOverdueNotification) {
-                      await appStorage.createNotification({
-                        userId: item.assignedToUserId,
-                        type: 'deadline',
-                        title: 'Subtarefa atrasada',
-                        message: `A subtarefa "${item.content}" no cartão "${card.title}" está atrasada desde ${new Date(item.dueDate).toLocaleDateString('pt-BR')}`,
-                        relatedChecklistItemId: item.id,
-                        relatedCardId: card.id,
-                        actionUrl: `/boards/${board.id}/cards/${card.id}`
-                      });
-                      notificationsCreated++;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.warn(`Erro ao processar quadro ${board.id}:`, error);
-          continue;
-        }
-      }
-
+      // Delegate to shared overdue check implementation
+      const { runOverdueCheck } = await import('./overdue-tasks');
+      const notificationsCreated = await runOverdueCheck();
       res.json({ success: true, notificationsCreated });
     } catch (error) {
       console.error('Erro ao verificar tarefas atrasadas:', error);
