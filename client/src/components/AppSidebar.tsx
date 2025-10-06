@@ -167,6 +167,17 @@ export function AppSidebar() {
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
+  // Buscar contagem de notificações não lidas para exibir badge na sidebar
+  const { data: unreadData } = useQuery<{ unreadCount: number }>({
+    queryKey: ['/api/notifications/unread-count'],
+    queryFn: () => apiRequest('GET', '/api/notifications/unread-count'),
+    enabled: !!user,
+    staleTime: 10 * 1000,
+    refetchInterval: 30 * 1000,
+    retry: false,
+  });
+  const unreadCount = unreadData?.unreadCount ?? 0;
+
 
 
   // Load user's boards for the sidebar
@@ -271,6 +282,11 @@ export function AppSidebar() {
                 <Link href="/inbox">
                   <Inbox className="h-4 w-4" />
                   <span>Notificações</span>
+                  {unreadCount > 0 && (
+                    <Badge className="ml-auto text-xs bg-red-600 text-white h-5 w-5 rounded-full flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Badge>
+                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import BoardPage from "@/pages/board";
+import CardView from "@/pages/card-view";
 import BoardEdit from "@/pages/board-edit";
 import BoardNew from "@/pages/board-new";
 import Dashboard from "@/pages/dashboard";
@@ -199,6 +200,18 @@ function Router() {
         )}
       </ProtectedRoute>
 
+      <ProtectedRoute path="/boards/:boardId/cards/:cardId">
+        {() => (
+          <SidebarProvider>
+            <div className="sidebar-layout">
+              <AppSidebar />
+              <SidebarInset className="sidebar-main-content">
+                <CardView />
+              </SidebarInset>
+            </div>
+          </SidebarProvider>
+        )}
+      </ProtectedRoute>
       <ProtectedRoute path="/board/:id">
         {() => (
           <SidebarProvider>
