@@ -34,23 +34,7 @@ app.use(helmet({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Middleware CSRF condicional - apenas para rotas que modificam dados
-app.use((req: Request, res: Response, next: NextFunction) => {
-  // Aplicar CSRF apenas em métodos que modificam estado
-  const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-  const isApiRoute = req.path.startsWith('/api');
-  const isCsrfTokenRoute = req.path === '/api/csrf-token';
-  const isLogoutRoute = req.path === '/api/logout';
-  const isLoginRoute = req.path === '/api/login';
-  
-  // Skip CSRF para rotas de autenticação e token
-  if (isCsrfTokenRoute || isLogoutRoute || isLoginRoute || !isApiRoute || !mutatingMethods.includes(req.method)) {
-    return next();
-  }
-  
-  // Aplicar proteção CSRF para rotas mutantes da API
-  csrfProtection(req, res, next);
-});
+// CSRF será configurado após as sessões nas rotas
 
 // Simple logging function
 function log(message: string, source = "express") {

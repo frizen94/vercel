@@ -42,7 +42,7 @@ export function setupAuth(app: Express) {
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       httpOnly: true, // Previne acesso via JavaScript
       secure: isProduction, // HTTPS apenas em produção
-      sameSite: 'lax' // Proteção CSRF básica
+      sameSite: isProduction ? 'none' : 'lax' // Permite cookies cross-site em produção HTTPS
     }
   };
 

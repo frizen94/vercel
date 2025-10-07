@@ -90,10 +90,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * Rota para obter token CSRF
    * Fornece token de proteção CSRF para o frontend
+   * O CSRF middleware cuidará da gestão de sessão
    */
   app.get("/api/csrf-token", (req: Request, res: Response) => {
-    // @ts-ignore - csrfToken será disponível após aplicação do middleware CSRF
-    res.json({ csrfToken: req.csrfToken() });
+    // Aplicar o middleware CSRF diretamente para gerar o token
+    csrfProtection(req, res, (err: any) => {
+      if (err) {
+        console.error("Erro ao gerar token CSRF:", err.message);
+        return res.status(500).json({ 
+          error: "Falha ao gerar token CSRF",
+          message: "Token CSRF temporariamente indisponível",
+          details: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
+      }
+      
+      try {
+        // @ts-ignore - csrfToken será disponível após aplicação do middleware CSRF
+        const token = req.csrfToken();
+        res.json({ csrfToken: token });
+      } catch (tokenError) {
+        console.error("Erro ao extrair token CSRF:", tokenError);
+        res.status(500).json({ 
+          error: "Erro ao extrair token CSRF",
+          message: "Falha interna ao gerar token"
+        });
+      }
+    });
   });
 
   /**
@@ -191,6 +213,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * - /api/user
    */
   setupAuth(app);
+
+  // Middleware CSRF condicional - após sessões configuradas
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Aplicar CSRF apenas em métodos que modificam estado
+    const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    const isApiRoute = req.path.startsWith('/api');
+    const isCsrfTokenRoute = req.path === '/api/csrf-token';
+    const isLogoutRoute = req.path === '/api/logout';
+    const isLoginRoute = req.path === '/api/login';
+    
+    // Skip CSRF para rotas de autenticação e token
+    if (isCsrfTokenRoute || isLogoutRoute || isLoginRoute || !isApiRoute || !mutatingMethods.includes(req.method)) {
+      return next();
+    }
+    
+    // Aplicar proteção CSRF para rotas mutantes da API
+    csrfProtection(req, res, next);
+  });
 
   /**
    * Rotas para gerenciar Portfólios (Portfolios)

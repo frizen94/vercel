@@ -4,12 +4,9 @@ import csrf from "csurf";
 import { storage as appStorage } from "./db-storage";
 
 // Middleware de proteção CSRF
+// Configuração simples usando padrões do csurf para sessões
 export const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
-  }
+  cookie: false  // Usar sessão ao invés de cookies
 });
 
 // Middleware para verificar se o usuário está autenticado
