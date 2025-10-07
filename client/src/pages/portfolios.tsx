@@ -14,6 +14,7 @@ import {
   Loader2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useBoard } from "@/lib/board-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,28 @@ export default function Portfolios() {
     },
     enabled: !!user,
   });
+
+  // Try to use boards from board-context (same as sidebar) to keep counts consistent
+  let ctxBoards: Board[] = [];
+  let ctxFetchBoards = async () => {};
+  try {
+    const ctx = useBoard();
+    ctxBoards = ctx.boards || [];
+    ctxFetchBoards = ctx.fetchBoards;
+  } catch (err) {
+    // ignore if board context isn't available
+  }
+
+  // Ensure board-context has loaded boards (sidebar/other places rely on this)
+  React.useEffect(() => {
+    if (ctxFetchBoards) {
+      try {
+        ctxFetchBoards();
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [ctxFetchBoards]);
 
   // Mutation para criar portfólio
   const { mutate: createPortfolio, isPending: isCreating } = useMutation({
@@ -207,7 +230,8 @@ export default function Portfolios() {
   };
 
   const getProjectCount = (portfolioId: number) => {
-    return boards.filter(board => board.portfolioId === portfolioId).length;
+    const source = (ctxBoards && ctxBoards.length > 0) ? ctxBoards : boards;
+    return source.filter(board => board.portfolioId === portfolioId).length;
   };
 
   if (isLoadingPortfolios) {
