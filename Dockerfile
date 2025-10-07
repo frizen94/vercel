@@ -17,7 +17,7 @@ COPY drizzle.config.ts ./
 COPY theme.json ./
 
 # Instalar dependências apenas
-RUN npm ci --only=production=false
+RUN npm install
 
 # Copiar código fonte
 COPY . .
