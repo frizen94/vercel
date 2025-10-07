@@ -17,8 +17,15 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      scriptSrc: ["'self'"],
-      connectSrc: ["'self'"]
+      scriptSrc: [
+        "'self'", 
+        "'unsafe-inline'", // Permite scripts inline para desenvolvimento
+        "'unsafe-eval'" // Para Vite HMR em desenvolvimento
+      ],
+      connectSrc: ["'self'", "ws:", "wss:"], // Para WebSocket do Vite HMR
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
     }
   },
   crossOriginEmbedderPolicy: false // Para compatibilidade
@@ -33,9 +40,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
   const isApiRoute = req.path.startsWith('/api');
   const isCsrfTokenRoute = req.path === '/api/csrf-token';
+  const isLogoutRoute = req.path === '/api/logout';
+  const isLoginRoute = req.path === '/api/login';
   
-  // Skip CSRF para rota do token e rotas não-API
-  if (isCsrfTokenRoute || !isApiRoute || !mutatingMethods.includes(req.method)) {
+  // Skip CSRF para rotas de autenticação e token
+  if (isCsrfTokenRoute || isLogoutRoute || isLoginRoute || !isApiRoute || !mutatingMethods.includes(req.method)) {
     return next();
   }
   
