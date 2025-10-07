@@ -35,6 +35,8 @@ interface BoardContextType {
   deleteComment: (id: number, cardId: number) => Promise<void>;
   fetchLabels: (boardId: number) => Promise<Label[]>;
   createLabel: (name: string, color: string, boardId: number) => Promise<Label>;
+  updateLabel: (id: number, updates: { name?: string; color?: string }) => Promise<Label | null>;
+  deleteLabel: (id: number) => Promise<boolean>;
   fetchCardLabels: (cardId: number) => Promise<Label[]>;
   addLabelToCard: (cardId: number, labelId: number) => Promise<void>;
   removeLabelFromCard: (cardId: number, labelId: number) => Promise<void>;
@@ -536,6 +538,31 @@ export function BoardProvider({ children }: BoardProviderProps) {
       console.error("Error creating label:", error);
       throw new Error("Failed to create label");
     }
+  };
+
+  const updateLabel = async (id: number, updates: { name?: string; color?: string }): Promise<Label | null> => {
+    const updated = await apiRequest('PATCH', `/api/labels/${id}`, updates);
+    // refresh labels list
+    if (currentBoard) {
+      const boardLabels = await fetchLabels(currentBoard.id);
+      setLabels(boardLabels);
+    }
+    return updated;
+  };
+
+  const deleteLabel = async (id: number): Promise<boolean> => {
+    await apiRequest('DELETE', `/api/labels/${id}`);
+    // Update local labels
+    setLabels(prev => prev.filter(l => l.id !== id));
+    // Remove label from all cardLabels mapping
+    setCardLabels(prev => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        next[Number(key)] = next[Number(key)].filter(lbl => lbl.id !== id);
+      }
+      return next;
+    });
+    return true;
   };
   
   const fetchCardLabels = async (cardId: number): Promise<Label[]> => {

@@ -645,6 +645,27 @@ export class DatabaseStorage implements IStorage {
     return inserted[0];
   }
 
+  async updateLabel(id: number, updates: Partial<InsertLabel>): Promise<Label | null> {
+    const updated = await db
+      .update(schema.labels)
+      .set(updates)
+      .where(eq(schema.labels.id, id))
+      .returning();
+    return updated[0] || null;
+  }
+
+  async deleteLabel(id: number): Promise<boolean> {
+    try {
+      // Remove associações card_labels primeiro
+      await db.delete(schema.cardLabels).where(eq(schema.cardLabels.labelId, id));
+      const deleted = await db.delete(schema.labels).where(eq(schema.labels.id, id)).returning();
+      return deleted.length > 0;
+    } catch (error) {
+      console.error('Erro ao excluir etiqueta:', error);
+      return false;
+    }
+  }
+
   // Card Label methods
   async getCardLabels(cardId: number): Promise<CardLabel[]> {
     return db

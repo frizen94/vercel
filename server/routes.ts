@@ -781,6 +781,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/labels/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: 'Invalid label id' });
+
+      const updates = req.body;
+      const updated = await appStorage.updateLabel(id, updates);
+      if (!updated) return res.status(404).json({ message: 'Label not found' });
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to update label', error);
+      res.status(500).json({ message: 'Failed to update label' });
+    }
+  });
+
+  app.delete('/api/labels/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: 'Invalid label id' });
+
+      const success = await appStorage.deleteLabel(id);
+      if (!success) return res.status(404).json({ message: 'Label not found' });
+      res.status(204).end();
+    } catch (error) {
+      console.error('Failed to delete label', error);
+      res.status(500).json({ message: 'Failed to delete label' });
+    }
+  });
+
   /**
    * Rotas para gerenciar associações entre Cartões e Etiquetas
    */

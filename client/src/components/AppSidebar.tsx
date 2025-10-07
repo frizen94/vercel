@@ -88,7 +88,23 @@ export function AppSidebar() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   const [selectedBoard, setSelectedBoard] = useState<any>(null);
-  const { boards, fetchBoards, updateBoard } = useBoard();
+  // Recupera o contexto do board de forma segura.
+  // Em algumas situações de HMR/dev overlay o componente pode ser montado
+  // fora do BoardProvider — nesse caso evitamos o crash oferecendo um fallback.
+  let boards: any[] = [];
+  let fetchBoards = async () => {};
+  let updateBoard = async (id: number, updates: any) => {};
+
+  try {
+    const ctx = useBoard();
+    boards = ctx.boards;
+    fetchBoards = ctx.fetchBoards;
+    updateBoard = ctx.updateBoard;
+  } catch (err) {
+    // Falha ao acessar o contexto: provavelmente estamos fora do BoardProvider
+    // (por exemplo HMR overlay). Apenas logamos em dev e continuamos com fallback.
+    if (process.env.NODE_ENV === 'development') console.warn('AppSidebar: Board context not available, using fallback.', err);
+  }
 
   // Portfolio management states
   const [isCreatePortfolioModalOpen, setIsCreatePortfolioModalOpen] = useState(false);

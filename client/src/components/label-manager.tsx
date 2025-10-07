@@ -34,7 +34,9 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
     createLabel, 
     addLabelToCard, 
     removeLabelFromCard,
-    fetchCardLabels
+    fetchCardLabels,
+    updateLabel,
+    deleteLabel
   } = useBoardContext();
   
   const [newLabelName, setNewLabelName] = useState("");
@@ -42,6 +44,10 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
   const [currentCardLabels, setCurrentCardLabels] = useState<Label[]>([]);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [view, setView] = useState<"list" | "create">("list");
+  const [editingLabelId, setEditingLabelId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState(LABEL_COLORS[0].value);
+  const [deletingLabelId, setDeletingLabelId] = useState<number | null>(null);
   
   // Carregar etiquetas do quadro
   useEffect(() => {
@@ -117,7 +123,7 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-white max-w-md">
+  <DialogContent className="bg-white max-w-2xl max-h-[72vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle>
             {view === "list" ? "Etiquetas" : "Criar etiqueta"}
@@ -133,24 +139,69 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {labels.length > 0 ? (
                   labels.map(label => (
-                    <div 
-                      key={label.id} 
-                      className="flex items-center p-2 rounded hover:bg-gray-50"
-                    >
-                      <div 
-                        className="w-10 h-6 rounded mr-2"
-                        style={{ backgroundColor: label.color }}
-                      />
-                      <span className="flex-grow text-sm">{label.name}</span>
-                      
-                      {cardId && (
-                        <Button
-                          variant={currentCardLabels.some(l => l.id === label.id) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => toggleLabelOnCard(label)}
-                        >
-                          {currentCardLabels.some(l => l.id === label.id) ? "Remover" : "Adicionar"}
-                        </Button>
+                    <div key={label.id} className="group flex flex-col sm:flex-row sm:items-center sm:justify-between px-3 py-2 rounded hover:bg-gray-50 gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-6 h-4 rounded border flex-shrink-0" style={{ backgroundColor: label.color }} />
+                        {!editingLabelId || editingLabelId !== label.id ? (
+                          <span className="text-sm truncate min-w-0">{label.name}</span>
+                        ) : null}
+                      </div>
+
+                      {editingLabelId === label.id ? (
+                        <div className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-0 sm:px-4 min-w-0">
+                          <input
+                            className="w-full sm:flex-1 border rounded px-3 py-2 text-sm min-w-0 bg-white"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2">
+                            <div className="relative w-6 h-6">
+                              <div className="w-6 h-6 rounded border" style={{ backgroundColor: editColor }} aria-hidden />
+                              <input
+                                id={`color-picker-${label.id}`}
+                                type="color"
+                                value={editColor}
+                                onChange={(e) => setEditColor((e.target as HTMLInputElement).value)}
+                                className="absolute inset-0 w-6 h-6 opacity-0 cursor-pointer"
+                                title="Abrir seletor de cores"
+                              />
+                            </div>
+                            <input type="text" value={editColor} onChange={(e) => setEditColor((e.target as HTMLInputElement).value)} className="w-20 sm:w-28 text-sm border rounded px-2 py-1 bg-white" aria-label="Cor (hex)" />
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button aria-label="Salvar etiqueta" title="Salvar" className="px-2 py-1 text-sm rounded-md bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
+                              if (!editName.trim()) return;
+                              try {
+                                await updateLabel(label.id, { name: editName.trim(), color: editColor });
+                                if (boardId) await fetchLabels(boardId);
+                                setEditingLabelId(null);
+                              } catch (err) {
+                                console.error('Erro ao atualizar etiqueta', err);
+                              }
+                            }}>Salvar</button>
+                            <button aria-label="Cancelar edição" title="Cancelar" className="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700" onClick={() => setEditingLabelId(null)}>Cancelar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {cardId && (
+                            <Button variant={currentCardLabels.some(l => l.id === label.id) ? "default" : "outline"} size="sm" onClick={() => toggleLabelOnCard(label)} className="!px-3 mr-2">{currentCardLabels.some(l => l.id === label.id) ? "Remover" : "Adicionar"}</Button>
+                          )}
+                          <button title="Editar etiqueta" className="p-2 text-gray-500 hover:text-gray-700 rounded" onClick={() => { setEditingLabelId(label.id); setEditName(label.name); setEditColor(label.color || LABEL_COLORS[0].value); }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
+                          </button>
+                          {deletingLabelId === label.id ? (
+                            <div className="flex items-center gap-1">
+                              <button aria-label="Confirmar exclusão" title="Excluir etiqueta" className="px-2 py-1 text-sm rounded text-white bg-red-600 hover:bg-red-700" onClick={async () => { try { await deleteLabel(label.id); if (boardId) await fetchLabels(boardId); setDeletingLabelId(null); } catch (err) { console.error('Erro ao deletar etiqueta', err); } }}>Excluir</button>
+                              <button aria-label="Cancelar exclusão" title="Cancelar" className="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200 text-gray-700" onClick={() => setDeletingLabelId(null)}>Cancelar</button>
+                            </div>
+                          ) : (
+                            <button title="Excluir etiqueta" className="p-2 text-red-500 hover:text-red-700 rounded" onClick={() => setDeletingLabelId(label.id)}>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></svg>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))
@@ -186,16 +237,28 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Cor
               </label>
-              <div className="grid grid-cols-5 gap-2 mb-4">
-                {LABEL_COLORS.map(color => (
-                  <div
-                    key={color.value}
-                    className={`w-full h-8 rounded cursor-pointer ${selectedColor === color.value ? 'ring-2 ring-blue-500' : ''}`}
-                    style={{ backgroundColor: color.value }}
-                    onClick={() => setSelectedColor(color.value)}
-                    title={color.name}
+              <div className="mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-8 h-8">
+                    <div className="w-8 h-8 rounded border" style={{ backgroundColor: selectedColor }} aria-hidden />
+                    <input
+                      id="new-color-picker"
+                      type="color"
+                      value={selectedColor}
+                      onChange={(e) => setSelectedColor((e.target as HTMLInputElement).value)}
+                      className="absolute inset-0 w-8 h-8 opacity-0 cursor-pointer"
+                      title="Abrir seletor de cores"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={selectedColor}
+                    onChange={(e) => setSelectedColor((e.target as HTMLInputElement).value)}
+                    className="w-28 text-sm border rounded px-2 py-1 bg-white"
+                    aria-label="Cor (hex)"
                   />
-                ))}
+                </div>
+                {/* removed color palette grid: kept only swatch + hex input per request */}
               </div>
             </div>
             
