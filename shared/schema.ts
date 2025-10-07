@@ -215,6 +215,7 @@ export const cards = pgTable("cards", {
   listId: integer("list_id").references(() => lists.id).notNull(),
   order: integer("order").notNull().default(0),
   dueDate: timestamp("due_date"),
+  completed: boolean("completed").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -231,6 +232,12 @@ export const insertCardSchema = createInsertSchema(cards, {
   listId: true,
   order: true,
   dueDate: true,
+  completed: true,
+}).partial({
+  description: true,
+  order: true,
+  dueDate: true,
+  completed: true,
 });
 
 /**

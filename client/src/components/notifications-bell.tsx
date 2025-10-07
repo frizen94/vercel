@@ -97,6 +97,7 @@ export function NotificationsBell() {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'task_assigned': return 'bg-blue-100 text-blue-800';
+      case 'task_completed': return 'bg-green-100 text-green-800';
       case 'task_unassigned': return 'bg-red-100 text-red-800';
       case 'comment': return 'bg-green-100 text-green-800';
       case 'mention': return 'bg-yellow-100 text-yellow-800';
@@ -174,7 +175,9 @@ export function NotificationsBell() {
                           {notification.type === 'deadline' ? '⚠️ Prazo Vencido' : notification.type.replace('_', ' ')}
                         </Badge>
                         {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          <div className={`w-2 h-2 rounded-full ${
+                            notification.type === 'task_completed' ? 'bg-green-500' : 'bg-blue-500'
+                          }`} />
                         )}
                       </div>
                       

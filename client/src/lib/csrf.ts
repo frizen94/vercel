@@ -10,11 +10,11 @@ let csrfToken: string | null = null;
 export async function fetchCsrfToken(): Promise<string> {
   try {
     const response = await fetch('/api/csrf-token', {
-      credentials: 'same-origin'
+      credentials: 'include'
     });
     
     if (!response.ok) {
-      throw new Error('Falha ao obter token CSRF');
+      throw new Error(`Falha ao obter token CSRF: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
@@ -37,8 +37,6 @@ export function getCsrfToken(): string | null {
  * Fetch customizado que inclui automaticamente o token CSRF
  */
 export async function csrfFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = csrfToken || await fetchCsrfToken();
-  
   const headers = new Headers(options.headers);
   
   // Adicionar token CSRF para métodos mutantes
@@ -46,13 +44,20 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
   const method = options.method?.toUpperCase() || 'GET';
   
   if (mutatingMethods.includes(method)) {
-    headers.set('X-CSRF-Token', token);
+    try {
+      // Tentar obter token CSRF apenas para métodos mutantes
+      const token = csrfToken || await fetchCsrfToken();
+      headers.set('X-CSRF-Token', token);
+    } catch (error) {
+      console.warn('⚠️ CSRF token indisponível, continuando sem proteção CSRF:', error);
+      // Continuar sem token CSRF - o servidor decidirá se aceita ou não
+    }
   }
   
   return fetch(url, {
     ...options,
     headers,
-    credentials: 'same-origin'
+    credentials: 'include' // Mudando para include para manter sessões
   });
 }
 
@@ -64,6 +69,7 @@ export async function initializeCsrf(): Promise<void> {
     await fetchCsrfToken();
     console.log('✅ Sistema CSRF inicializado');
   } catch (error) {
-    console.warn('⚠️ Falha ao inicializar CSRF:', error);
+    console.warn('⚠️ CSRF não disponível - continuando sem proteção CSRF');
+    // Não propagar o erro - deixar a aplicação funcionar
   }
 }

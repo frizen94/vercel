@@ -24,11 +24,8 @@ import { User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
-interface BoardMember {
-  boardId: number;
-  userId: number;
-  role: string;
-  createdAt: Date;
+interface BoardMember extends User {
+  boardRole: string;
 }
 
 interface BoardMemberManagerProps {
@@ -54,7 +51,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
     enabled: !!boardId
   });
   
-  const { data: members = [] } = useQuery<User[]>({
+  const { data: members = [] } = useQuery<BoardMember[]>({
     queryKey: ["/api/boards", boardId, "members"],
     queryFn: async () => {
       const response = await fetch(`/api/boards/${boardId}/members`);
@@ -85,11 +82,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
   const addMemberMutation = useMutation({
     mutationFn: async (data: { boardId: number, userId: number, role: string }) => {
       const response = await apiRequest("POST", "/api/board-members", data);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Falha ao adicionar membro");
-      }
-      return response.json();
+      return response; // apiRequest já retorna o JSON parseado
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "members"] });
@@ -113,11 +106,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
   const updateMemberMutation = useMutation({
     mutationFn: async (data: { boardId: number, userId: number, role: string }) => {
       const response = await apiRequest("PATCH", `/api/boards/${data.boardId}/members/${data.userId}`, { role: data.role });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Falha ao atualizar membro");
-      }
-      return response.json();
+      return response; // apiRequest já retorna o JSON parseado
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "members"] });
@@ -142,11 +131,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
   const removeMemberMutation = useMutation({
     mutationFn: async (data: { boardId: number, userId: number }) => {
       const response = await apiRequest("DELETE", `/api/boards/${data.boardId}/members/${data.userId}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Falha ao remover membro");
-      }
-      return true;
+      return true; // apiRequest já trata os erros automaticamente
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boards", boardId, "members"] });
@@ -369,7 +354,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
                 <div>
                   <p className="font-medium">{member.username || memberProfile?.username || "Usuário desconhecido"}</p>
                   <p className="text-sm text-muted-foreground">
-                    {translateRole(member.role || "viewer")}
+                    {translateRole(member.boardRole || "viewer")}
                   </p>
                 </div>
               </div>
@@ -379,7 +364,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
                   <Button
                     size="icon"
                     variant="ghost"
-                    onClick={() => prepareEditMember(member.id, member.role || "viewer")}
+                    onClick={() => prepareEditMember(member.id, member.boardRole || "viewer")}
                   >
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">Editar</span>

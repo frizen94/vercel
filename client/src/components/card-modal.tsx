@@ -23,6 +23,8 @@ import { LabelManager } from "@/components/label-manager";
 import { MemberManager } from "@/components/member-manager";
 import { ChecklistManager } from "@/components/checklist-manager";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface CardModalProps {
   cardId: number | null;
@@ -47,6 +49,7 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
   } = useBoardContext();
 
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [card, setCard] = useState<CardType | null>(null);
   const [list, setList] = useState<ListType | null>(null);
@@ -220,6 +223,35 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
     const year = dateObj.getFullYear();
     
     return `${day}/${month}/${year}`;
+  };
+
+  // Handler para marcar cartão como concluído/não concluído
+  const handleToggleCompleted = async () => {
+    if (!card) return;
+
+    try {
+      const newCompletedStatus = !card.completed;
+      await apiRequest(
+        'PATCH',
+        `/api/cards/${card.id}/complete`,
+        { completed: newCompletedStatus }
+      );
+      
+      // Atualizar o estado local através do contexto
+      await updateCard(card.id, { completed: newCompletedStatus });
+      
+      toast({
+        title: newCompletedStatus ? "Cartão marcado como concluído" : "Cartão marcado como não concluído",
+        description: "O status do cartão foi atualizado com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar status do cartão:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status do cartão.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Set the initial dueDate state when the card loads
@@ -636,6 +668,33 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
 
               <h3 className="text-xs font-medium text-[#5E6C84] mb-2">Ações</h3>
               <div className="space-y-1.5 mb-6">
+                {/* Botão para marcar como concluída */}
+                <button 
+                  className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${
+                    card.completed 
+                      ? 'bg-red-50 text-red-600 hover:bg-red-100' 
+                      : 'bg-green-50 text-green-600 hover:bg-green-100'
+                  }`}
+                  onClick={handleToggleCompleted}
+                >
+                  {card.completed ? (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M8 12l2 2 4-4" />
+                      </svg>
+                      <span>Marcar como não concluída</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M8 12l2 2 4-4" />
+                      </svg>
+                      <span>Marcar como concluída</span>
+                    </>
+                  )}
+                </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center">

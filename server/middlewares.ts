@@ -4,9 +4,22 @@ import csrf from "csurf";
 import { storage as appStorage } from "./db-storage";
 
 // Middleware de proteção CSRF
-// Configuração simples usando padrões do csurf para sessões
 export const csrfProtection = csrf({
-  cookie: false  // Usar sessão ao invés de cookies
+  cookie: false,  // Usar sessão ao invés de cookies
+  sessionKey: 'session',
+  ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
+  value: (req: Request) => {
+    const token = req.headers['x-csrf-token'] as string || 
+                  req.body._csrf || 
+                  req.query._csrf as string;
+    
+    // Log apenas em desenvolvimento
+    if (process.env.NODE_ENV === 'development' && token) {
+      console.log("🔒 [CSRF] Token validado");
+    }
+    
+    return token;
+  }
 });
 
 // Middleware para verificar se o usuário está autenticado

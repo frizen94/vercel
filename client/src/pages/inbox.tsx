@@ -21,7 +21,7 @@ import {
 
 interface Notification {
   id: number;
-  type: "task_assigned" | "task_unassigned" | "comment" | "mention" | "invitation" | "deadline";
+  type: "task_assigned" | "task_unassigned" | "task_completed" | "comment" | "mention" | "invitation" | "deadline";
   title: string;
   message: string;
   fromUser: {
@@ -63,6 +63,7 @@ export default function Inbox() {
     switch (type) {
       case "task_assigned": return <Calendar className="h-4 w-4" />;
       case "task_unassigned": return <X className="h-4 w-4" />;
+      case "task_completed": return <Check className="h-4 w-4 text-green-600" />;
       case "comment": return <MessageCircle className="h-4 w-4" />;
       case "mention": return <AlertCircle className="h-4 w-4" />;
       case "invitation": return <UserPlus className="h-4 w-4" />;
@@ -75,6 +76,7 @@ export default function Inbox() {
     switch (type) {
       case "task_assigned": return "Tarefa Atribuída";
       case "task_unassigned": return "Tarefa Removida";
+      case "task_completed": return "Subtarefa Concluída";
       case "comment": return "Comentário";
       case "mention": return "Menção";
       case "invitation": return "Convite";
@@ -173,6 +175,7 @@ export default function Inbox() {
                 <Card 
                   key={notification.id} 
                   className={`hover:shadow-md transition-shadow cursor-pointer ${
+                    !notification.read && notification.type === 'task_completed' ? "border-green-500/50 bg-green-50/50" :
                     !notification.read ? "border-primary/50 bg-primary/5" : ""
                   } ${
                     notification.type === 'deadline' ? "border-l-4 border-l-orange-500 bg-orange-50/50" : ""
@@ -197,13 +200,16 @@ export default function Inbox() {
                           <Badge 
                             variant="secondary" 
                             className={`text-xs ${
-                              notification.type === 'deadline' ? 'bg-orange-100 text-orange-800' : ''
+                              notification.type === 'deadline' ? 'bg-orange-100 text-orange-800' :
+                              notification.type === 'task_completed' ? 'bg-green-100 text-green-800' : ''
                             }`}
                           >
                             {getTypeLabel(notification.type)}
                           </Badge>
                           {!notification.read && (
-                            <div className="w-2 h-2 bg-primary rounded-full" />
+                            <div className={`w-2 h-2 rounded-full ${
+                              notification.type === 'task_completed' ? 'bg-green-500' : 'bg-primary'
+                            }`} />
                           )}
                         </div>
                         

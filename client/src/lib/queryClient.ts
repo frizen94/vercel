@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { csrfFetch } from "./csrf";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok && res.status !== 409) { // Don't throw for 409 Conflict (duplicate)
@@ -10,21 +11,32 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string = 'GET',
   url: string,
-  body?: any
+  body?: any,
+  headers?: Record<string, string>,
+  isFormData: boolean = false
 ): Promise<any> {
   const config: RequestInit = {
     method,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
   };
 
-  if (body && Object.keys(body).length > 0) {
-    config.body = JSON.stringify(body);
+  // Configurar headers
+  if (!isFormData) {
+    config.headers = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
+  } else if (headers) {
+    config.headers = headers;
   }
 
-  const response = await fetch(url, config);
+  // Configurar body
+  if (body && Object.keys(body).length > 0) {
+    config.body = isFormData ? body : JSON.stringify(body);
+  }
+
+  // Usar csrfFetch para incluir automaticamente o token CSRF
+  const response = await csrfFetch(url, config);
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);

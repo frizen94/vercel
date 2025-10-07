@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS cards (
     description TEXT,
     "order" INTEGER NOT NULL DEFAULT 0,
     due_date TIMESTAMP,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
     list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL
@@ -208,6 +209,7 @@ CREATE INDEX IF NOT EXISTS idx_lists_order ON lists("order");
 CREATE INDEX IF NOT EXISTS idx_cards_list_id ON cards(list_id);
 CREATE INDEX IF NOT EXISTS idx_cards_order ON cards("order");
 CREATE INDEX IF NOT EXISTS idx_cards_due_date ON cards(due_date);
+CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);
 
 -- Índices para etiquetas
 CREATE INDEX IF NOT EXISTS idx_labels_board_id ON labels(board_id);
@@ -251,6 +253,9 @@ COMMENT ON COLUMN portfolios.user_id IS 'Referência ao usuário criador do port
 COMMENT ON TABLE boards IS 'Tabela para armazenar quadros/projetos Kanban';
 COMMENT ON COLUMN boards.portfolio_id IS 'Referência opcional ao portfólio que contém este quadro';
 COMMENT ON COLUMN boards.color IS 'Cor de identificação do quadro em hexadecimal';
+
+COMMENT ON TABLE cards IS 'Tabela para armazenar cartões/tarefas nos quadros Kanban';
+COMMENT ON COLUMN cards.completed IS 'Indica se o cartão foi marcado como concluído (funcionalidade similar ao Asana)';
 
 COMMENT ON TABLE checklist_items IS 'Itens de checklist que podem ter subitens (hierarquia através de parent_item_id)';
 COMMENT ON COLUMN checklist_items.parent_item_id IS 'Referência ao item pai para criar hierarquia de subitens';

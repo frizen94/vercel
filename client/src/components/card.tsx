@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CardProps {
   card: CardType;
@@ -133,6 +134,33 @@ export function Card({ card, index, openCardModal }: CardProps) {
     }
   };
 
+  // Handler para marcar cartão como concluído/não concluído
+  const handleToggleCompleted = async () => {
+    try {
+      const newCompletedStatus = !card.completed;
+      await apiRequest(
+        'PATCH',
+        `/api/cards/${card.id}/complete`,
+        { completed: newCompletedStatus }
+      );
+      
+      // Atualizar o estado local através do contexto
+      await updateCard(card.id, { completed: newCompletedStatus });
+      
+      toast({
+        title: newCompletedStatus ? "Cartão marcado como concluído" : "Cartão marcado como não concluído",
+        description: "O status do cartão foi atualizado com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar status do cartão:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status do cartão.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Draggable draggableId={`card-${card.id}`} index={index}>
       {(provided, snapshot) => (
@@ -161,7 +189,28 @@ export function Card({ card, index, openCardModal }: CardProps) {
           <div className="flex justify-between items-start mb-2">
             <div className="flex-1">
               <div className="flex items-start gap-2">
-                <p className="text-sm break-words">{card.title}</p>
+                {/* Ícone de check do Asana */}
+                <button 
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                    card.completed 
+                      ? 'bg-green-500 border-green-500 text-white hover:bg-green-600' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleCompleted();
+                  }}
+                  title={card.completed ? "Marcar como não concluída" : "Marcar como concluída"}
+                >
+                  {card.completed && (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+                <p className={`text-sm break-words ${card.completed ? 'line-through text-gray-500' : ''}`}>
+                  {card.title}
+                </p>
               </div>
             </div>
 

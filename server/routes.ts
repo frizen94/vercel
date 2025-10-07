@@ -31,7 +31,10 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage as appStorage } from "./db-storage";
+import { db } from "./database";
 import { z } from "zod";
+import { eq, and, or, lt, desc, isNotNull } from "drizzle-orm";
+import * as schema from "@shared/schema";
 import { 
   insertPortfolioSchema,
   insertBoardSchema, 
@@ -46,6 +49,7 @@ import {
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection } from "./middlewares";
 import { sql } from "./database";
+import { createAutomaticNotifications } from "./notification-service";
 
 /**
  * Função principal para registrar todas as rotas da API
@@ -87,36 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  /**
-   * Rota para obter token CSRF
-   * Fornece token de proteção CSRF para o frontend
-   * O CSRF middleware cuidará da gestão de sessão
-   */
-  app.get("/api/csrf-token", (req: Request, res: Response) => {
-    // Aplicar o middleware CSRF diretamente para gerar o token
-    csrfProtection(req, res, (err: any) => {
-      if (err) {
-        console.error("Erro ao gerar token CSRF:", err.message);
-        return res.status(500).json({ 
-          error: "Falha ao gerar token CSRF",
-          message: "Token CSRF temporariamente indisponível",
-          details: process.env.NODE_ENV === 'development' ? err.message : undefined
-        });
-      }
-      
-      try {
-        // @ts-ignore - csrfToken será disponível após aplicação do middleware CSRF
-        const token = req.csrfToken();
-        res.json({ csrfToken: token });
-      } catch (tokenError) {
-        console.error("Erro ao extrair token CSRF:", tokenError);
-        res.status(500).json({ 
-          error: "Erro ao extrair token CSRF",
-          message: "Falha interna ao gerar token"
-        });
-      }
-    });
-  });
+
 
   /**
    * Configuração de diretório para servir arquivos estáticos
@@ -214,7 +189,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
    */
   setupAuth(app);
 
-  // Middleware CSRF condicional - após sessões configuradas
+  // ✅ CSRF Token Endpoint - APÓS configuração de sessões e COM middleware CSRF aplicado
+  /**
+   * Rota para obtenção de token CSRF
+   * 
+   * Retorna um token CSRF válido para proteção contra ataques CSRF.
+   * Deve ser incluído nas requisições POST/PUT/PATCH/DELETE.
+   * 
+   * IMPORTANTE: Aplicamos o middleware csrfProtection para esta rota específica
+   * para que req.csrfToken() funcione corretamente.
+   * 
+   * @returns {object} - Objeto contendo o token CSRF
+   */
+  app.get("/api/csrf-token", csrfProtection, async (req: Request, res: Response) => {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`� [CSRF] Token solicitado para sessão: ${req.session?.id?.substring(0, 8)}...`);
+      }
+
+      // Gerar token CSRF - disponível após aplicação do middleware
+      const token = req.csrfToken();
+      
+      res.status(200).json({ csrfToken: token });
+    } catch (error: any) {
+      console.error(`❌ [CSRF] Erro ao gerar token:`, error.message);
+      
+      res.status(500).json({ 
+        error: "Falha ao gerar token CSRF", 
+        message: "Token CSRF temporariamente indisponível" 
+      });
+    }
+  });
+
+  // Middleware CSRF condicional
   app.use((req: Request, res: Response, next: NextFunction) => {
     // Aplicar CSRF apenas em métodos que modificam estado
     const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -223,13 +230,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const isLogoutRoute = req.path === '/api/logout';
     const isLoginRoute = req.path === '/api/login';
     
+    // Log apenas em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`� [CSRF] ${req.method} ${req.path} - ${mutatingMethods.includes(req.method) && isApiRoute ? 'Protegido' : 'Permitido'}`);
+    }
+    
     // Skip CSRF para rotas de autenticação e token
     if (isCsrfTokenRoute || isLogoutRoute || isLoginRoute || !isApiRoute || !mutatingMethods.includes(req.method)) {
       return next();
     }
     
     // Aplicar proteção CSRF para rotas mutantes da API
-    csrfProtection(req, res, next);
+    csrfProtection(req, res, (err: any) => {
+      if (err && process.env.NODE_ENV === 'development') {
+        console.error(`❌ [CSRF] Erro na validação CSRF para ${req.path}:`, err.message);
+      }
+      next(err);
+    });
   });
 
   /**
@@ -627,6 +644,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * Rotas para gerenciar Cartões (Cards)
    */
+
+  /**
+   * Obtém cards com prazo vencido para o dashboard
+   */
+  app.get("/api/cards/overdue-dashboard", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const now = new Date();
+      let overdueCards: any[] = [];
+
+      if (req.user.role === "admin") {
+        // Admin vê todos os cards atrasados do sistema
+        overdueCards = await db
+          .select({
+            id: schema.cards.id,
+            title: schema.cards.title,
+            dueDate: schema.cards.dueDate,
+            listName: schema.lists.title,
+            boardName: schema.boards.title,
+            boardId: schema.boards.id,
+          })
+          .from(schema.cards)
+          .innerJoin(schema.lists, eq(schema.cards.listId, schema.lists.id))
+          .innerJoin(schema.boards, eq(schema.lists.boardId, schema.boards.id))
+          .where(
+            and(
+              lt(schema.cards.dueDate, now),
+              isNotNull(schema.cards.dueDate)
+            )
+          )
+          .limit(20);
+      } else {
+        // Usuários normais veem apenas cards dos quadros onde participam
+        overdueCards = await db
+          .select({
+            id: schema.cards.id,
+            title: schema.cards.title,
+            dueDate: schema.cards.dueDate,
+            listName: schema.lists.title,
+            boardName: schema.boards.title,
+            boardId: schema.boards.id,
+          })
+          .from(schema.cards)
+          .innerJoin(schema.lists, eq(schema.cards.listId, schema.lists.id))
+          .innerJoin(schema.boards, eq(schema.lists.boardId, schema.boards.id))
+          .leftJoin(schema.boardMembers, eq(schema.boards.id, schema.boardMembers.boardId))
+          .where(
+            and(
+              lt(schema.cards.dueDate, now),
+              isNotNull(schema.cards.dueDate),
+              or(
+                eq(schema.boards.userId, req.user.id),
+                eq(schema.boardMembers.userId, req.user.id)
+              )
+            )
+          )
+          .limit(20);
+      }
+
+      res.json(overdueCards);
+    } catch (error) {
+      console.error("Erro ao buscar cards atrasados do dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
   app.get("/api/lists/:listId/cards", async (req: Request, res: Response) => {
     try {
       const listId = parseInt(req.params.listId);
@@ -773,6 +859,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Erro ao atualizar cartão:", error);
       res.status(500).json({ message: "Failed to update card" });
+    }
+  });
+
+  /**
+   * Marcar/desmarcar cartão como concluído
+   * Similar à funcionalidade do Asana
+   */
+  app.patch("/api/cards/:id/complete", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid card ID" });
+      }
+
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const existingCard = await appStorage.getCard(id);
+      if (!existingCard) {
+        return res.status(404).json({ message: "Card not found" });
+      }
+
+      // Verificar se o usuário tem permissão para modificar este cartão
+      // (usuário deve ser membro do cartão, do quadro, ou admin)
+      if (req.user.role !== "admin") {
+        const list = await appStorage.getList(existingCard.listId);
+        if (!list) {
+          return res.status(404).json({ message: "List not found" });
+        }
+
+        const board = await appStorage.getBoard(list.boardId);
+        if (!board) {
+          return res.status(404).json({ message: "Board not found" });
+        }
+
+        // Verificar se é dono do quadro
+        const isOwner = board.userId === req.user.id;
+        
+        // Verificar se é membro do quadro
+        const boardMember = await appStorage.getBoardMember(board.id, req.user.id);
+        const isBoardMember = !!boardMember;
+        
+        // Verificar se é membro do cartão
+        const cardMembers = await appStorage.getCardMembers(id);
+        const isCardMember = cardMembers.some((member: any) => member.id === req.user.id);
+
+        if (!isOwner && !isBoardMember && !isCardMember) {
+          return res.status(403).json({ message: "Você não tem permissão para modificar este cartão" });
+        }
+      }
+
+      // Obter o novo status (toggle ou valor específico)
+      const { completed } = req.body;
+      const newCompletedStatus = completed !== undefined ? completed : !existingCard.completed;
+
+      // Atualizar o cartão
+      const updatedCard = await appStorage.updateCard(id, { completed: newCompletedStatus });
+      
+      // Se o cartão foi marcado como concluído, criar notificações automáticas
+      if (newCompletedStatus) {
+        const list = await appStorage.getList(existingCard.listId);
+        if (list) {
+          await createAutomaticNotifications({
+            cardId: id,
+            boardId: list.boardId,
+            actionUserId: req.user.id,
+            actionType: 'task_completed'
+          });
+        }
+      }
+      
+      res.json({ 
+        message: newCompletedStatus ? "Cartão marcado como concluído" : "Cartão marcado como pendente",
+        card: updatedCard 
+      });
+    } catch (error) {
+      console.error("Erro ao alterar status do cartão:", error);
+      res.status(500).json({ message: "Failed to update card status" });
     }
   });
 
@@ -1484,6 +1649,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Obtém itens de checklist para o dashboard
+   */
+  app.get("/api/dashboard/checklist-items", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      // Por enquanto, retornar array vazio - funcionalidade será implementada em versão futura
+      res.json([]);
+    } catch (error) {
+      console.error("Erro ao buscar itens de checklist do dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
    * Rotas para gerenciar Usuários
    */
   app.get("/api/users", async (req: Request, res: Response) => {
@@ -1589,14 +1771,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres" });
       }
 
+      // Validações adicionais de segurança para senha
+      if (newPassword.length > 128) {
+        return res.status(400).json({ message: "A senha não pode ter mais de 128 caracteres" });
+      }
+
+      // Prevenir uso de senhas comuns
+      const commonPasswords = ['123456', 'password', 'admin', 'admin123', 'qwerty'];
+      if (commonPasswords.includes(newPassword.toLowerCase())) {
+        return res.status(400).json({ message: "Escolha uma senha mais segura" });
+      }
+
       // Obter usuário
       const user = await appStorage.getUser(id);
       if (!user) {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
-      // Para não administradores, validar senha atual
-      if (req.user.role.toLowerCase() !== "admin" || req.user.id === id) {
+      // Validar senha atual: 
+      // - Sempre para usuários comuns
+      // - Para admins, apenas quando alterando a própria senha
+      const shouldValidateCurrentPassword = req.user.role.toLowerCase() !== "admin" || req.user.id === id;
+      
+      if (shouldValidateCurrentPassword) {
         if (!currentPassword) {
           return res.status(400).json({ message: "A senha atual é obrigatória" });
         }
@@ -1973,6 +2170,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const item = await appStorage.updateChecklistItem(id, itemData);
 
+      // Se a subtarefa foi marcada como concluída, criar notificações automáticas
+      if (req.user && itemData.completed && !currentItem.completed) {
+        try {
+          const checklist = await appStorage.getChecklist(currentItem.checklistId);
+          const card = checklist ? await appStorage.getCard(checklist.cardId) : null;
+          const list = card ? await appStorage.getList(card.listId) : null;
+          
+          if (list) {
+            await createAutomaticNotifications({
+              checklistItemId: id,
+              cardId: card?.id,
+              boardId: list.boardId,
+              actionUserId: req.user.id,
+              actionType: 'subtask_completed'
+            });
+          }
+        } catch (notificationError) {
+          console.error('Erro ao criar notificação de conclusão de subtarefa:', notificationError);
+        }
+      }
+
       // Criar notificação se um usuário foi atribuído
       if (req.user && itemData.assignedToUserId && itemData.assignedToUserId !== currentItem.assignedToUserId) {
         try {
@@ -2085,12 +2303,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se o usuário atual tem permissão para adicionar membros
       // Apenas o criador do quadro ou um admin pode adicionar membros
       if (req.user && (board.userId === req.user.id || req.user.role.toLowerCase() === "admin")) {
+        // Verificar se o usuário já é membro
+        const existingMember = await appStorage.getBoardMember(validatedData.boardId, validatedData.userId);
+        if (existingMember) {
+          return res.status(409).json({ message: "Usuário já é membro deste quadro" });
+        }
+        
         const boardMember = await appStorage.addMemberToBoard(validatedData);
         res.status(201).json(boardMember);
       } else {
         res.status(403).json({ message: "Permissão negada para adicionar membros a este quadro" });
       }
     } catch (error) {
+      console.error("Erro ao adicionar membro ao quadro:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
@@ -2125,6 +2350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(403).json({ message: "Permissão negada para atualizar membros deste quadro" });
       }
     } catch (error) {
+      console.error("Erro ao atualizar membro do quadro:", error);
       res.status(500).json({ message: "Falha ao atualizar membro do quadro" });
     }
   });

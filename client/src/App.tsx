@@ -9,6 +9,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { MinimalHeader } from "@/components/MinimalHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Loader2 } from "lucide-react";
+import { initializeCsrf } from "@/lib/csrf";
+import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import BoardPage from "@/pages/board";
@@ -254,6 +256,13 @@ function Router() {
 }
 
 function App() {
+  // Inicializar CSRF ao carregar a aplicação
+  useEffect(() => {
+    initializeCsrf().catch(err => {
+      console.warn('CSRF initialization failed:', err);
+    });
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
