@@ -47,134 +47,219 @@ Sistema completo de gerenciamento de tarefas estilo Kanban desenvolvido com Reac
 - **Node.js** - Runtime JavaScript
 - **Express** - Framework web
 - **TypeScript** - Tipagem no backend
-- **Passport.js** - Autenticação
-- **Multer** - Upload de arquivos
-- **Express Session** - Gerenciamento de sessões
+# Sistema Kanban — README detalhado
 
-### Banco de Dados
-- **PostgreSQL** - Banco principal
-- **Drizzle ORM** - Object-Relational Mapping
-- **Migrations** - Controle de versão do schema
+Projeto Kanban completo: frontend em React + TypeScript e backend em Node.js/Express (TypeScript). Este README adiciona referência prática de rotas e exemplos de chamadas (curl e dicas para Postman).
 
-### Deploy e Infraestrutura
-- **Replit** - Plataforma de desenvolvimento e deploy
-- **Vite** - Build tool e dev server
-- **ESBuild** - Transpilação rápida
+Índice
+- Sobre
+- Pré-requisitos
+- Como executar
+- API — rotas e exemplos curl
+- Como importar no Postman
+- Notas de autenticação e upload
+- Contribuição
 
-## 📦 Instalação
+## Sobre
+Uma aplicação de gerenciamento de tarefas estilo Kanban com quadros, listas, cartões, etiquetas, checklists, comentários, membros e sistema de notificações.
+
+## Pré-requisitos
+- Node.js >= 18
+- npm ou yarn
+- PostgreSQL (ou ambiente que exponha DATABASE_URL)
+
+## Como executar (desenvolvimento)
+
+1. Instale dependências
 
 ```bash
-# Clone o repositório
-git clone https://github.com/frizen94/kanban-project.git
-
-# Entre no diretório
-cd kanban-project
-
-# Instale as dependências
 npm install
+```
 
-# Configure as variáveis de ambiente
-# DATABASE_URL será configurada automaticamente no Replit
+2. Configure variáveis de ambiente (exemplo `.env`)
 
-# Execute em modo desenvolvimento
+```bash
+# DATABASE_URL=postgres://user:pass@localhost:5432/dbname
+# SESSION_SECRET=uma_chave_secreta
+# OUTRAS_VARIAVEIS=...
+```
+
+3. Execute em modo desenvolvimento
+
+```bash
 npm run dev
 ```
 
-## 🎯 Como usar
+O servidor costuma rodar em http://localhost:5000 (ver `server`/config). O frontend (Vite) em http://localhost:5173 dependendo da configuração.
 
-### Primeiros Passos
-1. **Crie uma conta** - O primeiro usuário será automaticamente admin
-2. **Faça login** - Use suas credenciais
-3. **Crie um quadro** - Clique em "Novo Quadro"
-4. **Adicione listas** - Crie colunas como "A fazer", "Em andamento", "Concluído"
-5. **Crie cartões** - Adicione tarefas nas listas
+## API — rotas principais e exemplos curl
 
-### Funcionalidades Avançadas
-- **Convide membros** - Compartilhe quadros com sua equipe
-- **Use etiquetas** - Organize por prioridade ou categoria
-- **Defina prazos** - Acompanhe deadlines importantes
-- **Crie checklists** - Divida tarefas em subtarefas
-- **Comente** - Colabore através de comentários
+Observação: o backend usa sessões (cookies). Nos exemplos abaixo usamos `cookies.txt` para armazenar cookie de sessão entre chamadas.
 
-### Para Administradores
-- **Gerencie usuários** - Acesse o painel administrativo
-- **Veja estatísticas** - Monitore uso do sistema
-- **Controle permissões** - Defina quem pode fazer o quê
+Base URL local (exemplo): http://localhost:5000
 
-## 🏗️ Arquitetura
+Autenticação (login)
 
-```
-kanban-project/
-├── client/                 # Frontend React
-│   ├── src/
-│   │   ├── components/     # Componentes reutilizáveis
-│   │   ├── pages/         # Páginas da aplicação
-│   │   ├── hooks/         # Hooks customizados
-│   │   └── lib/           # Utilitários e contextos
-├── server/                # Backend Node.js
-│   ├── routes.ts          # Definição das rotas API
-│   ├── auth.ts           # Sistema de autenticação
-│   ├── database.ts       # Conexão com banco
-│   └── storage.ts        # Camada de dados
-├── shared/               # Código compartilhado
-│   └── schema.ts        # Schemas do banco
-└── public/              # Arquivos estáticos
+```bash
+# Fazer login e salvar cookie
+curl -c cookies.txt -H "Content-Type: application/json" \
+	-X POST -d '{"username":"seu_usuario","password":"sua_senha"}' \
+	http://localhost:5000/api/login
+
+# Verificar usuário logado
+curl -b cookies.txt http://localhost:5000/api/user
 ```
 
-## 🔧 API Endpoints
+Logout
 
-### Autenticação
-- `POST /api/login` - Login
-- `POST /api/logout` - Logout  
-- `POST /api/register` - Registro
-- `GET /api/user` - Dados do usuário
+```bash
+curl -b cookies.txt -X POST http://localhost:5000/api/logout
+```
 
-### Quadros
-- `GET /api/boards` - Listar quadros
-- `POST /api/boards` - Criar quadro
-- `GET /api/boards/:id` - Detalhes do quadro
-- `PATCH /api/boards/:id` - Atualizar quadro
-- `DELETE /api/boards/:id` - Excluir quadro
+Portfólios e Quadros (Boards)
 
-### Listas e Cartões
-- `GET /api/boards/:id/lists` - Listas do quadro
-- `POST /api/lists` - Criar lista
-- `GET /api/lists/:id/cards` - Cartões da lista
-- `POST /api/cards` - Criar cartão
+```bash
+# Listar quadros (públicos ou do usuário autenticado)
+curl -b cookies.txt http://localhost:5000/api/boards
 
-### Checklists
-- `GET /api/cards/:id/checklists` - Checklists do cartão
-- `POST /api/checklists` - Criar checklist
-- `POST /api/checklist-items` - Criar item
+# Criar um quadro
+curl -b cookies.txt -H "Content-Type: application/json" -X POST \
+	-d '{"title":"Meu Quadro Teste","description":"Descrição"}' \
+	http://localhost:5000/api/boards
 
-## 🚀 Deploy
+# Detalhes de um quadro
+curl -b cookies.txt http://localhost:5000/api/boards/123
 
-Este projeto está otimizado para deploy no **Replit**:
+# Atualizar quadro
+curl -b cookies.txt -H "Content-Type: application/json" -X PATCH \
+	-d '{"title":"Título atualizado"}' \
+	http://localhost:5000/api/boards/123
 
-1. Fork este projeto no Replit
-2. As dependências são instaladas automaticamente
-3. O banco PostgreSQL é configurado automaticamente
-4. A aplicação roda na porta 5000
-5. Deploy automático com cada commit
+# Deletar quadro
+curl -b cookies.txt -X DELETE http://localhost:5000/api/boards/123
+```
 
-## 📝 Licença
+Listas e Cartões
 
-MIT License - veja o arquivo LICENSE para detalhes.
+```bash
+# Listar listas de um quadro
+curl -b cookies.txt http://localhost:5000/api/boards/123/lists
 
-## 🤝 Contribuição
+# Criar lista
+curl -b cookies.txt -H "Content-Type: application/json" -X POST \
+	-d '{"title":"A Fazer","boardId":123}' \
+	http://localhost:5000/api/lists
 
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
+# Criar cartão
+curl -b cookies.txt -H "Content-Type: application/json" -X POST \
+	-d '{"title":"Tarefa 1","listId":456, "description":"..."}' \
+	http://localhost:5000/api/cards
+```
 
-## 📞 Suporte
+Etiquetas (Labels)
 
-Para dúvidas ou problemas:
-- Abra uma issue no GitHub
-- Consulte a documentação
+```bash
+# Listar etiquetas do quadro
+curl -b cookies.txt http://localhost:5000/api/boards/123/labels
+
+# Criar etiqueta
+curl -b cookies.txt -H "Content-Type: application/json" -X POST \
+	-d '{"boardId":123,"name":"Urgente","color":"#ef4444"}' \
+	http://localhost:5000/api/labels
+
+# Atualizar etiqueta (PATCH)
+curl -b cookies.txt -H "Content-Type: application/json" -X PATCH \
+	-d '{"name":"Importante","color":"#f59e0b"}' \
+	http://localhost:5000/api/labels/789
+
+# Deletar etiqueta
+curl -b cookies.txt -X DELETE http://localhost:5000/api/labels/789
+
+# Aplicar etiqueta a um cartão (associação card-labels)
+curl -b cookies.txt -H "Content-Type: application/json" -X POST \
+	-d '{"cardId":456, "labelId":789}' \
+	http://localhost:5000/api/card-labels
+
+# Remover etiqueta de um cartão
+curl -b cookies.txt -X DELETE http://localhost:5000/api/cards/456/labels/789
+```
+
+Notificações
+
+```bash
+# Listar notificações (paginação suportada)
+curl -b cookies.txt "http://localhost:5000/api/notifications?limit=20&offset=0"
+
+# Contagem de não-lidas
+curl -b cookies.txt http://localhost:5000/api/notifications/unread-count
+
+# Marcar como lida
+curl -b cookies.txt -X POST http://localhost:5000/api/notifications/12/read
+
+# Marcar todas como lidas
+curl -b cookies.txt -X POST http://localhost:5000/api/notifications/mark-all-read
+```
+
+Verificação de tarefas atrasadas (execução manual)
+
+```bash
+# Executa rotina que cria notificações para tarefas atrasadas
+curl -b cookies.txt -X POST http://localhost:5000/api/check-overdue-tasks
+```
+
+Upload de imagem de perfil (multipart)
+
+```bash
+# Enviar imagem de perfil (form field: profile_image)
+curl -b cookies.txt -F "profile_image=@/caminho/para/foto.png" \
+	-X POST http://localhost:5000/api/users/42/profile-image
+```
+
+Usuários
+
+```bash
+# Listar usuários
+curl -b cookies.txt http://localhost:5000/api/users
+
+# Atualizar usuário
+curl -b cookies.txt -H "Content-Type: application/json" -X PATCH \
+	-d '{"name":"Nome Novo"}' http://localhost:5000/api/users/42
+```
+
+Erros e códigos de resposta
+- 200: OK
+- 201: Criado
+- 204: Sem conteúdo (deleção bem-sucedida)
+- 400: Requisição inválida / validação
+- 401: Não autenticado
+- 403: Acesso negado
+- 404: Não encontrado
+- 500: Erro interno do servidor
+
+## Como importar no Postman
+
+1. Abra o Postman
+2. Crie uma nova Collection
+3. Para autenticação por sessão, crie uma requisição `POST /api/login` com JSON no body e execute-a primeiro
+4. Em seguida, nas requisições da coleção, ative a opção "Use cookie jar" do Postman (ou copie o header `Cookie` retornado)
+5. Você pode importar os exemplos curl diretamente (Postman aceita `Import > Raw text` com comandos curl)
+
+Exemplo rápido de importação cURL no Postman:
+
+1. Copie qualquer comando `curl` deste README
+2. No Postman: File > Import > Raw Text > cole o comando > Import
+
+## Notas de segurança e desenvolvimento
+- As rotas críticas (marcação de notificações, criação/remoção de membros, exclusão de recursos) verificam permissão no backend
+- Em produção, use HTTPS e um segredo de sessão forte (`SESSION_SECRET`)
+- Evite expor `DATABASE_URL` em repositórios públicos
+
+## Contribuição
+
+- Faça fork do repositório
+- Crie branch com nome `feature/<descrição>`
+- Abra PR com descrição e testes, se aplicável
 
 ---
 
-**Desenvolvido com ❤️ para gerenciamento eficiente de projetos**
+Se quiser, posso gerar também um arquivo Postman Collection (JSON) com exemplos das rotas principais (login, criar/editar/deletar label, adicionar label a cartão, unread-count). Deseja que eu gere esse arquivo e o adicione ao repositório?
