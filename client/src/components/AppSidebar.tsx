@@ -21,6 +21,7 @@ import {
   LayoutDashboard,
   ChevronRight,
   FolderOpen,
+  Loader2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -64,6 +65,13 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useBoard } from "@/lib/board-context";
 
 interface Portfolio {
@@ -108,11 +116,19 @@ export function AppSidebar() {
 
   // Portfolio management states
   const [isCreatePortfolioModalOpen, setIsCreatePortfolioModalOpen] = useState(false);
+  const [isCreateBoardModalOpen, setIsCreateBoardModalOpen] = useState(false);
   const [expandedPortfolios, setExpandedPortfolios] = useState<Set<number>>(new Set());
   const [portfolioFormData, setPortfolioFormData] = useState({
     name: "",
     description: "",
     color: "#3B82F6"
+  });
+  
+  // Board management states
+  const [boardFormData, setBoardFormData] = useState({
+    title: "",
+    color: "#22C55E",
+    portfolioId: "none"
   });
 
   const colors = ['#22C55E', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899'];
@@ -132,6 +148,14 @@ export function AppSidebar() {
       name: "",
       description: "",
       color: "#3B82F6"
+    });
+  };
+
+  const resetBoardForm = () => {
+    setBoardFormData({
+      title: "",
+      portfolioId: "none",
+      color: "#22C55E"
     });
   };
 
@@ -158,6 +182,34 @@ export function AppSidebar() {
       ...portfolioFormData,
       userId: user.id
     } as typeof portfolioFormData & { userId: number });
+  };
+
+  const handleCreateBoard = () => {
+    if (!boardFormData.title.trim()) {
+      toast({
+        title: "Erro",
+        description: "O título do quadro é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!user?.id) {
+      toast({
+        title: "Erro",
+        description: "Usuário não autenticado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const boardData = {
+      title: boardFormData.title,
+      color: boardFormData.color,
+      ...(boardFormData.portfolioId !== "none" && { portfolioId: parseInt(boardFormData.portfolioId) })
+    };
+
+    createBoard(boardData);
   };
 
   const togglePortfolio = (portfolioId: number) => {
@@ -201,7 +253,7 @@ export function AppSidebar() {
     fetchBoards();
   }, [fetchBoards]);
 
-  // Create portfolio mutation
+    // Create portfolio mutation
   const { mutate: createPortfolio, isPending: isCreatingPortfolio } = useMutation({
     mutationFn: async (data: typeof portfolioFormData) => {
       const res = await apiRequest("POST", "/api/portfolios", data);
@@ -209,21 +261,46 @@ export function AppSidebar() {
     },
     onSuccess: () => {
       toast({
-        title: "Portfólio criado",
-        description: "Seu portfólio foi criado com sucesso.",
+        title: "Sucesso",
+        description: "Portfólio criado com sucesso!",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/portfolios'] });
       setIsCreatePortfolioModalOpen(false);
       resetPortfolioForm();
     },
     onError: (error) => {
-      console.error("Portfolio creation failed:", error);
+      console.error("Erro ao criar portfólio:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível criar o portfólio.",
+        description: "Erro ao criar portfólio. Tente novamente.",
         variant: "destructive",
       });
+    }
+  });
+
+  // Create board mutation
+  const { mutate: createBoard, isPending: isCreatingBoard } = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/boards", data);
     },
+    onSuccess: (newBoard) => {
+      toast({
+        title: "Sucesso",
+        description: "Quadro criado com sucesso!",
+      });
+      fetchBoards(); // Refresh boards from context
+      setIsCreateBoardModalOpen(false);
+      resetBoardForm();
+      navigate(`/board/${newBoard.id}`);
+    },
+    onError: (error) => {
+      console.error("Erro ao criar quadro:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar quadro. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   });
 
   const handleLogout = async () => {
@@ -417,6 +494,60 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Seção de Todos os Quadros */}
+        {boards.length > 0 && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel className="flex items-center justify-between">
+                <span>Quadros</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-1 hover:bg-white/10"
+                  onClick={() => setIsCreateBoardModalOpen(true)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {boards.slice(0, 10).map((board) => (
+                    <SidebarMenuItem key={board.id}>
+                      <SidebarMenuButton asChild className="w-full justify-start" isActive={isActiveStart(`/board/${board.id}`)}>
+                        <Link href={`/board/${board.id}`}>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button onClick={(e) => { e.preventDefault(); setSelectedBoard(board); }} aria-label="Editar cor do quadro" className="mr-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: board.color || '#22C55E' }} />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-2">
+                              <div className="grid grid-cols-3 gap-2">
+                                {colors.map(color => (
+                                  <button key={color} className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500" style={{ backgroundColor: color }} onClick={() => handleColorChange(color)} />
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          <span className="truncate max-w-[120px]">{board.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                  {boards.length > 10 && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton className="w-full justify-start text-xs text-muted-foreground">
+                        +{boards.length - 10} quadros...
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
         {/* Projetos sem Portfólio */}
         {getBoardsByPortfolio(undefined).length > 0 && (
           <>
@@ -428,7 +559,7 @@ export function AppSidebar() {
                   variant="ghost"
                   size="sm"
                   className="h-auto p-1 hover:bg-white/10"
-                  onClick={() => navigate("/")}
+                  onClick={() => setIsCreateBoardModalOpen(true)}
                 >
                   <Plus className="h-3 w-3" />
                 </Button>
@@ -652,6 +783,87 @@ export function AppSidebar() {
             </Button>
             <Button onClick={handleCreatePortfolio} disabled={isCreatingPortfolio}>
               {isCreatingPortfolio ? "Criando..." : "Criar Portfólio"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Criação de Quadro */}
+      <Dialog open={isCreateBoardModalOpen} onOpenChange={setIsCreateBoardModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar novo quadro</DialogTitle>
+            <DialogDescription>
+              Crie um novo quadro para organizar suas tarefas e projetos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="board-title">Título</Label>
+              <Input
+                id="board-title"
+                placeholder="Título do quadro"
+                value={boardFormData.title}
+                onChange={(e) => setBoardFormData({ ...boardFormData, title: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="board-portfolio">Portfólio (opcional)</Label>
+              <Select
+                value={boardFormData.portfolioId}
+                onValueChange={(value) => setBoardFormData({ ...boardFormData, portfolioId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um portfólio" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum portfólio</SelectItem>
+                  {portfolios.map((portfolio) => (
+                    <SelectItem key={portfolio.id} value={portfolio.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: portfolio.color }}
+                        />
+                        {portfolio.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="board-color">Cor do projeto</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="board-color"
+                  type="color"
+                  value={boardFormData.color}
+                  onChange={(e) => setBoardFormData({ ...boardFormData, color: e.target.value })}
+                  className="w-10 h-8 p-0 border rounded"
+                />
+                <Input
+                  value={boardFormData.color}
+                  onChange={(e) => setBoardFormData({ ...boardFormData, color: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateBoardModalOpen(false);
+                resetBoardForm();
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateBoard} disabled={isCreatingBoard}>
+              {isCreatingBoard ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Criar
             </Button>
           </DialogFooter>
         </DialogContent>
