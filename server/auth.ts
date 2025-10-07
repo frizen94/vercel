@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage as appStorage } from "./db-storage";
 import { User as UserType } from "@shared/schema";
+import { loginRateLimit, registerRateLimit } from "./middlewares";
 
 declare global {
   namespace Express {
@@ -29,14 +30,19 @@ export async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Configuração da sessão
+  // Configuração da sessão com hardening de segurança
+  const isProduction = process.env.NODE_ENV === "production";
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "kanban-board-secret-key",
     resave: false,
     saveUninitialized: false,
     store: appStorage.sessionStore,
+    rolling: true, // Renovar sessão a cada request
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
+      httpOnly: true, // Previne acesso via JavaScript
+      secure: isProduction, // HTTPS apenas em produção
+      sameSite: 'lax' // Proteção CSRF básica
     }
   };
 
@@ -79,8 +85,8 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Rotas de autenticação
-  app.post("/api/register", async (req, res) => {
+  // Rotas de autenticação com rate limiting
+  app.post("/api/register", registerRateLimit, async (req, res) => {
     try {
       // Verificar se está autenticado e é admin (exceto pela primeira criação)
       const totalUsers = await appStorage.getUserCount();
@@ -137,7 +143,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
+  app.post("/api/login", loginRateLimit, (req, res, next) => {
     passport.authenticate("local", (err: Error, user: UserType) => {
       if (err) {
         return res.status(500).json({ message: "Erro de autenticação" });
@@ -146,14 +152,21 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ message: "Credenciais inválidas" });
       }
       
-      req.login(user, (err) => {
+      // Regenerar session ID para prevenir session fixation
+      req.session.regenerate((err) => {
         if (err) {
-          return res.status(500).json({ message: "Erro ao fazer login" });
+          return res.status(500).json({ message: "Erro de segurança na sessão" });
         }
         
-        // Remove a senha antes de enviar a resposta
-        const { password, ...userWithoutPassword } = user;
-        return res.json(userWithoutPassword);
+        req.login(user, (err) => {
+          if (err) {
+            return res.status(500).json({ message: "Erro ao fazer login" });
+          }
+          
+          // Remove a senha antes de enviar a resposta
+          const { password, ...userWithoutPassword } = user;
+          return res.json(userWithoutPassword);
+        });
       });
     })(req, res, next);
   });

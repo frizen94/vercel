@@ -1,11 +1,29 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
+import { globalErrorHandler } from "./middlewares";
 import { setupVite, serveStatic } from "./vite";
 import { initializeDatabase } from "./database";
 import { runSeeder } from "./seeder";
 
 const app = express();
+
+// Configuração de segurança com Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'"],
+      connectSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false // Para compatibilidade
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -53,13 +71,8 @@ app.use((req, res, next) => {
   // Start server first to pass Railway health checks
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Aplicar global error handler para tratamento seguro de erros
+  app.use(globalErrorHandler);
 
   // Setup Vite or static serving
   if (app.get("env") === "development") {

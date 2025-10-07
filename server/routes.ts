@@ -44,7 +44,7 @@ import {
   insertBoardMemberSchema
 } from "@shared/schema";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
-import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess } from "./middlewares";
+import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit } from "./middlewares";
 import { sql } from "./database";
 
 /**
@@ -261,9 +261,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      console.log("Creating portfolio with data:", req.body);
-      console.log("User ID:", req.user.id);
-
       const portfolioData = {
         name: req.body.name,
         description: req.body.description || null,
@@ -272,10 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const validatedData = insertPortfolioSchema.parse(portfolioData);
-      console.log("Validated data:", validatedData);
-
       const portfolio = await appStorage.createPortfolio(validatedData);
-      console.log("Portfolio created:", portfolio);
 
       res.status(201).json(portfolio);
     } catch (error) {
@@ -995,12 +989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { userId } = req.body;
 
-      // Log incoming data for debugging
-      try {
-        console.log(`[api] POST /api/checklist-items/${req.params.id}/members - body:`, JSON.stringify(req.body));
-      } catch (e) {
-        console.log(`[api] POST /api/checklist-items/${req.params.id}/members - body: <unserializable>`);
-      }
+      // Validar dados de entrada
 
       if (isNaN(id) || !userId) return res.status(400).json({ message: 'Invalid data' });
 
@@ -1008,7 +997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await appStorage.getChecklistItem(id);
       if (!item) return res.status(404).json({ message: 'Checklist item not found' });
 
-      console.log(`[api] POST /api/checklist-items/${id}/members - adding userId: ${userId} to itemId: ${id}`);
+      // Adicionar membro ao item da checklist
 
       await appStorage.addMemberToChecklistItem(id, userId);
 
@@ -1527,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * - Validação de complexidade da nova senha
    * - Geração segura de hash com salt único
    */
-  app.post("/api/users/:id/change-password", async (req: Request, res: Response) => {
+  app.post("/api/users/:id/change-password", changePasswordRateLimit, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1897,7 +1886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dueDate: dueDate ? new Date(dueDate) : undefined
       };
 
-      console.log("Creating checklist item with data:", itemData);
+      // Criar item da checklist
       const item = await appStorage.createChecklistItem(itemData);
       res.status(201).json(item);
     } catch (error) {
@@ -1914,12 +1903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID inválido" });
       }
 
-      // Log incoming request body for debugging
-      try {
-        console.log(`[api] PATCH /api/checklist-items/${id} - body:`, JSON.stringify(req.body));
-      } catch (e) {
-        console.log(`[api] PATCH /api/checklist-items/${id} - body: <unserializable>`);
-      }
+      // Processar dados de atualização
 
       // Buscar item atual para comparar mudanças
       const currentItem = await appStorage.getChecklistItem(id);
@@ -1963,12 +1947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Log the updated item returned from storage
-      try {
-        console.log(`[api] PATCH /api/checklist-items/${id} - updated item:`, JSON.stringify(item));
-      } catch (e) {
-        console.log(`[api] PATCH /api/checklist-items/${id} - updated item: <unserializable>`);
-      }
+      // Item atualizado com sucesso
 
       if (!item) {
         return res.status(404).json({ message: "Item não encontrado" });

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 import { storage as appStorage } from "./db-storage";
 
 // Middleware para verificar se o usuário está autenticado
@@ -83,3 +84,84 @@ export async function hasCardAccess(req: Request, res: Response, next: NextFunct
     return res.status(500).json({ message: "Erro ao verificar permissões de acesso" });
   }
 }
+
+/**
+ * Rate limiting middlewares para proteger contra ataques de força bruta
+ */
+
+export const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Máximo 5 tentativas por IP em 15 minutos
+  message: {
+    error: "Muitas tentativas de login. Tente novamente em 15 minutos."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req: Request, res: Response) => {
+    console.log(`Rate limit exceeded for IP: ${req.ip} - Login attempt blocked`);
+    res.status(429).json({
+      error: "Muitas tentativas de login. Tente novamente em 15 minutos."
+    });
+  }
+});
+
+export const changePasswordRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // Máximo 3 tentativas por IP por hora
+  message: {
+    error: "Muitas tentativas de mudança de senha. Tente novamente em 1 hora."
+  },
+  handler: (req: Request, res: Response) => {
+    console.log(`Rate limit exceeded for IP: ${req.ip} - Password change blocked`);
+    res.status(429).json({
+      error: "Muitas tentativas de mudança de senha. Tente novamente em 1 hora."
+    });
+  }
+});
+
+export const registerRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 5, // Máximo 5 registros por IP por hora
+  message: {
+    error: "Muitas tentativas de registro. Tente novamente em 1 hora."
+  },
+  handler: (req: Request, res: Response) => {
+    console.log(`Rate limit exceeded for IP: ${req.ip} - Registration blocked`);
+    res.status(429).json({
+      error: "Muitas tentativas de registro. Tente novamente em 1 hora."
+    });
+  }
+});
+
+/**
+ * Middleware global de tratamento de erros
+ * Evita exposição de detalhes sensíveis
+ */
+export const globalErrorHandler = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  // Log completo para desenvolvedores/auditoria
+  console.error('Erro da aplicação:', {
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    timestamp: new Date().toISOString()
+  });
+
+  const status = err.status || err.statusCode || 500;
+  
+  // Mensagem genérica para o cliente
+  const message = status === 500 
+    ? "Erro interno do servidor" 
+    : err.message || "Ocorreu um erro";
+
+  res.status(status).json({ 
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+};

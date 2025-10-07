@@ -36,7 +36,12 @@ export const users = pgTable("users", {
  * - Seleciona apenas os campos específicos para inserção
  * - Define alguns campos como opcionais (partial)
  */
-export const insertUserSchema = createInsertSchema(users)
+export const insertUserSchema = createInsertSchema(users, {
+  username: z.string().min(3, "Username deve ter pelo menos 3 caracteres").max(50, "Username não pode exceder 50 caracteres"),
+  email: z.string().email("Email inválido").max(255, "Email não pode exceder 255 caracteres"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").max(255, "Senha não pode exceder 255 caracteres"),
+  name: z.string().min(1, "Nome é obrigatório").max(100, "Nome não pode exceder 100 caracteres"),
+})
   .pick({
     username: true,
     email: true,
@@ -110,9 +115,9 @@ export const boards = pgTable("boards", {
  * Define quais campos são necessários ao criar um novo portfólio
  */
 export const insertPortfolioSchema = createInsertSchema(portfolios, {
-  name: z.string().min(1, "Nome é obrigatório"),
-  description: z.string().optional(),
-  color: z.string().min(1, "Cor é obrigatória").default("#3B82F6"),
+  name: z.string().min(1, "Nome é obrigatório").max(200, "Nome não pode exceder 200 caracteres"),
+  description: z.string().max(2000, "Descrição não pode exceder 2000 caracteres").optional(),
+  color: z.string().min(1, "Cor é obrigatória").max(20, "Cor não pode exceder 20 caracteres").default("#3B82F6"),
 }).pick({
   name: true,
   description: true,
@@ -130,7 +135,11 @@ export type Portfolio = typeof portfolios.$inferSelect;
  * Schema para inserção de quadros
  * Define quais campos são necessários ao criar um novo quadro
  */
-export const insertBoardSchema = createInsertSchema(boards).pick({
+export const insertBoardSchema = createInsertSchema(boards, {
+  title: z.string().min(1, "Título é obrigatório").max(200, "Título não pode exceder 200 caracteres"),
+  description: z.string().max(2000, "Descrição não pode exceder 2000 caracteres").optional(),
+  color: z.string().max(20, "Cor não pode exceder 20 caracteres").optional(),
+}).pick({
   title: true,
   description: true,
   color: true,
@@ -175,7 +184,9 @@ export const lists = pgTable("lists", {
  * Schema para inserção de listas
  * Define campos necessários para criar uma nova lista
  */
-export const insertListSchema = createInsertSchema(lists).pick({
+export const insertListSchema = createInsertSchema(lists, {
+  title: z.string().min(1, "Título é obrigatório").max(200, "Título não pode exceder 200 caracteres"),
+}).pick({
   title: true,
   boardId: true,
   order: true,
@@ -211,7 +222,10 @@ export const cards = pgTable("cards", {
  * Schema para inserção de cartões
  * Define os campos necessários e opcionais para criar um novo cartão
  */
-export const insertCardSchema = createInsertSchema(cards).pick({
+export const insertCardSchema = createInsertSchema(cards, {
+  title: z.string().min(1, "Título é obrigatório").max(300, "Título não pode exceder 300 caracteres"),
+  description: z.string().max(5000, "Descrição não pode exceder 5000 caracteres").optional(),
+}).pick({
   title: true,
   description: true,
   listId: true,
@@ -243,7 +257,10 @@ export const labels = pgTable("labels", {
 /**
  * Schema para inserção de etiquetas
  */
-export const insertLabelSchema = createInsertSchema(labels).pick({
+export const insertLabelSchema = createInsertSchema(labels, {
+  name: z.string().min(1, "Nome é obrigatório").max(100, "Nome não pode exceder 100 caracteres"),
+  color: z.string().min(1, "Cor é obrigatória").max(20, "Cor não pode exceder 20 caracteres"),
+}).pick({
   name: true,
   color: true,
   boardId: true,
@@ -439,7 +456,10 @@ export const comments = pgTable("comments", {
 /**
  * Schema para inserção de comentários
  */
-export const insertCommentSchema = createInsertSchema(comments).pick({
+export const insertCommentSchema = createInsertSchema(comments, {
+  content: z.string().min(1, "Conteúdo é obrigatório").max(2000, "Comentário não pode exceder 2000 caracteres"),
+  userName: z.string().max(100, "Nome do usuário não pode exceder 100 caracteres").optional(),
+}).pick({
   content: true,
   cardId: true,
   checklistItemId: true,
