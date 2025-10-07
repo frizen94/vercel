@@ -85,7 +85,7 @@ export default function Portfolios() {
     enabled: !!user,
   });
 
-  // Try to use boards from board-context (same as sidebar) to keep counts consistent
+  // Tentar usar os quadros do board-context (mesmo que a sidebar) para manter as contagens consistentes
   let ctxBoards: Board[] = [];
   let ctxFetchBoards = async () => {};
   try {
@@ -96,7 +96,7 @@ export default function Portfolios() {
     // ignore if board context isn't available
   }
 
-  // Ensure board-context has loaded boards (sidebar/other places rely on this)
+  // Garantir que o board-context tenha carregado os quadros (a sidebar/outros lugares dependem disso)
   React.useEffect(() => {
     if (ctxFetchBoards) {
       try {
