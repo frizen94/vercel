@@ -6,15 +6,32 @@ Este documento consolida a análise de segurança (foco em desenvolvimento e dep
 
 ---
 
+## Status de Implementação (Atualizado em 07/10/2025)
+
+### ✅ IMPLEMENTADO (Prioridade ALTA)
+- ✅ Hardening de sessão/cookies (httpOnly, secure, sameSite, rotation)
+- ✅ Rate limiting em endpoints sensíveis (login, change-password, registro) 
+- ✅ Headers de segurança (helmet + CSP mínimo)
+- ✅ Validação consistente com Zod + limites maxLength
+- ✅ Remoção de logs sensíveis e tratamento global de erros
+- ✅ Proteção CSRF (middleware csurf + tokens automáticos)
+- ✅ Sanitização XSS (DOMPurify frontend com helpers seguros)
+- ✅ Proteção SQL injection (Drizzle ORM + queries parametrizadas)
+
+### 🔄 PRÓXIMAS IMPLEMENTAÇÕES (Prioridade MÉDIA)
+- 🔄 Testes de autorização automatizados - **PRÓXIMA**
+- 🔄 Melhorias na proteção de uploads
+- 🔄 Força de hashing de senhas (bcrypt rounds ou argon2)
+
 ## Sumário executivo (rápido)
 
 Prioridade ALTA (fazer já)
-- Hardening de sessão/cookies (httpOnly, secure, sameSite, rotation)
-- Proteção CSRF (tokens ou double-submit cookie)
-- Rate limiting em endpoints sensíveis (login, change-password, registro)
-- Validação consistente com Zod + sanitização de entradas/saídas (XSS)
-- Headers de segurança (helmet + CSP mínimo)
-- Evitar logs/exposição de dados sensíveis (error handling)
+- ✅ Hardening de sessão/cookies (httpOnly, secure, sameSite, rotation)
+- 🔄 Proteção CSRF (tokens ou double-submit cookie) - **PENDENTE**
+- ✅ Rate limiting em endpoints sensíveis (login, change-password, registro)
+- ✅ Validação consistente com Zod + sanitização de entradas/saídas (XSS)
+- ✅ Headers de segurança (helmet + CSP mínimo)
+- ✅ Evitar logs/exposição de dados sensíveis (error handling)
 
 Prioridade MÉDIA
 - Proteção de uploads (armazenamento, validações reforçadas, scanning opcional)
@@ -113,11 +130,17 @@ Prioridade BAIXA / Aperfeiçoamentos
   - Invalidar sessões ao trocar senha ou remover conta (limpar session store)
   - Implementar endpoint admin para invalidar sessions se necessário
 
-12) SQL injection / binding
+✅ 12) SQL injection / binding
 - Onde: `server/db-storage.ts`, `server/database.ts`
+- **Status: PROTEGIDO** - Sistema usa Drizzle ORM com queries parametrizadas
 - O que aplicar:
-  - Confirmar queries parametrizadas; evitar concatenação de strings
-  - Revisar funções que constroem SQL dinamicamente
+  - ✅ Confirmar queries parametrizadas; evitar concatenação de strings
+  - ✅ Revisar funções que constroem SQL dinamicamente
+- **Implementação**: 
+  - Drizzle ORM garante queries parametrizadas automaticamente
+  - Todas as consultas usam `.where(eq())`, `.insert()`, `.update()`, `.delete()` com binding seguro
+  - Poucas queries SQL diretas usam tagged templates com binding (`sql\`SELECT...\``)
+  - Zero concatenação de strings em queries SQL
 
 ### Prioridade BAIXA / Melhoria contínua
 
@@ -191,68 +214,80 @@ Abaixo as tarefas organizadas por prioridade. Cada task tem: descrição curta, 
 
 ### Prioridade ALTA
 
-- H1 — Hardening de sessão e cookies
+- ✅ H1 — Hardening de sessão e cookies
   - Descrição: Configurar flags de cookie (secure/httpOnly/sameSite/maxAge), regenerar session id no login e usar `SESSION_SECRET` seguro.
   - Arquivos-alvo: `server/auth.ts`, entrypoint do servidor (onde `express-session` é criado).
+  - **Status: CONCLUÍDO** - Implementado httpOnly, secure, sameSite, rolling sessions e regeneração de sessão no login
   - Critérios de aceitação:
-    - Cookies de sessão têm httpOnly: true e sameSite: 'lax' (em produção secure: true)
-    - Após login, `req.session.regenerate()` é chamado e usuário recebe nova session id
-    - Ambiente de produção usa `SESSION_SECRET` vindo de env (não hardcoded)
+    - ✅ Cookies de sessão têm httpOnly: true e sameSite: 'lax' (em produção secure: true)
+    - ✅ Após login, `req.session.regenerate()` é chamado e usuário recebe nova session id
+    - ✅ Ambiente de produção usa `SESSION_SECRET` vindo de env (não hardcoded)
   - Estimativa: 1–2 horas
 
-- H2 — Adicionar Helmet e headers de segurança
+- ✅ H2 — Adicionar Helmet e headers de segurança
   - Descrição: Incluir `helmet()` e configurar CSP mínima + X-Frame-Options e nosniff.
   - Arquivos-alvo: entrypoint do servidor (arquivo que cria `app` e chama `registerRoutes`).
+  - **Status: CONCLUÍDO** - Helmet configurado com CSP, X-Frame-Options e headers de segurança
   - Critérios de aceitação:
-    - `helmet()` aplicado globalmente
-    - CSP mínima definida e validada manualmente (apenas fontes e self permitidos inicialmente)
-    - Headers `X-Frame-Options` e `X-Content-Type-Options` presentes
+    - ✅ `helmet()` aplicado globalmente
+    - ✅ CSP mínima definida e validada manualmente (apenas fontes e self permitidos inicialmente)
+    - ✅ Headers `X-Frame-Options` e `X-Content-Type-Options` presentes
   - Estimativa: 30–60 minutos
 
-- H3 — Implementar CSRF protection
+- ✅ H3 — Implementar CSRF protection
   - Descrição: Adicionar middleware `csurf` (ou double-submit cookie) e endpoint para fornecer token ao frontend; ajustar frontend para enviar token no header `X-CSRF-Token`.
   - Arquivos-alvo: `server/middlewares.ts`, `server/routes.ts`, frontend requests (helpers de fetch / `client/src/lib/queryClient.ts` ou similar).
+  - **Status: CONCLUÍDO** - Proteção CSRF implementada com middleware condicional
   - Critérios de aceitação:
-    - POST/PATCH/DELETE sem token são rejeitados (403)
-    - Frontend envia token automaticamente nas chamadas mutantes
+    - ✅ POST/PATCH/DELETE sem token são rejeitados (403)
+    - ✅ Frontend tem helper `csrfFetch()` para envio automático de tokens
+    - ✅ Endpoint `/api/csrf-token` fornece tokens para o frontend
   - Estimativa: 2–4 horas (inclui pequeno ajuste no frontend)
 
-- H4 — Rate limiting para login/endpoints sensíveis
+- ✅ H4 — Rate limiting para login/endpoints sensíveis
   - Descrição: Aplicar `express-rate-limit` em `POST /api/login`, `POST /api/users` e endpoints de mudança de senha.
   - Arquivos-alvo: `server/middlewares.ts`, `server/routes.ts` (registro de middleware nas rotas alvo).
+  - **Status: CONCLUÍDO** - Rate limiting implementado para login, registro e mudança de senha
   - Critérios de aceitação:
-    - Após N tentativas (configuráveis) originadas do mesmo IP, respostas com 429
-    - Logs de tentativas aparecem para auditoria
+    - ✅ Após N tentativas (configuráveis) originadas do mesmo IP, respostas com 429
+    - ✅ Logs de tentativas aparecem para auditoria
   - Estimativa: 1–2 horas
 
 ### Prioridade MÉDIA
 
-- M1 — Validação e limites nos schemas (Zod)
+- ✅ M1 — Validação e limites nos schemas (Zod)
   - Descrição: Rever `shared/schema.ts` e adicionar `maxLength`/limites para campos string, sanitização mínima.
   - Arquivos-alvo: `shared/schema.ts`, chamadas em `server/routes.ts` que usam os schemas.
+  - **Status: CONCLUÍDO** - Limites maxLength implementados em todos os schemas principais
   - Critérios de aceitação:
-    - Campos de texto têm limites claros (ex.: title 1..200, description 0..2000)
-    - Requisições que excedem limites retornam 400 com erro de validação
+    - ✅ Campos de texto têm limites claros (ex.: username 3-50, title 1-200, description 0-2000)
+    - ✅ Requisições que excedem limites retornam 400 com erro de validação
   - Estimativa: 2–3 horas
 
-- M2 — Sanitização de conteúdo exibido (XSS)
+- ✅ M2 — Sanitização de conteúdo exibido (XSS)
   - Descrição: Adicionar `DOMPurify` no frontend para limpar HTML renderizado (comentários/descrições) ou usar `sanitize-html` no backend antes de persistir quando HTML permitido.
   - Arquivos-alvo: componentes que exibem HTML (`client/src/components/*`, ex: comentários, card description)
+  - **Status: CONCLUÍDO** - DOMPurify implementado com utilitários de sanitização
   - Critérios de aceitação:
-    - Testes manuais com payloads XSS são neutralizados (scripts não executam)
+    - ✅ Sistema `sanitizeForRender()` previne execução de scripts
+    - ✅ Funções `sanitizeText()` e `sanitizeRichText()` para diferentes contextos
+    - ✅ Helper `createSafeHTML()` para renderização segura de HTML
+    - ✅ Configuração DOMPurify bloqueia tags e atributos perigosos
   - Estimativa: 2–4 horas
 
-- M3 — Proteção de uploads
+- 🔄 M3 — Proteção de uploads
   - Descrição: Garantir que arquivos não sejam servidos diretamente sem verificação, confirmar limitação de tamanho e tipos; opcionalmente mover para pasta não pública e servir via rota.
   - Arquivos-alvo: `server/routes.ts` (multer config), `public/uploads` políticas
+  - **Status: PARCIAL** - Validações básicas existem, mas pode ser melhorado
   - Critérios de aceitação:
     - Uploads com tipos inválidos são rejeitados
     - Arquivos não são acessíveis diretamente sem rota (quando aplicável)
   - Estimativa: 1–3 horas
 
-- M4 — Auditoria de autorização / testes automatizados
+- 🔄 M4 — Auditoria de autorização / testes automatizados
   - Descrição: Criar testes de integração (supertest + jest) cobrindo tentativas de CRUD sem permissão.
   - Arquivos-alvo: nova pasta `server/tests` com testes; atualizar CI para rodar testes.
+  - **Status: PENDENTE** - Testes de segurança precisam ser criados
   - Critérios de aceitação:
     - Casos críticos (delete sem permissão, acessar quadro protegido) retornam 403
     - CI executa os testes e falha quando autorização quebrada

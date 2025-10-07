@@ -1,6 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
+import csrf from "csurf";
 import { storage as appStorage } from "./db-storage";
+
+// Middleware de proteção CSRF
+export const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
+});
 
 // Middleware para verificar se o usuário está autenticado
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {

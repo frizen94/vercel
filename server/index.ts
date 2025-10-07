@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
-import { globalErrorHandler } from "./middlewares";
+import { globalErrorHandler, csrfProtection } from "./middlewares";
 import { setupVite, serveStatic } from "./vite";
 import { initializeDatabase } from "./database";
 import { runSeeder } from "./seeder";
@@ -26,6 +26,22 @@ app.use(helmet({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Middleware CSRF condicional - apenas para rotas que modificam dados
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // Aplicar CSRF apenas em métodos que modificam estado
+  const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+  const isApiRoute = req.path.startsWith('/api');
+  const isCsrfTokenRoute = req.path === '/api/csrf-token';
+  
+  // Skip CSRF para rota do token e rotas não-API
+  if (isCsrfTokenRoute || !isApiRoute || !mutatingMethods.includes(req.method)) {
+    return next();
+  }
+  
+  // Aplicar proteção CSRF para rotas mutantes da API
+  csrfProtection(req, res, next);
+});
 
 // Simple logging function
 function log(message: string, source = "express") {

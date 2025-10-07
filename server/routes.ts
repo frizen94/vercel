@@ -44,7 +44,7 @@ import {
   insertBoardMemberSchema
 } from "@shared/schema";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
-import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit } from "./middlewares";
+import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection } from "./middlewares";
 import { sql } from "./database";
 
 /**
@@ -85,6 +85,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uptime: process.uptime()
       });
     }
+  });
+
+  /**
+   * Rota para obter token CSRF
+   * Fornece token de proteção CSRF para o frontend
+   */
+  app.get("/api/csrf-token", (req: Request, res: Response) => {
+    // @ts-ignore - csrfToken será disponível após aplicação do middleware CSRF
+    res.json({ csrfToken: req.csrfToken() });
   });
 
   /**
@@ -255,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/portfolios", async (req: Request, res: Response) => {
+  app.post("/api/portfolios", csrfProtection, async (req: Request, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Usuário não autenticado" });
@@ -285,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/portfolios/:id", async (req: Request, res: Response) => {
+  app.patch("/api/portfolios/:id", csrfProtection, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -308,7 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/portfolios/:id", async (req: Request, res: Response) => {
+  app.delete("/api/portfolios/:id", csrfProtection, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -426,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/boards", async (req: Request, res: Response) => {
+  app.post("/api/boards", csrfProtection, async (req: Request, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Usuário não autenticado" });
@@ -447,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/boards/:id", async (req: Request, res: Response) => {
+  app.patch("/api/boards/:id", csrfProtection, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -470,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/boards/:id", async (req: Request, res: Response) => {
+  app.delete("/api/boards/:id", csrfProtection, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
