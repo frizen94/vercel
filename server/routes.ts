@@ -91,6 +91,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * Rota de Debug para Session
+   * Verifica o status da sessão do usuário
+   */
+  app.get("/api/debug/session", (req: Request, res: Response) => {
+    res.json({
+      isAuthenticated: req.isAuthenticated(),
+      sessionID: req.sessionID,
+      sessionExists: !!req.session,
+      userId: req.user?.id || null,
+      userName: req.user?.name || null,
+      cookies: !!req.headers.cookie,
+      timestamp: new Date().toISOString()
+    });
+  });
+
 
 
   /**
@@ -2452,15 +2468,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * GET /api/notifications/unread-count
    * Retorna a contagem de notificações não lidas para o usuário autenticado
    */
-  app.get('/api/notifications/unread-count', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/notifications/unread-count', (req: Request, res: Response, next: NextFunction) => {
+    // Log detalhado para debug de sessão
+    console.log('Unread-count request:', {
+      isAuthenticated: req.isAuthenticated(),
+      userId: req.user?.id,
+      sessionID: req.sessionID,
+      sessionExists: !!req.session,
+      cookies: req.headers.cookie ? 'present' : 'none',
+      userAgent: req.headers['user-agent']?.substring(0, 50)
+    });
+    next();
+  }, isAuthenticated, async (req: Request, res: Response) => {
     try {
       if (!req.user) return res.status(401).json({ message: 'Usuário não autenticado' });
 
-  // Consulta direta ao banco para obter a contagem de não lidas
-  const rows = await sql`SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = ${req.user.id} AND read = false;`;
-  // rows pode ser array ou objeto dependendo do driver
-  const count = Array.isArray(rows) ? (rows[0]?.count ?? 0) : (rows as any).count ?? 0;
-  res.json({ unreadCount: Number(count) });
+      // Consulta direta ao banco para obter a contagem de não lidas
+      const rows = await sql`SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = ${req.user.id} AND read = false;`;
+      // rows pode ser array ou objeto dependendo do driver
+      const count = Array.isArray(rows) ? (rows[0]?.count ?? 0) : (rows as any).count ?? 0;
+      res.json({ unreadCount: Number(count) });
     } catch (error) {
       console.error('Error fetching unread notifications count:', error);
       res.status(500).json({ message: 'Erro ao buscar contagem de notificações não lidas' });

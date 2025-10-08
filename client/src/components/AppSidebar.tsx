@@ -239,10 +239,17 @@ export function AppSidebar() {
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
     queryKey: ['/api/notifications/unread-count'],
     queryFn: () => apiRequest('GET', '/api/notifications/unread-count'),
-    enabled: !!user,
+    enabled: !!user, // Só executar se usuário estiver autenticado
     staleTime: 5 * 1000,
-    refetchInterval: 10 * 1000, // Reduzido de 30s para 10s
-    retry: false,
+    refetchInterval: !!user ? 10 * 1000 : false, // Só fazer polling se autenticado
+    retry: (failureCount, error: any) => {
+      // Não tentar novamente se for erro de autenticação
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    retryOnMount: false,
   });
   const unreadCount = unreadData?.unreadCount ?? 0;
 

@@ -117,6 +117,16 @@ export const loginRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Configuração específica para proxies (Railway, Vercel, etc.)
+  trustProxy: true,
+  keyGenerator: (req: Request) => {
+    // Priorizar X-Forwarded-For se disponível, senão usar req.ip
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
+    }
+    return req.ip;
+  },
   handler: (req: Request, res: Response) => {
     console.log(`Rate limit exceeded for IP: ${req.ip} - Login attempt blocked`);
     res.status(429).json({
@@ -131,6 +141,14 @@ export const changePasswordRateLimit = rateLimit({
   message: {
     error: "Muitas tentativas de mudança de senha. Tente novamente em 1 hora."
   },
+  trustProxy: true,
+  keyGenerator: (req: Request) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
+    }
+    return req.ip;
+  },
   handler: (req: Request, res: Response) => {
     console.log(`Rate limit exceeded for IP: ${req.ip} - Password change blocked`);
     res.status(429).json({
@@ -144,6 +162,14 @@ export const registerRateLimit = rateLimit({
   max: 5, // Máximo 5 registros por IP por hora
   message: {
     error: "Muitas tentativas de registro. Tente novamente em 1 hora."
+  },
+  trustProxy: true,
+  keyGenerator: (req: Request) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
+    }
+    return req.ip;
   },
   handler: (req: Request, res: Response) => {
     console.log(`Rate limit exceeded for IP: ${req.ip} - Registration blocked`);
