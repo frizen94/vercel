@@ -729,17 +729,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/lists/:listId/cards", async (req: Request, res: Response) => {
+  app.get("/api/lists/:listId/cards", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const listId = parseInt(req.params.listId);
       if (isNaN(listId)) {
         return res.status(400).json({ message: "Invalid list ID" });
       }
 
+      console.log(`🔍 Fetching cards for list ${listId}`);
       const cards = await appStorage.getCards(listId);
+      console.log(`✅ Found ${cards.length} cards for list ${listId}`);
       res.json(cards);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch cards" });
+      console.error(`❌ Error fetching cards for list ${req.params.listId}:`, error);
+      res.status(500).json({ message: "Failed to fetch cards", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -814,15 +817,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cards", async (req: Request, res: Response) => {
+  app.post("/api/cards", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      console.log('🆕 Creating new card with data:', req.body);
+      
       const validatedData = insertCardSchema.parse(req.body);
+      console.log('✅ Card data validated:', validatedData);
 
       // Ensure listId exists
       const list = await appStorage.getList(validatedData.listId);
       if (!list) {
+        console.log(`❌ List ${validatedData.listId} not found`);
         return res.status(404).json({ message: "List not found" });
       }
+
+      console.log(`✅ List ${validatedData.listId} found:`, list.title);
 
       // If order is not provided, set it as the highest order + 1
       if (validatedData.order === undefined) {
@@ -831,15 +840,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? Math.max(...cards.map(card => card.order))
           : -1;
         validatedData.order = maxOrder + 1;
+        console.log(`🔢 Set card order to: ${validatedData.order}`);
       }
 
       const card = await appStorage.createCard(validatedData);
+      console.log('✅ Card created successfully:', card.id);
       res.status(201).json(card);
     } catch (error) {
+      console.error('❌ Error creating card:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid card data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create card" });
+      res.status(500).json({ message: "Failed to create card", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
