@@ -107,6 +107,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  /**
+   * Rota de Debug para Database
+   * Testa conexão básica com o banco
+   */
+  app.get("/api/debug/database", async (req: Request, res: Response) => {
+    try {
+      const result = await sql`SELECT COUNT(*) as count FROM users;`;
+      const listCount = await sql`SELECT COUNT(*) as count FROM lists;`;
+      const cardCount = await sql`SELECT COUNT(*) as count FROM cards;`;
+      
+      res.json({
+        status: "connected",
+        userCount: result[0]?.count || 0,
+        listCount: listCount[0]?.count || 0,
+        cardCount: cardCount[0]?.count || 0,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Database debug error:', error);
+      res.status(500).json({
+        status: "error",
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
 
 
   /**
