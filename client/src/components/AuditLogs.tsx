@@ -118,8 +118,9 @@ export function AuditLogs() {
       if (actionFilter !== "all") params.append('action', actionFilter);
       if (entityTypeFilter !== "all") params.append('entityType', entityTypeFilter);
       
-      const response = await apiRequest('GET', `/api/admin/audit-logs?${params.toString()}`);
-      return response.json();
+      // apiRequest já retorna JSON desserializado quando aplicável
+      const data = await apiRequest('GET', `/api/admin/audit-logs?${params.toString()}`);
+      return data as AuditLogsResponse;
     },
     enabled: !!user && user.role === "admin",
     staleTime: 30 * 1000, // 30 segundos
