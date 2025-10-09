@@ -50,6 +50,8 @@ export default function Portfolios() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [portfolioToDelete, setPortfolioToDelete] = useState<Portfolio | null>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -148,7 +150,7 @@ export default function Portfolios() {
   });
 
   // Mutation para excluir portfólio
-  const { mutate: deletePortfolio } = useMutation({
+  const { mutate: deletePortfolio, isPending: isDeleting } = useMutation({
     mutationFn: async (id: number) => {
       // apiRequest retorna null para 204 No Content; lançará em caso de erro
       await apiRequest("DELETE", `/api/portfolios/${id}`);
@@ -213,9 +215,16 @@ export default function Portfolios() {
   };
 
   const handleDelete = (portfolio: Portfolio) => {
-    if (confirm(`Tem certeza que deseja excluir o portfólio "${portfolio.name}"? Esta ação não pode ser desfeita.`)) {
-      deletePortfolio(portfolio.id);
-    }
+    // open confirmation modal
+    setPortfolioToDelete(portfolio);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!portfolioToDelete) return;
+    deletePortfolio(portfolioToDelete.id);
+    setIsDeleteModalOpen(false);
+    setPortfolioToDelete(null);
   };
 
   const getProjectCount = (portfolioId: number) => {
@@ -453,6 +462,29 @@ export default function Portfolios() {
               ) : (
                 "Salvar Alterações"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={(open) => { if (!open) { setPortfolioToDelete(null); } setIsDeleteModalOpen(open); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir este portfólio? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm">{portfolioToDelete ? `Portfólio: ${portfolioToDelete.name}` : ''}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmDelete} className="ml-2" variant="destructive" disabled={isDeleting}>
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
             </Button>
           </DialogFooter>
         </DialogContent>
