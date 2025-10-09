@@ -41,9 +41,13 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       httpOnly: true, // Previne acesso via JavaScript
-      secure: isProduction, // HTTPS apenas em produção
-      sameSite: 'lax' // Configuração adequada para Railway/produção
-    }
+      secure: false, // Temporariamente false para debug no Railway
+      sameSite: 'lax', // Mudado de 'none' para 'lax' para compatibilidade
+      domain: undefined // Deixar undefined para Railway gerenciar automaticamente
+    },
+    // Configurações específicas para produção em proxies
+    proxy: isProduction,
+    name: 'kanban.sid' // Nome customizado para o cookie de sessão
   };
 
   app.use(session(sessionSettings));

@@ -91,6 +91,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * Rota de Debug para Session
+   * Verifica o status da sessão do usuário
+   */
+  app.get("/api/debug/session", (req: Request, res: Response) => {
+    res.json({
+      isAuthenticated: req.isAuthenticated(),
+      sessionID: req.sessionID,
+      sessionExists: !!req.session,
+      userId: req.user?.id || null,
+      userName: req.user?.name || null,
+      cookies: !!req.headers.cookie,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  /**
+   * Rota de Debug para Database
+   * Testa conexão básica com o banco
+   */
+  app.get("/api/debug/database", async (req: Request, res: Response) => {
+    try {
+      const result = await sql`SELECT COUNT(*) as count FROM users;`;
+      const listCount = await sql`SELECT COUNT(*) as count FROM lists;`;
+      const cardCount = await sql`SELECT COUNT(*) as count FROM cards;`;
+      
+      res.json({
+        status: "connected",
+        userCount: result[0]?.count || 0,
+        listCount: listCount[0]?.count || 0,
+        cardCount: cardCount[0]?.count || 0,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Database debug error:', error);
+      res.status(500).json({
+        status: "error",
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
 
 
   /**
@@ -713,17 +756,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/lists/:listId/cards", async (req: Request, res: Response) => {
+  app.get("/api/lists/:listId/cards", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const listId = parseInt(req.params.listId);
       if (isNaN(listId)) {
         return res.status(400).json({ message: "Invalid list ID" });
       }
 
+      console.log(`🔍 Fetching cards for list ${listId}`);
       const cards = await appStorage.getCards(listId);
+      console.log(`✅ Found ${cards.length} cards for list ${listId}`);
       res.json(cards);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch cards" });
+      console.error(`❌ Error fetching cards for list ${req.params.listId}:`, error);
+      res.status(500).json({ message: "Failed to fetch cards", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -798,15 +844,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cards", async (req: Request, res: Response) => {
+  app.post("/api/cards", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      console.log('🆕 Creating new card with data:', req.body);
+      
       const validatedData = insertCardSchema.parse(req.body);
+      console.log('✅ Card data validated:', validatedData);
 
       // Ensure listId exists
       const list = await appStorage.getList(validatedData.listId);
       if (!list) {
+        console.log(`❌ List ${validatedData.listId} not found`);
         return res.status(404).json({ message: "List not found" });
       }
+
+      console.log(`✅ List ${validatedData.listId} found:`, list.title);
 
       // If order is not provided, set it as the highest order + 1
       if (validatedData.order === undefined) {
@@ -815,15 +867,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? Math.max(...cards.map(card => card.order))
           : -1;
         validatedData.order = maxOrder + 1;
+        console.log(`🔢 Set card order to: ${validatedData.order}`);
       }
 
       const card = await appStorage.createCard(validatedData);
+      console.log('✅ Card created successfully:', card.id);
       res.status(201).json(card);
     } catch (error) {
+      console.error('❌ Error creating card:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid card data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create card" });
+      res.status(500).json({ message: "Failed to create card", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2480,15 +2535,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * GET /api/notifications/unread-count
    * Retorna a contagem de notificações não lidas para o usuário autenticado
    */
-  app.get('/api/notifications/unread-count', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/notifications/unread-count', (req: Request, res: Response, next: NextFunction) => {
+    // Log detalhado para debug de sessão
+    console.log('Unread-count request:', {
+      isAuthenticated: req.isAuthenticated(),
+      userId: req.user?.id,
+      sessionID: req.sessionID,
+      sessionExists: !!req.session,
+      cookies: req.headers.cookie ? 'present' : 'none',
+      userAgent: req.headers['user-agent']?.substring(0, 50)
+    });
+    next();
+  }, isAuthenticated, async (req: Request, res: Response) => {
     try {
       if (!req.user) return res.status(401).json({ message: 'Usuário não autenticado' });
 
-  // Consulta direta ao banco para obter a contagem de não lidas
-  const rows = await sql`SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = ${req.user.id} AND read = false;`;
-  // rows pode ser array ou objeto dependendo do driver
-  const count = Array.isArray(rows) ? (rows[0]?.count ?? 0) : (rows as any).count ?? 0;
-  res.json({ unreadCount: Number(count) });
+      // Consulta direta ao banco para obter a contagem de não lidas
+      const rows = await sql`SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = ${req.user.id} AND read = false;`;
+      // rows pode ser array ou objeto dependendo do driver
+      const count = Array.isArray(rows) ? (rows[0]?.count ?? 0) : (rows as any).count ?? 0;
+      res.json({ unreadCount: Number(count) });
     } catch (error) {
       console.error('Error fetching unread notifications count:', error);
       res.status(500).json({ message: 'Erro ao buscar contagem de notificações não lidas' });

@@ -9,6 +9,9 @@ import { runSeeder } from "./seeder";
 
 const app = express();
 
+// Configurar trust proxy para Railway/Vercel/Railway
+app.set('trust proxy', 1);
+
 // Configuração de segurança com Helmet
 app.use(helmet({
   contentSecurityPolicy: {
@@ -53,6 +56,16 @@ app.use((req, res, next) => {
   const path = req.path;
   let capturedJsonResponse: any = undefined;
 
+  // Log adicional para debugging em produção
+  if (process.env.NODE_ENV === "production" && req.path.startsWith("/api")) {
+    console.log(`📥 [${req.method}] ${req.path} - IP: ${req.ip} - Headers: ${JSON.stringify({
+      'user-agent': req.headers['user-agent']?.substring(0, 50),
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'authorization': req.headers['authorization'] ? 'present' : 'none',
+      'cookie': req.headers['cookie'] ? 'present' : 'none'
+    })}`);
+  }
+
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
@@ -91,7 +104,7 @@ app.use((req, res, next) => {
   }
 
   // Start server immediately on Railway's expected port
-  const port = parseInt(process.env.PORT || "5000");
+  const port = parseInt(process.env.PORT || "8080");
   server.listen({
     port,
     host: "0.0.0.0",

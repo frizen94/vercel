@@ -273,6 +273,39 @@ export async function runMissingSqlMigrations() {
     
     await sql`CREATE INDEX IF NOT EXISTS idx_checklist_item_members_checklist_item_id ON checklist_item_members(checklist_item_id);`;
     
+    // 6. Add completed column to cards table (from 20251007_add_completed_to_cards.sql)
+    await sql`
+      ALTER TABLE cards 
+      ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT false;
+    `;
+    
+    await sql`CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);`;
+    
+    // 7. Fix label duplicates and add unique constraint (from fix-label-duplicates.sql)
+    await sql`
+      DELETE FROM card_labels 
+      WHERE id NOT IN (
+          SELECT MIN(id) 
+          FROM card_labels 
+          GROUP BY card_id, label_id
+      );
+    `;
+    
+    // Add unique constraint only if it doesn't exist
+    await sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint 
+          WHERE conname = 'unique_card_label'
+        ) THEN
+          ALTER TABLE card_labels 
+          ADD CONSTRAINT unique_card_label 
+          UNIQUE (card_id, label_id);
+        END IF;
+      END$$;
+    `;
+    
     console.log('✅ Missing SQL migrations completed successfully!');
     return true;
     
