@@ -996,21 +996,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/cards/:id", async (req: Request, res: Response) => {
+  app.delete("/api/cards/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`🗑️ [DELETE CARD] Tentando excluir cartão ID: ${id}, usuário: ${req.user?.username || 'desconhecido'}`);
+      console.log(`🗑️ [DELETE CARD] Parâmetro recebido: "${req.params.id}"`);
+      
       if (isNaN(id)) {
+        console.log(`❌ [DELETE CARD] ID inválido: ${req.params.id}`);
         return res.status(400).json({ message: "Invalid card ID" });
       }
 
-      const success = await appStorage.deleteCard(id);
-      if (!success) {
+      // Debug: listar todos os cartões para verificar se existe
+      console.log(`🔍 [DELETE CARD] Buscando cartão ID ${id} no banco...`);
+      
+      // Verificar se o cartão existe antes de tentar excluir
+      const card = await appStorage.getCard(id);
+      console.log(`🔍 [DELETE CARD] Resultado da busca:`, card ? `Encontrado: ${card.title}` : 'Não encontrado');
+      
+      if (!card) {
+        console.log(`❌ [DELETE CARD] Cartão ID ${id} não encontrado no banco`);
         return res.status(404).json({ message: "Card not found" });
       }
 
+      console.log(`✅ [DELETE CARD] Cartão encontrado: ${card.title} (Lista: ${card.listId})`);
+      
+      const success = await appStorage.deleteCard(id);
+      if (!success) {
+        console.log(`❌ [DELETE CARD] Falha ao excluir cartão ID ${id} - operação retornou false`);
+        return res.status(500).json({ message: "Failed to delete card from database" });
+      }
+
+      console.log(`✅ [DELETE CARD] Cartão ID ${id} excluído com sucesso`);
       res.status(204).end();
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete card" });
+      console.error(`❌ [DELETE CARD] Erro ao excluir cartão ID ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to delete card", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
