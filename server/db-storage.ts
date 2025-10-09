@@ -5,9 +5,9 @@ import type {
   Checklist, ChecklistItem, BoardMember, BoardWithCreator,
   UserWithBoardRole, InsertUser, InsertPortfolio, InsertBoard, InsertList, InsertCard, InsertLabel, InsertCardLabel, 
   InsertComment, InsertCardMember, InsertChecklist, InsertChecklistItem, InsertBoardMember,
-  Notification, InsertNotification,
+  Notification, InsertNotification, AuditLog, InsertAuditLog, Activity, InsertActivity,
 } from '@shared/schema';
-import { eq, and, asc, inArray, sql, desc, isNull, lt, gte, or, not } from 'drizzle-orm';
+import { eq, and, asc, inArray, sql, desc, isNull, lt, gte, or, not, lte } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
@@ -1315,6 +1315,194 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(schema.notifications.id, id), eq(schema.notifications.userId, userId)))
       .returning();
     return deleted.length > 0;
+  }
+
+  // ============================================================================
+  // AUDIT LOGS METHODS
+  // ============================================================================
+  
+  async createAuditLog(auditData: InsertAuditLog): Promise<AuditLog> {
+    const inserted = await db.insert(schema.auditLogs).values(auditData).returning();
+    return inserted[0];
+  }
+
+  async getAuditLogs(options: {
+    userId?: number;
+    action?: string;
+    entityType?: string;
+    entityId?: string;
+    limit?: number;
+    offset?: number;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}): Promise<AuditLog[]> {
+    const {
+      userId,
+      action,
+      entityType,
+      entityId,
+      limit = 100,
+      offset = 0,
+      startDate,
+      endDate
+    } = options;
+
+    const conditions: any[] = [];
+
+    if (userId) conditions.push(eq(schema.auditLogs.userId, userId));
+    if (action) conditions.push(eq(schema.auditLogs.action, action));
+    if (entityType) conditions.push(eq(schema.auditLogs.entityType, entityType));
+    if (entityId) conditions.push(eq(schema.auditLogs.entityId, entityId));
+    if (startDate) conditions.push(gte(schema.auditLogs.timestamp, startDate));
+    if (endDate) conditions.push(lte(schema.auditLogs.timestamp, endDate));
+
+    let query = db.select().from(schema.auditLogs);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query
+      .orderBy(desc(schema.auditLogs.timestamp))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // ============================================================================
+  // ACTIVITIES METHODS
+  // ============================================================================
+  
+  async createActivity(activityData: InsertActivity): Promise<Activity> {
+    const inserted = await db.insert(schema.activities).values(activityData).returning();
+    return inserted[0];
+  }
+
+  async getActivities(options: {
+    userId?: number;
+    boardId?: number;
+    activityType?: string;
+    entityType?: string;
+    limit?: number;
+    offset?: number;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}): Promise<Activity[]> {
+    const {
+      userId,
+      boardId,
+      activityType,
+      entityType,
+      limit = 50,
+      offset = 0,
+      startDate,
+      endDate
+    } = options;
+
+    const conditions: any[] = [];
+
+    if (userId) conditions.push(eq(schema.activities.userId, userId));
+    if (boardId) conditions.push(eq(schema.activities.boardId, boardId));
+    if (activityType) conditions.push(eq(schema.activities.activityType, activityType));
+    if (entityType) conditions.push(eq(schema.activities.entityType, entityType));
+    if (startDate) conditions.push(gte(schema.activities.timestamp, startDate));
+    if (endDate) conditions.push(lte(schema.activities.timestamp, endDate));
+
+    let query = db.select().from(schema.activities);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query
+      .orderBy(desc(schema.activities.timestamp))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getActivitiesWithUserInfo(options: {
+    userId?: number;
+    boardId?: number;
+    activityType?: string;
+    limit?: number;
+    offset?: number;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}): Promise<any[]> {
+    const {
+      userId,
+      boardId,
+      activityType,
+      limit = 50,
+      offset = 0,
+      startDate,
+      endDate
+    } = options;
+
+    const conditions: any[] = [];
+
+    if (userId) conditions.push(eq(schema.activities.userId, userId));
+    if (boardId) conditions.push(eq(schema.activities.boardId, boardId));
+    if (activityType) conditions.push(eq(schema.activities.activityType, activityType));
+    if (startDate) conditions.push(gte(schema.activities.timestamp, startDate));
+    if (endDate) conditions.push(lte(schema.activities.timestamp, endDate));
+
+    let query = db
+      .select({
+        id: schema.activities.id,
+        userId: schema.activities.userId,
+        boardId: schema.activities.boardId,
+        activityType: schema.activities.activityType,
+        entityType: schema.activities.entityType,
+        entityId: schema.activities.entityId,
+        description: schema.activities.description,
+        metadata: schema.activities.metadata,
+        timestamp: schema.activities.timestamp,
+        // User info
+        username: schema.users.username,
+        userName: schema.users.name,
+        userProfilePicture: schema.users.profilePicture,
+        // Board info (optional)
+        boardTitle: schema.boards.title
+      })
+      .from(schema.activities)
+      .leftJoin(schema.users, eq(schema.activities.userId, schema.users.id))
+      .leftJoin(schema.boards, eq(schema.activities.boardId, schema.boards.id));
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query
+      .orderBy(desc(schema.activities.timestamp))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // Método para obter estatísticas de atividades (para dashboard admin)
+  async getActivityStats(options: {
+    startDate?: Date;
+    endDate?: Date;
+    boardId?: number;
+  } = {}): Promise<any> {
+    const { startDate, endDate, boardId } = options;
+    const conditions: any[] = [];
+
+    if (startDate) conditions.push(gte(schema.activities.timestamp, startDate));
+    if (endDate) conditions.push(lte(schema.activities.timestamp, endDate));
+    if (boardId) conditions.push(eq(schema.activities.boardId, boardId));
+
+    let query = db
+      .select({
+        activityType: schema.activities.activityType,
+        count: sql<number>`count(*)::int`
+      })
+      .from(schema.activities);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.groupBy(schema.activities.activityType);
   }
 }
 

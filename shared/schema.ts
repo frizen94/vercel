@@ -565,3 +565,102 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
  */
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+/**
+ * Tabela de Logs de Auditoria
+ * 
+ * Armazena todos os logs de auditoria do sistema:
+ * - Todas as operações CRUD importantes
+ * - Informações de segurança (IP, user agent, sessão)
+ * - Estado anterior e posterior dos dados (JSON)
+ * - Metadados contextuais
+ */
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  sessionId: text("session_id"),
+  action: text("action").notNull(), // "CREATE", "READ", "UPDATE", "DELETE", "LOGIN", "LOGOUT"
+  entityType: text("entity_type").notNull(), // "user", "board", "card", "list", etc.
+  entityId: text("entity_id"), // ID da entidade afetada (string para suportar diferentes tipos)
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  oldData: text("old_data"), // JSON string dos dados antes da operação
+  newData: text("new_data"), // JSON string dos dados após a operação
+  metadata: text("metadata"), // JSON string com dados contextuais adicionais
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+/**
+ * Schema para inserção de logs de auditoria
+ */
+export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
+  userId: true,
+  sessionId: true,
+  action: true,
+  entityType: true,
+  entityId: true,
+  ipAddress: true,
+  userAgent: true,
+  oldData: true,
+  newData: true,
+  metadata: true,
+}).partial({
+  userId: true,
+  sessionId: true,
+  entityId: true,
+  ipAddress: true,
+  userAgent: true,
+  oldData: true,
+  newData: true,
+  metadata: true,
+});
+
+/**
+ * Tabela de Atividades de Negócio
+ * 
+ * Registra atividades específicas de negócio para o dashboard administrativo:
+ * - Criação e edição de projetos, cartões, tarefas
+ * - Conclusão de checklists e subtasks
+ * - Movimentações e atribuições
+ * - Outras ações relevantes para métricas de produtividade
+ */
+export const activities = pgTable("activities", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  boardId: integer("board_id").references(() => boards.id),
+  activityType: text("activity_type").notNull(), // "board_created", "card_created", "task_completed", etc.
+  entityType: text("entity_type").notNull(), // "board", "card", "checklist", "task", etc.
+  entityId: integer("entity_id"), // ID da entidade relacionada
+  description: text("description").notNull(), // Descrição legível da atividade
+  metadata: text("metadata"), // JSON string com dados específicos da atividade
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+/**
+ * Schema para inserção de atividades
+ */
+export const insertActivitySchema = createInsertSchema(activities).pick({
+  userId: true,
+  boardId: true,
+  activityType: true,
+  entityType: true,
+  entityId: true,
+  description: true,
+  metadata: true,
+}).partial({
+  boardId: true,
+  entityId: true,
+  metadata: true,
+});
+
+/**
+ * Tipos para logs de auditoria
+ */
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
+/**
+ * Tipos para atividades
+ */
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type Activity = typeof activities.$inferSelect;
