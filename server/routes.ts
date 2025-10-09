@@ -2011,7 +2011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/checklists/:id", async (req: Request, res: Response) => {
+  app.get("/api/checklists/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
 
@@ -2031,7 +2031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/checklists", async (req: Request, res: Response) => {
+  app.post("/api/checklists", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { title, cardId, order } = req.body;
 
@@ -2046,7 +2046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/checklists/:id", async (req: Request, res: Response) => {
+  app.patch("/api/checklists/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
 
@@ -2066,7 +2066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/checklists/:id", async (req: Request, res: Response) => {
+  app.delete("/api/checklists/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
 
@@ -2078,6 +2078,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingChecklist = await appStorage.getChecklist(id);
       if (!existingChecklist) {
         return res.status(404).json({ message: "Checklist não encontrada" });
+      }
+
+      // Verificar se o usuário tem permissão para deletar esta checklist
+      // Buscar o card associado à checklist
+      const card = await appStorage.getCard(existingChecklist.cardId);
+      if (!card) {
+        return res.status(404).json({ message: "Cartão associado não encontrado" });
+      }
+
+      // Buscar a lista do card
+      const list = await appStorage.getList(card.listId);
+      if (!list) {
+        return res.status(404).json({ message: "Lista não encontrada" });
+      }
+
+      // Buscar o quadro
+      const board = await appStorage.getBoard(list.boardId);
+      if (!board) {
+        return res.status(404).json({ message: "Quadro não encontrado" });
+      }
+
+      // Verificar permissões: admin, dono do quadro, ou membro do quadro
+      const isAdmin = req.user?.role === "admin";
+      const isBoardOwner = board.userId === req.user?.id;
+      const boardMember = await appStorage.getBoardMember(list.boardId, req.user!.id);
+      
+      if (!isAdmin && !isBoardOwner && !boardMember) {
+        return res.status(403).json({ message: "Permissão negada para excluir esta checklist" });
       }
 
       const success = await appStorage.deleteChecklist(id);
@@ -2096,7 +2124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * Rotas para gerenciar Itens de Checklist
    */
-  app.get("/api/checklists/:checklistId/items", async (req: Request, res: Response) => {
+  app.get("/api/checklists/:checklistId/items", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const checklistId = parseInt(req.params.checklistId);
 
@@ -2111,7 +2139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/checklist-items", async (req: Request, res: Response) => {
+  app.post("/api/checklist-items", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { content, description, checklistId, order, completed, parentItemId, parent_item_id, assignedToUserId, dueDate } = req.body;
 
@@ -2141,7 +2169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/checklist-items/:id", async (req: Request, res: Response) => {
+  app.patch("/api/checklist-items/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
 
@@ -2227,7 +2255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/checklist-items/:id", async (req: Request, res: Response) => {
+  app.delete("/api/checklist-items/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
 
