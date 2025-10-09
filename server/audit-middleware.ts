@@ -180,6 +180,7 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
   // Interceptar a resposta para capturar os dados novos
   const originalSend = res.send;
   const originalJson = res.json;
+  const originalEnd = res.end as any;
   
   res.send = function(body: any) {
     // Registrar auditoria após a operação bem-sucedida
@@ -257,6 +258,54 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
     }
     
     return originalJson.call(this, obj);
+  };
+
+  // Also wrap res.end to catch handlers that call res.end() directly (e.g. 204 No Content)
+  res.end = function(chunk?: any, encoding?: any, cb?: any) {
+    try {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setImmediate(() => {
+          let newData: any = null;
+
+          try {
+            if (chunk) {
+              // chunk can be Buffer or string
+              if (Buffer.isBuffer(chunk)) {
+                const str = chunk.toString(encoding || 'utf8');
+                newData = str ? JSON.parse(str) : null;
+              } else if (typeof chunk === 'string') {
+                newData = chunk ? JSON.parse(chunk) : null;
+              } else if (typeof chunk === 'object') {
+                newData = chunk;
+              }
+            }
+          } catch (error) {
+            newData = { response: 'success', statusCode: res.statusCode };
+          }
+
+          // For DELETE actions we keep newData as null
+          AuditService.log({
+            req,
+            action,
+            entityType,
+            entityId,
+            oldData,
+            newData: action === AuditAction.DELETE ? null : newData,
+            metadata: {
+              method: req.method,
+              path: req.path,
+              statusCode: res.statusCode,
+              userAgent: req.get('User-Agent'),
+              contentType: req.get('Content-Type')
+            }
+          });
+        });
+      }
+    } catch (err) {
+      // swallow errors to not interfere with response
+    }
+
+    return originalEnd.call(this, chunk, encoding, cb);
   };
 
   // Capturar estado anterior se necessário e continuar
