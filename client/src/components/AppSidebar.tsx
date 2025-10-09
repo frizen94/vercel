@@ -22,6 +22,7 @@ import {
   ChevronRight,
   FolderOpen,
   Loader2,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -632,6 +633,19 @@ export function AppSidebar() {
                       <Link href="/users/manage">
                         <UserPlus className="h-4 w-4" />
                         <span>Gerenciar usuários</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/admin/audit-logs")}
+                      className="w-full justify-start"
+                    >
+                      <Link href="/admin/audit-logs">
+                        <Shield className="h-4 w-4" />
+                        <span>Logs de Auditoria</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

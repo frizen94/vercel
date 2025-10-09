@@ -7,6 +7,7 @@ import { promisify } from "util";
 import { storage as appStorage } from "./db-storage";
 import { User as UserType } from "@shared/schema";
 import { loginRateLimit, registerRateLimit } from "./middlewares";
+import { AuditService } from "./audit-service";
 
 declare global {
   namespace Express {
@@ -162,10 +163,13 @@ export function setupAuth(app: Express) {
           return res.status(500).json({ message: "Erro de segurança na sessão" });
         }
         
-        req.login(user, (err) => {
+        req.login(user, async (err) => {
           if (err) {
             return res.status(500).json({ message: "Erro ao fazer login" });
           }
+          
+          // Registrar log de auditoria para login bem-sucedido
+          await AuditService.logLogin(req, user.id);
           
           // Remove a senha antes de enviar a resposta
           const { password, ...userWithoutPassword } = user;
@@ -175,11 +179,19 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
+  app.post("/api/logout", async (req, res) => {
+    const userId = req.user?.id;
+    
+    req.logout(async (err) => {
       if (err) {
         return res.status(500).json({ message: "Erro ao fazer logout" });
       }
+      
+      // Registrar log de auditoria para logout (se houver usuário logado)
+      if (userId) {
+        await AuditService.logLogout(req, userId);
+      }
+      
       res.status(200).json({ message: "Logout bem-sucedido" });
     });
   });

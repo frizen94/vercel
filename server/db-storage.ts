@@ -7,7 +7,7 @@ import type {
   InsertComment, InsertCardMember, InsertChecklist, InsertChecklistItem, InsertBoardMember,
   Notification, InsertNotification, AuditLog, InsertAuditLog, Activity, InsertActivity,
 } from '@shared/schema';
-import { eq, and, asc, inArray, sql, desc, isNull, lt, gte, or, not, lte } from 'drizzle-orm';
+import { eq, and, asc, inArray, sql, desc, isNull, lt, gte, or, not, lte, ilike, count } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
@@ -1327,45 +1327,123 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAuditLogs(options: {
-    userId?: number;
-    action?: string;
-    entityType?: string;
-    entityId?: string;
+    page?: number;
     limit?: number;
-    offset?: number;
-    startDate?: Date;
-    endDate?: Date;
-  } = {}): Promise<AuditLog[]> {
+    filters?: {
+      search?: string;
+      action?: string;
+      entityType?: string;
+      userId?: number;
+      startDate?: string;
+      endDate?: string;
+    };
+  } = {}): Promise<{
+    logs: (AuditLog & { user?: { id: number; name: string; username: string } })[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const { page = 1, limit = 50, filters = {} } = options;
+    const offset = (page - 1) * limit;
+    
     const {
-      userId,
+      search,
       action,
       entityType,
-      entityId,
-      limit = 100,
-      offset = 0,
+      userId,
       startDate,
       endDate
-    } = options;
+    } = filters;
 
     const conditions: any[] = [];
 
     if (userId) conditions.push(eq(schema.auditLogs.userId, userId));
     if (action) conditions.push(eq(schema.auditLogs.action, action));
     if (entityType) conditions.push(eq(schema.auditLogs.entityType, entityType));
-    if (entityId) conditions.push(eq(schema.auditLogs.entityId, entityId));
-    if (startDate) conditions.push(gte(schema.auditLogs.timestamp, startDate));
-    if (endDate) conditions.push(lte(schema.auditLogs.timestamp, endDate));
-
-    let query = db.select().from(schema.auditLogs);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+    if (startDate) conditions.push(gte(schema.auditLogs.timestamp, new Date(startDate)));
+    if (endDate) conditions.push(lte(schema.auditLogs.timestamp, new Date(endDate)));
+    
+    // Busca por texto livre em múltiplos campos
+    if (search) {
+      const searchConditions = [
+        ilike(schema.auditLogs.action, `%${search}%`),
+        ilike(schema.auditLogs.entityType, `%${search}%`),
+        ilike(schema.auditLogs.entityId, `%${search}%`),
+        ilike(schema.auditLogs.ipAddress, `%${search}%`)
+      ];
+      conditions.push(or(...searchConditions));
     }
 
-    return query
-      .orderBy(desc(schema.auditLogs.timestamp))
-      .limit(limit)
-      .offset(offset);
+    // Query para contar o total de registros
+    let countQuery = db.select({ count: count() }).from(schema.auditLogs);
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    // Query principal com JOIN para incluir dados do usuário
+    let logsQuery = db
+      .select({
+        id: schema.auditLogs.id,
+        userId: schema.auditLogs.userId,
+        sessionId: schema.auditLogs.sessionId,
+        action: schema.auditLogs.action,
+        entityType: schema.auditLogs.entityType,
+        entityId: schema.auditLogs.entityId,
+        ipAddress: schema.auditLogs.ipAddress,
+        userAgent: schema.auditLogs.userAgent,
+        oldData: schema.auditLogs.oldData,
+        newData: schema.auditLogs.newData,
+        metadata: schema.auditLogs.metadata,
+        timestamp: schema.auditLogs.timestamp,
+        // Dados do usuário (LEFT JOIN)
+        userName: schema.users.name,
+        userUsername: schema.users.username,
+        userIdFromJoin: schema.users.id,
+      })
+      .from(schema.auditLogs)
+      .leftJoin(schema.users, eq(schema.auditLogs.userId, schema.users.id));
+
+    if (conditions.length > 0) {
+      logsQuery = logsQuery.where(and(...conditions));
+    }
+
+    const [totalResult, logs] = await Promise.all([
+      countQuery,
+      logsQuery
+        .orderBy(desc(schema.auditLogs.timestamp))
+        .limit(limit)
+        .offset(offset)
+    ]);
+
+    const total = totalResult[0]?.count || 0;
+
+    // Formatar os dados retornados
+    const formattedLogs = logs.map(log => ({
+      id: log.id,
+      userId: log.userId,
+      sessionId: log.sessionId,
+      action: log.action,
+      entityType: log.entityType,
+      entityId: log.entityId,
+      ipAddress: log.ipAddress,
+      userAgent: log.userAgent,
+      oldData: log.oldData,
+      newData: log.newData,
+      metadata: log.metadata,
+      timestamp: log.timestamp,
+      user: log.userName ? {
+        id: log.userIdFromJoin!,
+        name: log.userName,
+        username: log.userUsername!,
+      } : undefined,
+    }));
+
+    return {
+      logs: formattedLogs,
+      total,
+      page,
+      limit
+    };
   }
 
   // ============================================================================

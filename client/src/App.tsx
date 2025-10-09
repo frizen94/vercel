@@ -27,6 +27,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import MyTasks from "@/pages/my-tasks";
 import Inbox from "@/pages/inbox";
+import { AuditLogs } from "@/components/AuditLogs";
 
 function Router() {
   return (
@@ -150,6 +151,21 @@ function Router() {
                 <MinimalHeader />
                 <main className="flex-1 p-4 md:p-6">
                   <UserManagement />
+                </main>
+              </SidebarInset>
+            </div>
+          </SidebarProvider>
+        )}
+      </ProtectedRoute>
+      <ProtectedRoute path="/admin/audit-logs">
+        {() => (
+          <SidebarProvider>
+            <div className="sidebar-layout">
+              <AppSidebar />
+              <SidebarInset className="sidebar-main-content">
+                <MinimalHeader />
+                <main className="flex-1 p-4 md:p-6">
+                  <AuditLogs />
                 </main>
               </SidebarInset>
             </div>

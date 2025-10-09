@@ -48,6 +48,7 @@ import {
 } from "@shared/schema";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection } from "./middlewares";
+import { auditMiddleware } from "./audit-middleware";
 import { sql } from "./database";
 import { createAutomaticNotifications } from "./notification-service";
 
@@ -134,7 +135,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  /**
+   * Middleware de Auditoria Automática
+   * Captura todas as operações mutantes (POST, PUT, PATCH, DELETE) e registra logs de auditoria
+   */
+  app.use(auditMiddleware);
 
   /**
    * Configuração de diretório para servir arquivos estáticos
@@ -2640,6 +2645,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting notification:', error);
       res.status(500).json({ message: 'Erro ao excluir notificação' });
+    }
+  });
+
+  /**
+   * GET /api/admin/audit-logs
+   * Lista os logs de auditoria (apenas para administradores)
+   * 
+   * Query Parameters:
+   * - page: número da página (padrão: 1)
+   * - limit: número de itens por página (padrão: 50, máximo: 100)
+   * - search: termo de busca (pesquisa em usuário, ação, entidade)
+   * - action: filtrar por tipo de ação (CREATE, READ, UPDATE, DELETE, LOGIN, LOGOUT)
+   * - entityType: filtrar por tipo de entidade (user, board, card, etc.)
+   * - userId: filtrar por ID do usuário
+   * - startDate: data inicial (ISO string)
+   * - endDate: data final (ISO string)
+   */
+  app.get("/api/admin/audit-logs", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+    try {
+      const {
+        page = "1",
+        limit = "50",
+        search,
+        action,
+        entityType,
+        userId,
+        startDate,
+        endDate
+      } = req.query;
+
+      const pageNum = Math.max(1, parseInt(page as string) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 50));
+
+      const filters = {
+        search: search as string,
+        action: action as string,
+        entityType: entityType as string,
+        userId: userId ? parseInt(userId as string) : undefined,
+        startDate: startDate as string,
+        endDate: endDate as string
+      };
+
+      const result = await appStorage.getAuditLogs({
+        page: pageNum,
+        limit: limitNum,
+        filters
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({ message: 'Erro ao buscar logs de auditoria' });
     }
   });
 
