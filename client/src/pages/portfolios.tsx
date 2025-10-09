@@ -61,11 +61,8 @@ export default function Portfolios() {
   const { data: portfolios = [], isLoading: isLoadingPortfolios } = useQuery<Portfolio[]>({
     queryKey: ['/api/portfolios'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/portfolios');
-      if (!res.ok) {
-        throw new Error('Falha ao buscar portfólios');
-      }
-      const data = await res.json();
+      // `apiRequest` já retorna JSON desserializado quando aplicável
+      const data = await apiRequest('GET', '/api/portfolios');
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
@@ -75,11 +72,7 @@ export default function Portfolios() {
   const { data: boards = [] } = useQuery<Board[]>({
     queryKey: ['/api/boards'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/boards');
-      if (!res.ok) {
-        throw new Error('Falha ao buscar boards');
-      }
-      const data = await res.json();
+      const data = await apiRequest('GET', '/api/boards');
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
@@ -110,12 +103,8 @@ export default function Portfolios() {
   // Mutation para criar portfólio
   const { mutate: createPortfolio, isPending: isCreating } = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const res = await apiRequest("POST", "/api/portfolios", data);
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Falha ao criar portfólio');
-      }
-      return await res.json();
+      // apiRequest lança em caso de status não-ok e retorna JSON quando houver
+      return await apiRequest("POST", "/api/portfolios", data);
     },
     onSuccess: () => {
       toast({
@@ -138,8 +127,7 @@ export default function Portfolios() {
   // Mutation para atualizar portfólio
   const { mutate: updatePortfolio, isPending: isUpdating } = useMutation({
     mutationFn: async (data: { id: number; updates: typeof formData }) => {
-      const res = await apiRequest("PATCH", `/api/portfolios/${data.id}`, data.updates);
-      return await res.json();
+      return await apiRequest("PATCH", `/api/portfolios/${data.id}`, data.updates);
     },
     onSuccess: () => {
       toast({
@@ -162,6 +150,7 @@ export default function Portfolios() {
   // Mutation para excluir portfólio
   const { mutate: deletePortfolio } = useMutation({
     mutationFn: async (id: number) => {
+      // apiRequest retorna null para 204 No Content; lançará em caso de erro
       await apiRequest("DELETE", `/api/portfolios/${id}`);
     },
     onSuccess: () => {
