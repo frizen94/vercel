@@ -1227,7 +1227,10 @@ export class DatabaseStorage implements IStorage {
     const { limit = 50, offset = 0, unreadOnly = false } = options;
 
     // Build conditions array to combine properly with and()
-    const conditions = [eq(schema.notifications.userId, userId)];
+    const conditions = [
+      eq(schema.notifications.userId, userId),
+      eq(schema.notifications.deleted, false) // Exclude soft deleted notifications
+    ];
     
     if (unreadOnly) {
       conditions.push(eq(schema.notifications.read, false));
@@ -1260,6 +1263,24 @@ export class DatabaseStorage implements IStorage {
       .update(schema.notifications)
       .set({ read: true })
       .where(and(eq(schema.notifications.userId, userId), eq(schema.notifications.read, false)))
+      .returning();
+    return result.length;
+  }
+
+  async softDeleteNotification(id: number, userId: number): Promise<boolean> {
+    const updated = await db
+      .update(schema.notifications)
+      .set({ deleted: true })
+      .where(and(eq(schema.notifications.id, id), eq(schema.notifications.userId, userId)))
+      .returning();
+    return updated.length > 0;
+  }
+
+  async clearAllNotifications(userId: number): Promise<number> {
+    const result = await db
+      .update(schema.notifications)
+      .set({ deleted: true })
+      .where(and(eq(schema.notifications.userId, userId), eq(schema.notifications.deleted, false)))
       .returning();
     return result.length;
   }

@@ -252,7 +252,7 @@ export class AuditService {
     });
   }
 
-  static async logNotificationAction(req: Request, notificationId: number, action: 'read' | 'delete' | 'mark_all_read'): Promise<void> {
+  static async logNotificationAction(req: Request, notificationId: number, action: 'read' | 'delete' | 'mark_all_read' | 'clear'): Promise<void> {
     return this.log({
       req,
       action: action === 'read' || action === 'mark_all_read' ? AuditAction.UPDATE : AuditAction.DELETE,

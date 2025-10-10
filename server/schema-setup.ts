@@ -213,6 +213,7 @@ export async function runMissingSqlMigrations() {
         title TEXT NOT NULL,
         message TEXT NOT NULL,
         read BOOLEAN NOT NULL DEFAULT FALSE,
+        deleted BOOLEAN NOT NULL DEFAULT FALSE,
         action_url TEXT,
         related_card_id INTEGER REFERENCES cards(id),
         related_checklist_item_id INTEGER REFERENCES checklist_items(id),
@@ -221,9 +222,17 @@ export async function runMissingSqlMigrations() {
       );
     `;
     
+    // Add deleted column to existing notifications table if it doesn't exist (from 20250131_add_deleted_to_notifications.sql)
+    await sql`
+      ALTER TABLE notifications 
+      ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;
+    `;
+    
     // Create indices for notifications
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_deleted ON notifications(deleted);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_deleted ON notifications(user_id, deleted);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);`;
     
     // 2. Add checklist_item_id to comments (from 20250917_add_checklist_item_id_to_comments.sql)

@@ -2655,6 +2655,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * POST /api/notifications/:id/clear
+   * Remove notificação da visualização (limpa da caixa de entrada)
+   */
+  app.post("/api/notifications/:id/clear", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const notificationId = parseInt(req.params.id);
+      if (isNaN(notificationId)) {
+        return res.status(400).json({ message: "ID da notificação inválido" });
+      }
+
+      const success = await appStorage.softDeleteNotification(notificationId, req.user.id);
+
+      if (success) {
+        // Log de auditoria para limpeza de notificação
+        await AuditService.logNotificationAction(req, notificationId, 'clear');
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: 'Notificação não encontrada' });
+      }
+    } catch (error) {
+      console.error('Error clearing notification:', error);
+      res.status(500).json({ message: 'Erro ao limpar notificação' });
+    }
+  });
+
+  /**
+   * POST /api/notifications/clear-all
+   * Limpa todas as notificações do usuário (soft delete)
+   */
+  app.post("/api/notifications/clear-all", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const clearedCount = await appStorage.clearAllNotifications(req.user.id);
+      
+      // Log de auditoria para limpeza de todas as notificações
+      if (clearedCount > 0) {
+        await AuditService.logNotificationAction(req, 0, 'clear');
+      }
+      
+      res.json({ success: true, clearedCount });
+    } catch (error) {
+      console.error('Error clearing all notifications:', error);
+      res.status(500).json({ message: 'Erro ao limpar todas as notificações' });
+    }
+  });
+
+  /**
    * DELETE /api/notifications/:id
    * Remove uma notificação específica
    */

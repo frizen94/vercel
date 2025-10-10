@@ -107,6 +107,28 @@ export default function Inbox() {
     markAllAsReadMutation.mutate();
   };
 
+  const clearNotificationMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('POST', `/api/notifications/${id}/clear`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+    }
+  });
+
+  const clearNotification = (id: number) => {
+    clearNotificationMutation.mutate(id);
+  };
+
+  const clearAllMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/notifications/clear-all', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+    }
+  });
+
+  const clearAllNotifications = () => {
+    clearAllMutation.mutate();
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     // Marcar como lida
     if (!notification.read) {
@@ -137,6 +159,15 @@ export default function Inbox() {
           >
             <Check className="h-4 w-4 mr-2" />
             {markAllAsReadMutation.isPending ? 'Marcando...' : 'Marcar todas como lidas'}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={clearAllNotifications}
+            disabled={clearAllMutation.isPending}
+            data-testid="clear-all"
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            {clearAllMutation.isPending ? 'Limpando...' : 'Limpar tudo'}
           </Button>
         </div>
       </div>
@@ -176,9 +207,8 @@ export default function Inbox() {
                   key={notification.id} 
                   className={`hover:shadow-md transition-shadow cursor-pointer ${
                     !notification.read && notification.type === 'task_completed' ? "border-green-500/50 bg-green-50/50" :
+                    !notification.read && notification.type === 'deadline' ? "border-l-4 border-l-orange-500 bg-orange-50/50" :
                     !notification.read ? "border-primary/50 bg-primary/5" : ""
-                  } ${
-                    notification.type === 'deadline' ? "border-l-4 border-l-orange-500 bg-orange-50/50" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                   data-testid={`notification-${notification.id}`}
@@ -200,8 +230,8 @@ export default function Inbox() {
                           <Badge 
                             variant="secondary" 
                             className={`text-xs ${
-                              notification.type === 'deadline' ? 'bg-orange-100 text-orange-800' :
-                              notification.type === 'task_completed' ? 'bg-green-100 text-green-800' : ''
+                              !notification.read && notification.type === 'deadline' ? 'bg-orange-100 text-orange-800' :
+                              !notification.read && notification.type === 'task_completed' ? 'bg-green-100 text-green-800' : ''
                             }`}
                           >
                             {getTypeLabel(notification.type)}
@@ -214,7 +244,7 @@ export default function Inbox() {
                         </div>
                         
                         <h4 className={`font-medium text-sm mb-1 ${
-                          notification.type === 'deadline' ? 'text-red-600' : ''
+                          !notification.read && notification.type === 'deadline' ? 'text-red-600' : ''
                         }`}>
                           {notification.title}
                         </h4>
@@ -240,10 +270,24 @@ export default function Inbox() {
                                   markAsRead(notification.id);
                                 }}
                                 data-testid={`mark-read-${notification.id}`}
+                                title="Marcar como lida"
                               >
                                 <Check className="h-3 w-3" />
                               </Button>
                             )}
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 px-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearNotification(notification.id);
+                              }}
+                              data-testid={`clear-${notification.id}`}
+                              title="Limpar da caixa de entrada"
+                            >
+                              <Archive className="h-3 w-3" />
+                            </Button>
                           </div>
                         </div>
                       </div>

@@ -289,6 +289,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     read BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
     action_url TEXT,
     related_card_id INTEGER REFERENCES cards(id) ON DELETE CASCADE,
     related_checklist_item_id INTEGER REFERENCES checklist_items(id) ON DELETE CASCADE,
@@ -299,6 +300,8 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- Índices para performance das notificações
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_deleted ON notifications(deleted);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_deleted ON notifications(user_id, deleted);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 CREATE INDEX IF NOT EXISTS idx_notifications_related_card ON notifications(related_card_id);

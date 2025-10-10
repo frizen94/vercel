@@ -532,6 +532,7 @@ export const notifications = pgTable("notifications", {
   title: text("title").notNull(),
   message: text("message").notNull(),
   read: boolean("read").notNull().default(false),
+  deleted: boolean("deleted").notNull().default(false),
   actionUrl: text("action_url"), // URL para redirecionar ao clicar
   relatedCardId: integer("related_card_id").references(() => cards.id),
   relatedChecklistItemId: integer("related_checklist_item_id").references(() => checklistItems.id),
