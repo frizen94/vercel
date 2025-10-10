@@ -235,6 +235,43 @@ export async function runMissingSqlMigrations() {
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_deleted ON notifications(user_id, deleted);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);`;
     
+    // Fix CASCADE foreign key constraints for card deletion
+    // Fix card_members constraint
+    await sql`ALTER TABLE card_members DROP CONSTRAINT IF EXISTS card_members_card_id_fkey`;
+    await sql`ALTER TABLE card_members ADD CONSTRAINT card_members_card_id_fkey 
+      FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE`;
+    
+    // Fix checklists constraint  
+    await sql`ALTER TABLE checklists DROP CONSTRAINT IF EXISTS checklists_card_id_fkey`;
+    await sql`ALTER TABLE checklists ADD CONSTRAINT checklists_card_id_fkey 
+      FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE`;
+    
+    // Fix checklist_items constraint
+    await sql`ALTER TABLE checklist_items DROP CONSTRAINT IF EXISTS checklist_items_checklist_id_fkey`;
+    await sql`ALTER TABLE checklist_items ADD CONSTRAINT checklist_items_checklist_id_fkey 
+      FOREIGN KEY (checklist_id) REFERENCES checklists(id) ON DELETE CASCADE`;
+    
+    // Fix notifications constraint
+    await sql`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_related_card_id_fkey`;
+    await sql`ALTER TABLE notifications ADD CONSTRAINT notifications_related_card_id_fkey 
+      FOREIGN KEY (related_card_id) REFERENCES cards(id) ON DELETE CASCADE`;
+    
+    // Add archived column to boards for archiving functionality
+    await sql`
+      ALTER TABLE boards 
+      ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+    `;
+    
+    // Create indices for boards archiving
+    await sql`CREATE INDEX IF NOT EXISTS idx_boards_archived ON boards(archived);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_boards_user_archived ON boards(user_id, archived);`;
+    
+    // Add updated_at column to boards for timestamp tracking
+    await sql`
+      ALTER TABLE boards 
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW() NOT NULL;
+    `;
+    
     // 2. Add checklist_item_id to comments (from 20250917_add_checklist_item_id_to_comments.sql)
     await sql`
       ALTER TABLE comments

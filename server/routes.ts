@@ -603,6 +603,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Archive/Unarchive board routes
+  app.post("/api/boards/:id/archive", csrfProtection, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do quadro inválido" });
+      }
+
+      const board = await appStorage.archiveBoard(id);
+      if (!board) {
+        return res.status(404).json({ message: "Quadro não encontrado" });
+      }
+
+      // Log de auditoria
+      await AuditService.logBoardAction(req, id, 'archive');
+      
+      res.json(board);
+    } catch (error) {
+      console.error('Error archiving board:', error);
+      res.status(500).json({ message: "Falha ao arquivar quadro" });
+    }
+  });
+
+  app.post("/api/boards/:id/unarchive", csrfProtection, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do quadro inválido" });
+      }
+
+      const board = await appStorage.unarchiveBoard(id);
+      if (!board) {
+        return res.status(404).json({ message: "Quadro não encontrado" });
+      }
+
+      // Log de auditoria
+      await AuditService.logBoardAction(req, id, 'unarchive');
+      
+      res.json(board);
+    } catch (error) {
+      console.error('Error unarchiving board:', error);
+      res.status(500).json({ message: "Falha ao desarquivar quadro" });
+    }
+  });
+
+  app.get("/api/boards/archived", async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      // Administradores veem todos os arquivados, usuários apenas os seus
+      const userId = req.user.role === 'admin' ? undefined : req.user.id;
+      const boards = await appStorage.getArchivedBoards(userId);
+      
+      res.json(boards);
+    } catch (error) {
+      console.error('Error fetching archived boards:', error);
+      res.status(500).json({ message: "Falha ao buscar quadros arquivados" });
+    }
+  });
+
   /**
    * Rotas para gerenciar Listas (Colunas do Kanban)
    */

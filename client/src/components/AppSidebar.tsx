@@ -1,6 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+
+// Função para buscar quadros arquivados
+const fetchArchivedBoards = async () => {
+  const response = await fetch("/api/boards/archived", {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch archived boards");
+  }
+  return response.json();
+};
+
+// Função para desarquivar um quadro
+const unarchiveBoard = async (boardId: number) => {
+  const response = await fetch(`/api/boards/${boardId}/unarchive`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to unarchive board");
+  }
+  return response.json();
+};
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +46,7 @@ import {
   FolderOpen,
   Loader2,
   Shield,
+  Archive,
 } from "lucide-react";
 import {
   Sidebar,
@@ -90,6 +114,95 @@ interface Board {
   title: string;
   color?: string;
   portfolioId?: number;
+}
+
+// Componente para listar quadros arquivados
+function ArchivedBoardsList() {
+  const navigate = useLocation()[1];
+  const { toast } = useToast();
+  
+  // Query para buscar quadros arquivados
+  const {
+    data: archivedBoards = [],
+    isLoading: isLoadingArchived,
+    refetch: refetchArchived,
+  } = useQuery({
+    queryKey: ["archived-boards"],
+    queryFn: fetchArchivedBoards,
+  });
+
+  // Mutation para desarquivar quadro
+  const unarchiveMutation = useMutation({
+    mutationFn: unarchiveBoard,
+    onSuccess: () => {
+      toast({
+        title: "Sucesso!",
+        description: "Quadro desarquivado com sucesso!",
+      });
+      refetchArchived();
+    },
+    onError: (error) => {
+      console.error("Erro ao desarquivar quadro:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao desarquivar quadro",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUnarchiveBoard = (boardId: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    unarchiveMutation.mutate(boardId);
+  };
+
+  if (isLoadingArchived) {
+    return (
+      <div className="flex items-center justify-center py-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!archivedBoards.length) {
+    return (
+      <div className="px-2 py-1 text-xs text-muted-foreground">
+        Nenhum quadro arquivado
+      </div>
+    );
+  }
+
+  return (
+    <SidebarMenu>
+      {archivedBoards.map((board: any) => (
+        <SidebarMenuItem key={board.id}>
+          <SidebarMenuButton
+            onClick={() => navigate(`/portfolio/${board.portfolioId}/board/${board.id}`)}
+            className="w-full justify-between group"
+          >
+            <div className="flex items-center gap-2">
+              <Circle
+                className="h-3 w-3 shrink-0"
+                style={{ color: board.color || "#64748b" }}
+                fill={board.color || "#64748b"}
+              />
+              <span className="truncate text-sm">{board.title}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => handleUnarchiveBoard(board.id, e)}
+              className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-blue-500/20"
+              title="Desarquivar"
+            >
+              <Archive className="h-3 w-3" />
+            </Button>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
 }
 
 export function AppSidebar() {
@@ -226,7 +339,9 @@ export function AppSidebar() {
   };
 
   const getBoardsByPortfolio = (portfolioId?: number) => {
-    return boards.filter(board => board.portfolioId === portfolioId);
+    return boards.filter(board => 
+      board.portfolioId === portfolioId && !board.archived
+    );
   };
 
   // Buscar portfólios
@@ -657,6 +772,17 @@ export function AppSidebar() {
         )}
 
   {/* Teams section removed as requested */}
+  
+        {/* Quadros Arquivados */}
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <Archive className="h-4 w-4" />
+            Quadros Arquivados
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <ArchivedBoardsList />
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="p-3 mt-auto">

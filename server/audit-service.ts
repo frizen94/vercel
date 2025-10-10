@@ -265,6 +265,19 @@ export class AuditService {
     });
   }
 
+  static async logBoardAction(req: Request, boardId: number, action: 'archive' | 'unarchive'): Promise<void> {
+    return this.log({
+      req,
+      action: action === 'archive' ? AuditAction.UPDATE : AuditAction.UPDATE,
+      entityType: EntityType.BOARD,
+      entityId: boardId,
+      metadata: {
+        boardAction: action,
+        actionTime: new Date().toISOString()
+      }
+    });
+  }
+
   static async logSystemOperation(req: Request, operation: string, metadata?: AuditMetadata): Promise<void> {
     return this.log({
       req,

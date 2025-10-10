@@ -33,8 +33,17 @@ export async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   // Configuração da sessão com hardening de segurança
   const isProduction = process.env.NODE_ENV === "production";
+  
+  // Validar SESSION_SECRET em produção
+  const sessionSecret = process.env.SESSION_SECRET || "kanban-board-secret-key";
+  if (isProduction && sessionSecret === "kanban-board-secret-key") {
+    console.error("❌ ERRO DE SEGURANÇA: SESSION_SECRET deve ser configurada em produção!");
+    console.error("💡 Configure uma chave secreta forte nas variáveis de ambiente do Railway");
+    throw new Error("SESSION_SECRET não configurada para produção");
+  }
+  
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "kanban-board-secret-key",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     store: appStorage.sessionStore,

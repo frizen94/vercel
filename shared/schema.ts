@@ -102,12 +102,14 @@ export const portfolios = pgTable("portfolios", {
  */
 export const boards = pgTable("boards", {
   id: serial("id").primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
+  title: text("title").notNull(),
   description: text("description"),
-  color: text("color").default('#22C55E'),
-  userId: integer("user_id").references(() => users.id),
-  portfolioId: integer("portfolio_id").references(() => portfolios.id),
+  color: text("color").default("#22C55E"),
+  archived: boolean("archived").notNull().default(false),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  portfolioId: integer("portfolio_id").references(() => portfolios.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 /**

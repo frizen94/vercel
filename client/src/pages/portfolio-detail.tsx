@@ -9,6 +9,7 @@ import {
   Edit2, 
   Copy, 
   Trash2,
+  Archive,
   Folder,
   Calendar,
   User,
@@ -163,9 +164,35 @@ export default function PortfolioDetail() {
     copyBoard(board);
   };
 
-  const handleDeleteBoard = (board: Board) => {
+    const handleDeleteBoard = (board: Board) => {
     if (confirm(`Tem certeza que deseja excluir o projeto "${board.title}"? Esta ação não pode ser desfeita.`)) {
       deleteBoard(board.id);
+    }
+  };
+
+  // Mutation para arquivar quadro
+  const archiveBoardMutation = useMutation({
+    mutationFn: (boardId: number) => 
+      apiRequest('POST', `/api/boards/${boardId}/archive`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/portfolios/${portfolioId}/boards`] });
+      toast({
+        title: "Sucesso",
+        description: "Projeto arquivado com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Não foi possível arquivar o projeto.",
+      });
+    }
+  });
+
+  const handleArchiveBoard = (board: Board) => {
+    if (confirm(`Tem certeza que deseja arquivar o projeto "${board.title}"?`)) {
+      archiveBoardMutation.mutate(board.id);
     }
   };
 
@@ -355,6 +382,10 @@ export default function PortfolioDetail() {
                       <DropdownMenuItem onClick={() => handleCopyBoard(board)}>
                         <Copy className="mr-2 h-4 w-4" />
                         Copiar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleArchiveBoard(board)}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        Arquivar
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 

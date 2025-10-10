@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS boards (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     color TEXT DEFAULT '#22C55E',
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
@@ -199,6 +200,8 @@ CREATE INDEX IF NOT EXISTS idx_portfolios_created_at ON portfolios(created_at);
 -- Índices para quadros
 CREATE INDEX IF NOT EXISTS idx_boards_user_id ON boards(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_portfolio_id ON boards(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_boards_archived ON boards(archived);
+CREATE INDEX IF NOT EXISTS idx_boards_user_archived ON boards(user_id, archived);
 CREATE INDEX IF NOT EXISTS idx_boards_created_at ON boards(created_at);
 
 -- Índices para listas

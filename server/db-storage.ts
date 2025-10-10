@@ -275,21 +275,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Board methods
-  async getBoards(): Promise<Board[]> {
+  async getBoards(includeArchived = false): Promise<Board[]> {
     try {
-      const boards = await db
+      const baseQuery = db
         .select({
           id: schema.boards.id,
           title: schema.boards.title,
           description: schema.boards.description,
+          color: schema.boards.color,
+          archived: schema.boards.archived,
           userId: schema.boards.userId,
           portfolioId: schema.boards.portfolioId,
           createdAt: schema.boards.createdAt,
+          updatedAt: schema.boards.updatedAt,
           username: schema.users.username
         })
         .from(schema.boards)
-        .leftJoin(schema.users, eq(schema.boards.userId, schema.users.id))
-        .orderBy(desc(schema.boards.createdAt));
+        .leftJoin(schema.users, eq(schema.boards.userId, schema.users.id));
+
+      let query = includeArchived 
+        ? baseQuery 
+        : baseQuery.where(eq(schema.boards.archived, false));
+
+      const boards = await query.orderBy(desc(schema.boards.createdAt));
 
       return boards as Board[];
     } catch (error) {
@@ -342,6 +350,60 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.boards.id, id))
       .returning();
     return updated[0];
+  }
+
+  // Archive/Unarchive board methods
+  async archiveBoard(id: number): Promise<Board | null> {
+    const updated = await db
+      .update(schema.boards)
+      .set({ archived: true })
+      .where(eq(schema.boards.id, id))
+      .returning();
+    return updated[0] || null;
+  }
+
+  async unarchiveBoard(id: number): Promise<Board | null> {
+    const updated = await db
+      .update(schema.boards)
+      .set({ archived: false })
+      .where(eq(schema.boards.id, id))
+      .returning();
+    return updated[0] || null;
+  }
+
+  async getArchivedBoards(userId?: number): Promise<Board[]> {
+    try {
+      const baseQuery = db
+        .select({
+          id: schema.boards.id,
+          title: schema.boards.title,
+          description: schema.boards.description,
+          color: schema.boards.color,
+          archived: schema.boards.archived,
+          userId: schema.boards.userId,
+          portfolioId: schema.boards.portfolioId,
+          createdAt: schema.boards.createdAt,
+          updatedAt: schema.boards.updatedAt,
+          username: schema.users.username
+        })
+        .from(schema.boards)
+        .leftJoin(schema.users, eq(schema.boards.userId, schema.users.id));
+
+      // Aplicar filtros baseado nos parâmetros
+      const conditions = [eq(schema.boards.archived, true)];
+      if (userId) {
+        conditions.push(eq(schema.boards.userId, userId));
+      }
+
+      const boards = await baseQuery
+        .where(and(...conditions))
+        .orderBy(desc(schema.boards.createdAt));
+
+      return boards as Board[];
+    } catch (error) {
+      console.error("Erro ao buscar quadros arquivados:", error);
+      return [];
+    }
   }
 
   async deleteBoard(id: number): Promise<boolean> {
@@ -405,7 +467,12 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(schema.boards)
-      .where(eq(schema.boards.userId, userId))
+      .where(
+        and(
+          eq(schema.boards.userId, userId),
+          eq(schema.boards.archived, false)
+        )
+      )
       .orderBy(asc(schema.boards.createdAt));
   }
 
@@ -421,7 +488,8 @@ export class DatabaseStorage implements IStorage {
         schema.boardMembers,
         and(
           eq(schema.boards.id, schema.boardMembers.boardId),
-          eq(schema.boardMembers.userId, userId)
+          eq(schema.boardMembers.userId, userId),
+          eq(schema.boards.archived, false)
         )
       );
 
