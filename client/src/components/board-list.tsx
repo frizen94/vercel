@@ -2,7 +2,7 @@ import React from "react";
 import type { Board, List, Card } from "@shared/schema";
 import { useBoardContext } from "@/lib/board-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 interface BoardListProps {
   board: Board;
@@ -37,7 +37,7 @@ export function BoardList({ board, openCardModal }: BoardListProps) {
             {boardLists.map((list: List) => (
               <div key={list.id}>
                 <div className="text-sm font-medium mb-2">{list.title}</div>
-                <Droppable droppableId={`list-${list.id}`} type="CARD">
+                <Droppable droppableId={`list-${list.id}`} type="CARD" isDropDisabled={false}>
                   {(provided) => (
                     <div ref={provided.innerRef} {...provided.droppableProps} className="bg-gray-50 rounded border overflow-hidden">
                       {(visibleCards[list.id] || cards[list.id] || []).map((card: Card, index: number) => (

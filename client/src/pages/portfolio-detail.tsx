@@ -13,7 +13,8 @@ import {
   Folder,
   Calendar,
   User,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +22,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +65,8 @@ export default function PortfolioDetail() {
   const { toast } = useToast();
   
   const [isCreateBoardModalOpen, setIsCreateBoardModalOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
   const [boardFormData, setBoardFormData] = useState({
     title: "",
     description: "",
@@ -75,11 +88,13 @@ export default function PortfolioDetail() {
   // Mutation para criar projeto no portfólio
   const { mutate: createBoard, isPending: isCreatingBoard } = useMutation({
     mutationFn: async (data: typeof boardFormData) => {
-      const res = await apiRequest("POST", "/api/boards", {
+      console.log('📝 Enviando dados para criação:', { ...data, portfolioId });
+      const result = await apiRequest("POST", "/api/boards", {
         ...data,
         portfolioId
       });
-      return await res.json();
+      console.log('📋 Dados retornados:', result);
+      return result;
     },
     onSuccess: (newBoard: Board) => {
       toast({
@@ -103,13 +118,12 @@ export default function PortfolioDetail() {
   // Mutation para copiar projeto
   const { mutate: copyBoard } = useMutation({
     mutationFn: async (board: Board) => {
-      const res = await apiRequest("POST", "/api/boards", {
+      return await apiRequest("POST", "/api/boards", {
         title: `${board.title} (Cópia)`,
         description: board.description,
         color: board.color,
         portfolioId
       });
-      return await res.json();
     },
     onSuccess: () => {
       toast({
@@ -164,9 +178,16 @@ export default function PortfolioDetail() {
     copyBoard(board);
   };
 
-    const handleDeleteBoard = (board: Board) => {
-    if (confirm(`Tem certeza que deseja excluir o projeto "${board.title}"? Esta ação não pode ser desfeita.`)) {
-      deleteBoard(board.id);
+  const handleDeleteBoard = (board: Board) => {
+    setBoardToDelete(board);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteBoard = () => {
+    if (boardToDelete) {
+      deleteBoard(boardToDelete.id);
+      setShowDeleteDialog(false);
+      setBoardToDelete(null);
     }
   };
 
@@ -419,6 +440,35 @@ export default function PortfolioDetail() {
           ))}
         </div>
       )}
+
+      {/* Diálogo de confirmação para exclusão de projeto */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <div>
+                Você tem certeza que deseja excluir o projeto <strong>{boardToDelete?.title}</strong>?
+              </div>
+              <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
+                <span className="text-sm">
+                  Esta ação não pode ser desfeita. O projeto e todos os dados associados (listas, cartões, comentários) serão removidos permanentemente.
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteBoard} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir projeto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -87,8 +87,7 @@ export default function AccountSettings() {
   const updateProfileMutation = useMutation({
     mutationFn: async (profileData: ProfileUpdateFormValues) => {
       if (!user) throw new Error("Usuário não autenticado");
-      const res = await apiRequest('PATCH', `/api/users/${user.id}`, profileData);
-      return await res.json();
+      return await apiRequest('PATCH', `/api/users/${user.id}`, profileData);
     },
     onSuccess: () => {
       toast({
@@ -109,8 +108,7 @@ export default function AccountSettings() {
   const uploadProfileImageMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       if (!user) throw new Error("Usuário não autenticado");
-      const res = await apiRequest('POST', `/api/users/${user.id}/profile-image`, formData, {}, true);
-      return await res.json();
+      return await apiRequest('POST', `/api/users/${user.id}/profile-image`, formData, {}, true);
     },
     onSuccess: (data) => {
       toast({
@@ -133,8 +131,7 @@ export default function AccountSettings() {
   const changePasswordMutation = useMutation({
     mutationFn: async (passwordData: ChangePasswordFormValues) => {
       if (!user) throw new Error("Usuário não autenticado");
-      const res = await apiRequest('POST', `/api/users/${user.id}/change-password`, passwordData);
-      return await res.json();
+      return await apiRequest('POST', `/api/users/${user.id}/change-password`, passwordData);
     },
     onSuccess: () => {
       toast({

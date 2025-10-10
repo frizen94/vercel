@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card as CardType, Label } from "@shared/schema";
 import { useBoardContext } from "@/lib/board-context";
-import { Draggable } from "react-beautiful-dnd";
+import { Draggable } from "@hello-pangea/dnd";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -168,7 +168,16 @@ export function Card({ card, index, openCardModal }: CardProps) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`bg-white rounded shadow-sm p-4 mb-2 flex flex-col justify-between min-h-[96px] cursor-pointer hover:bg-[#F4F5F7] ${snapshot.isDragging ? 'rotate-2 shadow-md' : ''}`}
+          className={`bg-white rounded shadow-sm p-4 mb-2 flex flex-col justify-between min-h-[96px] cursor-grab hover:bg-[#F4F5F7] transition-all duration-200 ${snapshot.isDragging ? 'board-card-dragging shadow-2xl opacity-100 visible' : ''}`}
+          style={{
+            ...provided.draggableProps.style,
+            ...(snapshot.isDragging && {
+              zIndex: 99999,
+              opacity: 1,
+              visibility: 'visible',
+              backgroundColor: '#ffffff',
+            })
+          }}
           onClick={handleCardClick}
         >
           {/* Card labels */}

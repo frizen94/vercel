@@ -500,6 +500,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para quadros arquivados - DEVE vir antes de /api/boards/:id
+  app.get("/api/boards/archived", async (req: Request, res: Response) => {
+    try {
+      console.log('🔍 Fetching archived boards, user:', req.user?.id, 'role:', req.user?.role);
+      
+      if (!req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      // Administradores veem todos os arquivados, usuários apenas os seus
+      const userId = req.user.role === 'admin' ? undefined : req.user.id;
+      console.log('📋 Searching archived boards for userId:', userId);
+      
+      const boards = await appStorage.getArchivedBoards(userId);
+      console.log('✅ Found archived boards:', boards.length);
+      
+      res.json(boards);
+    } catch (error) {
+      console.error('❌ Error fetching archived boards:', error);
+      res.status(500).json({ message: "Falha ao buscar quadros arquivados" });
+    }
+  });
+
   app.get("/api/boards/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -653,23 +676,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error unarchiving board:', error);
       res.status(500).json({ message: "Falha ao desarquivar quadro" });
-    }
-  });
-
-  app.get("/api/boards/archived", async (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Usuário não autenticado" });
-      }
-
-      // Administradores veem todos os arquivados, usuários apenas os seus
-      const userId = req.user.role === 'admin' ? undefined : req.user.id;
-      const boards = await appStorage.getArchivedBoards(userId);
-      
-      res.json(boards);
-    } catch (error) {
-      console.error('Error fetching archived boards:', error);
-      res.status(500).json({ message: "Falha ao buscar quadros arquivados" });
     }
   });
 

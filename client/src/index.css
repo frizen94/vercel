@@ -271,9 +271,91 @@
   }
   
   .board-card-dragging {
-    transform: rotate(2deg) scale(1.02);
-    box-shadow: var(--shadow-strong);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1) !important;
     border-color: hsl(var(--primary)/0.3);
+    cursor: grabbing !important;
+    opacity: 1 !important;
+    background-color: #ffffff !important;
+    z-index: 99999 !important;
+    position: relative !important;
+  }
+
+  /* Melhora o comportamento do drag and drop */
+  [data-rbd-drag-handle-context-id] {
+    cursor: grab !important;
+  }
+
+  [data-rbd-drag-handle-context-id]:active {
+    cursor: grabbing !important;
+  }
+
+  /* Corrige o offset durante o drag */
+  [data-rbd-draggable-context-id] {
+    transform-origin: 0 0 !important;
+  }
+
+  /* Corrige o posicionamento do portal durante drag */
+  .rbd-drag-handle {
+    position: relative !important;
+  }
+  
+  /* Força que o elemento arrastado não tenha transformações indesejadas */
+  [data-rbd-draggable-context-id][aria-hidden="false"] {
+    transform: none !important;
+    transform-origin: 0 0 !important;
+  }
+  
+  /* Garante que o contêiner de arrasto não tenha interferências de layout */
+  .board-lists {
+    transform: none !important;
+    transform-style: flat !important;
+  }
+
+  /* Corrige problemas de offset com scroll */
+  body {
+    position: relative;
+  }
+
+  /* Garante que o portal seja renderizado corretamente */
+  [data-rbd-drag-handle-draggable-id] {
+    position: static !important;
+  }
+
+  /* Força recálculo de posição sem transform personalizado */
+  [data-rbd-draggable-context-id][style*="transform"] {
+    will-change: transform !important;
+  }
+
+  /* Remove margins/paddings que podem afetar cálculo */
+  [data-rbd-draggable-context-id] > * {
+    margin: 0 !important;
+  }
+
+  /* Garante que o card sendo arrastado fique sempre visível */
+  [data-rbd-draggable-id*="card"][style*="position: fixed"] {
+    z-index: 99999 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  /* Força visibilidade durante drag */
+  [data-rbd-drag-handle-draggable-id*="card"] {
+    z-index: 99999 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Garante que elementos em drag ficam sempre por cima */
+  body [style*="position: fixed"][data-rbd-draggable-id] {
+    z-index: 99999 !important;
+  }
+
+  /* Override para qualquer opacity/visibility durante drag */
+  .rbd-draggable--is-dragging {
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 99999 !important;
   }
   
   /* Enhanced button styles */
@@ -515,4 +597,44 @@
   .animate-fadeInUp { animation: fadeInUp 0.4s ease-out forwards; }
   .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
   .animate-slideInRight { animation: slideInRight 0.4s ease-out forwards; }
+  
+  /* Garantir que cartão arrastado permaneça visível */
+  [data-rbd-draggable-id] {
+    opacity: 1 !important;
+  }
+  
+  [data-rbd-draggable-id] .bg-white {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Força visibilidade durante drag */
+  [data-rbd-draggable-context-id][aria-hidden="false"] {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Corrige qualquer possível problema de renderização durante drag */
+  [data-rbd-draggable-id] > * {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Garante que o cartão arrastado não seja escondido por overflow */
+  .board-lists {
+    overflow: visible !important;
+  }
+  
+  .list-cards {
+    overflow: visible !important;
+  }
+  
+  /* Classes adicionais para garantir visibilidade durante arrasto */
+  .opacity-100 {
+    opacity: 1 !important;
+  }
+  
+  .visible {
+    visibility: visible !important;
+  }
 }

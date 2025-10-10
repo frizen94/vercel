@@ -3,7 +3,7 @@ import { List as ListType } from "@shared/schema";
 import { useBoardContext } from "@/lib/board-context";
 import { Card } from "./card";
 import { AddCard } from "./add-card";
-import { Droppable, Draggable } from "react-beautiful-dnd";
+import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -211,12 +211,12 @@ export function List({ list, index, openCardModal }: ListProps) {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Droppable droppableId={`list-${list.id}`} type="CARD">
+          <Droppable droppableId={`list-${list.id}`} type="CARD" isDropDisabled={false}>
             {(provided, snapshot) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className={`list-cards flex-grow px-4 pb-4 overflow-y-auto transition-smooth ${snapshot.isDraggingOver ? 'bg-white/5 backdrop-blur-sm border-dashed border-2 border-primary/30 rounded-lg' : ''}`}
+                className={`list-cards flex-grow px-4 pb-4 max-h-[400px] overflow-y-auto transition-smooth ${snapshot.isDraggingOver ? 'bg-white/5 backdrop-blur-sm border-dashed border-2 border-primary/30 rounded-lg' : ''}`}
               >
                 {visibleCards[list.id]?.map((card, cardIndex) => (
                   <Card 

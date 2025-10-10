@@ -176,8 +176,7 @@ const BoardItem = ({ board }: { board: Board }) => {
   const { toast } = useToast();
   const { mutate: createBoard } = useMutation({
     mutationFn: async (title: string) => {
-      const res = await apiRequest("POST", "/api/boards", { title });
-      return await res.json();
+      return await apiRequest("POST", "/api/boards", { title });
     },
     onSuccess: (newBoard: Board) => {
       toast({

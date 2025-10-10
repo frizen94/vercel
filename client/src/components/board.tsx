@@ -4,7 +4,7 @@ import { List } from "./list";
 import { AddList } from "./add-list";
 import { CardModal } from "./card-modal";
 import { BoardHeader } from "./board-header";
-import { DragDropContext, Droppable, DropResult } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 
 interface BoardProps {
   boardId: number;
@@ -54,14 +54,14 @@ export function Board({ boardId }: BoardProps) {
 
   return (
     <div className="board-background min-h-screen">
-      <main className="container-fluid py-6">
+      <main className="container-fluid py-6 overflow-x-auto min-h-[calc(100vh-200px)]">
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="all-lists" direction="horizontal" type="LIST">
             {(provided) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className="board-lists flex space-x-6 pb-8 pt-4 overflow-x-auto min-h-[calc(100vh-200px)] items-start"
+                className="board-lists flex space-x-6 pb-8 pt-4 items-start"
               >
                 {lists.map((list, index) => (
                   <div key={list.id} className="floating" style={{animationDelay: `${index * 0.1}s`}}>

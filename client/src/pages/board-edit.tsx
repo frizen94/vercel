@@ -39,8 +39,7 @@ export default function BoardEdit() {
   // Mutation para atualizar o quadro
   const { mutate: updateBoard, isPending } = useMutation({
     mutationFn: async (data: { title: string }) => {
-      const res = await apiRequest("PATCH", `/api/boards/${boardId}`, data);
-      return await res.json();
+      return await apiRequest("PATCH", `/api/boards/${boardId}`, data);
     },
     onSuccess: () => {
       toast({

@@ -54,11 +54,42 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
     }
   }
   
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers,
     credentials: 'include' // Mudando para include para manter sessões
   });
+
+  // Se recebeu erro 403 (CSRF inválido) e é um método mutante, tentar renovar token
+  if (response.status === 403 && mutatingMethods.includes(method)) {
+    const errorText = await response.text();
+    if (errorText.includes('csrf token') || errorText.includes('invalid csrf')) {
+      console.log('🔄 Token CSRF expirado, renovando...');
+      try {
+        // Renovar token CSRF
+        await fetchCsrfToken();
+        
+        // Tentar novamente com novo token
+        const newHeaders = new Headers(options.headers);
+        newHeaders.set('X-CSRF-Token', csrfToken!);
+        
+        const retryResponse = await fetch(url, {
+          ...options,
+          headers: newHeaders,
+          credentials: 'include'
+        });
+        
+        if (retryResponse.ok) {
+          console.log('✅ Requisição repetida com sucesso após renovar token CSRF');
+          return retryResponse;
+        }
+      } catch (retryError) {
+        console.error('❌ Falha ao renovar token CSRF:', retryError);
+      }
+    }
+  }
+
+  return response;
 }
 
 /**

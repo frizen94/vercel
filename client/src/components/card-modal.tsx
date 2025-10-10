@@ -15,6 +15,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import DescriptionEditor from '@/components/description-editor';
 import { Input } from "@/components/ui/input";
@@ -25,6 +35,7 @@ import { ChecklistManager } from "@/components/checklist-manager";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { AlertTriangle } from "lucide-react";
 
 interface CardModalProps {
   cardId: number | null;
@@ -65,6 +76,9 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
   const [isMemberManagerOpen, setIsMemberManagerOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isChecklistManagerOpen, setIsChecklistManagerOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const { checklists, checklistItems } = useBoardContext();
 
@@ -148,16 +162,20 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
     setIsEditingDescription(false);
   };
 
-  const handleDeleteCard = async () => {
+  const handleDeleteCard = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteCard = async () => {
     if (!card) return;
 
-    if (window.confirm("Tem certeza que deseja excluir este cartão?")) {
-      try {
-        await deleteCard(card.id);
-        onClose();
-      } catch (error) {
-        console.error("Error deleting card:", error);
-      }
+    try {
+      await deleteCard(card.id);
+      setShowDeleteDialog(false);
+      onClose();
+    } catch (error) {
+      console.error("Error deleting card:", error);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -177,15 +195,22 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
     }
   };
 
-  const handleDeleteComment = async (commentId: number) => {
-    if (!card) return;
+  const handleDeleteComment = (commentId: number) => {
+    setCommentToDelete(commentId);
+    setShowDeleteCommentDialog(true);
+  };
 
-    if (window.confirm("Tem certeza que deseja excluir este comentário?")) {
-      try {
-        await deleteComment(commentId, card.id);
-      } catch (error) {
-        console.error("Error deleting comment:", error);
-      }
+  const confirmDeleteComment = async () => {
+    if (!card || !commentToDelete) return;
+
+    try {
+      await deleteComment(commentToDelete, card.id);
+      setShowDeleteCommentDialog(false);
+      setCommentToDelete(null);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      setShowDeleteCommentDialog(false);
+      setCommentToDelete(null);
     }
   };
 
@@ -789,6 +814,64 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Diálogo de confirmação para exclusão de cartão */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <div>
+                Você tem certeza que deseja excluir o cartão <strong>{card?.title}</strong>?
+              </div>
+              <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
+                <span className="text-sm">
+                  Esta ação não pode ser desfeita. O cartão e todos os dados associados serão removidos permanentemente.
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteCard} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir cartão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de confirmação para exclusão de comentário */}
+      <AlertDialog open={showDeleteCommentDialog} onOpenChange={setShowDeleteCommentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <div>
+                Você tem certeza que deseja excluir este comentário?
+              </div>
+              <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
+                <span className="text-sm">
+                  Esta ação não pode ser desfeita. O comentário será removido permanentemente.
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteComment} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir comentário
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
