@@ -19,8 +19,14 @@ export enum AuditAction {
   DELETE = "DELETE",
   LOGIN = "LOGIN",
   LOGOUT = "LOGOUT",
+  ASSIGN = "ASSIGN",
+  UNASSIGN = "UNASSIGN",
+  COMPLETE = "COMPLETE",
+  UNCOMPLETE = "UNCOMPLETE",
   PERMISSION_CHANGE = "PERMISSION_CHANGE",
-  PASSWORD_CHANGE = "PASSWORD_CHANGE"
+  PASSWORD_CHANGE = "PASSWORD_CHANGE",
+  UPLOAD = "UPLOAD",
+  VIEW = "VIEW"
 }
 
 /**
@@ -36,6 +42,10 @@ export enum EntityType {
   CHECKLIST = "checklist",
   CHECKLIST_ITEM = "checklist_item",
   PORTFOLIO = "portfolio",
+  NOTIFICATION = "notification",
+  BOARD_MEMBER = "board_member",
+  CARD_MEMBER = "card_member",
+  CARD_LABEL = "card_label",
   SESSION = "session"
 }
 
@@ -181,6 +191,90 @@ export class AuditService {
       metadata: {
         changedBy: req.user?.id,
         changeTime: new Date().toISOString()
+      }
+    });
+  }
+
+  static async logAssignment(req: Request, entityType: EntityType, entityId: string | number, targetUserId: number): Promise<void> {
+    return this.log({
+      req,
+      action: AuditAction.ASSIGN,
+      entityType,
+      entityId,
+      newData: { assignedUserId: targetUserId },
+      metadata: {
+        assignedBy: req.user?.id,
+        assignmentTime: new Date().toISOString()
+      }
+    });
+  }
+
+  static async logUnassignment(req: Request, entityType: EntityType, entityId: string | number, targetUserId: number): Promise<void> {
+    return this.log({
+      req,
+      action: AuditAction.UNASSIGN,
+      entityType,
+      entityId,
+      oldData: { assignedUserId: targetUserId },
+      metadata: {
+        unassignedBy: req.user?.id,
+        unassignmentTime: new Date().toISOString()
+      }
+    });
+  }
+
+  static async logTaskCompletion(req: Request, entityType: EntityType, entityId: string | number, completed: boolean): Promise<void> {
+    return this.log({
+      req,
+      action: completed ? AuditAction.COMPLETE : AuditAction.UNCOMPLETE,
+      entityType,
+      entityId,
+      newData: { completed },
+      metadata: {
+        completedBy: req.user?.id,
+        completionTime: new Date().toISOString()
+      }
+    });
+  }
+
+  static async logFileUpload(req: Request, fileName: string, fileSize: number, entityId: string | number): Promise<void> {
+    return this.log({
+      req,
+      action: AuditAction.UPLOAD,
+      entityType: EntityType.USER,
+      entityId,
+      newData: { fileName, fileSize },
+      metadata: {
+        uploadTime: new Date().toISOString(),
+        fileType: fileName.split('.').pop(),
+        uploadBy: req.user?.id
+      }
+    });
+  }
+
+  static async logNotificationAction(req: Request, notificationId: number, action: 'read' | 'delete' | 'mark_all_read'): Promise<void> {
+    return this.log({
+      req,
+      action: action === 'read' || action === 'mark_all_read' ? AuditAction.UPDATE : AuditAction.DELETE,
+      entityType: EntityType.NOTIFICATION,
+      entityId: notificationId,
+      metadata: {
+        notificationAction: action,
+        actionTime: new Date().toISOString()
+      }
+    });
+  }
+
+  static async logSystemOperation(req: Request, operation: string, metadata?: AuditMetadata): Promise<void> {
+    return this.log({
+      req,
+      action: AuditAction.VIEW,
+      entityType: EntityType.SESSION,
+      entityId: 'system',
+      metadata: {
+        operation,
+        operationTime: new Date().toISOString(),
+        ...metadata
       }
     });
   }

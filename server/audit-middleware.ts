@@ -22,21 +22,29 @@ const methodToAction: { [key: string]: AuditAction } = {
 /**
  * Extrai informações da URL para determinar o tipo de entidade e ID
  */
-function parseEntityFromUrl(path: string): { entityType?: EntityType; entityId?: string } {
+function parseEntityFromUrl(path: string): { entityType?: EntityType; entityId?: string; subAction?: string } {
   const segments = path.split('/').filter(Boolean);
   
   // Mapear caminhos da API para tipos de entidade
   if (segments.includes('users')) {
+    const userIndex = segments.indexOf('users');
+    const userId = segments[userIndex + 1];
+    const subAction = segments[userIndex + 2]; // pode ser 'change-password', 'profile-image', etc.
     return {
       entityType: EntityType.USER,
-      entityId: segments[segments.indexOf('users') + 1]
+      entityId: userId,
+      subAction
     };
   }
   
   if (segments.includes('boards')) {
+    const boardIndex = segments.indexOf('boards');
+    const boardId = segments[boardIndex + 1];
+    const subAction = segments[boardIndex + 2]; // pode ser 'members', 'labels', etc.
     return {
       entityType: EntityType.BOARD,
-      entityId: segments[segments.indexOf('boards') + 1]
+      entityId: boardId,
+      subAction
     };
   }
   
@@ -48,9 +56,13 @@ function parseEntityFromUrl(path: string): { entityType?: EntityType; entityId?:
   }
   
   if (segments.includes('cards')) {
+    const cardIndex = segments.indexOf('cards');
+    const cardId = segments[cardIndex + 1];
+    const subAction = segments[cardIndex + 2]; // pode ser 'members', 'labels', 'complete', etc.
     return {
       entityType: EntityType.CARD,
-      entityId: segments[segments.indexOf('cards') + 1]
+      entityId: cardId,
+      subAction
     };
   }
   
@@ -62,9 +74,13 @@ function parseEntityFromUrl(path: string): { entityType?: EntityType; entityId?:
   }
   
   if (segments.includes('checklist-items')) {
+    const itemIndex = segments.indexOf('checklist-items');
+    const itemId = segments[itemIndex + 1];
+    const subAction = segments[itemIndex + 2]; // pode ser 'members', etc.
     return {
       entityType: EntityType.CHECKLIST_ITEM,
-      entityId: segments[segments.indexOf('checklist-items') + 1]
+      entityId: itemId,
+      subAction
     };
   }
   
@@ -86,6 +102,36 @@ function parseEntityFromUrl(path: string): { entityType?: EntityType; entityId?:
     return {
       entityType: EntityType.PORTFOLIO,
       entityId: segments[segments.indexOf('portfolios') + 1]
+    };
+  }
+
+  // Capturar operações especiais
+  if (segments.includes('card-labels')) {
+    return {
+      entityType: EntityType.LABEL,
+      subAction: 'card-association'
+    };
+  }
+
+  if (segments.includes('card-members')) {
+    return {
+      entityType: EntityType.CARD,
+      subAction: 'member-association'
+    };
+  }
+
+  if (segments.includes('board-members')) {
+    return {
+      entityType: EntityType.BOARD,
+      subAction: 'member-association'
+    };
+  }
+
+  if (segments.includes('notifications')) {
+    return {
+      entityType: EntityType.SESSION, // Usar SESSION como tipo genérico para notificações
+      entityId: segments[segments.indexOf('notifications') + 1],
+      subAction: 'notification'
     };
   }
 
@@ -136,9 +182,22 @@ async function captureCurrentState(entityType: EntityType, entityId: string): Pr
  * Middleware de auditoria automática
  */
 export const auditMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  // Só processar métodos mutantes
+  // Marcar o tempo de início para calcular tempo de processamento
+  (req as any).auditStartTime = Date.now();
+
+  // Definir métodos e rotas que devem ser auditados
   const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-  if (!mutatingMethods.includes(req.method)) {
+  const importantReadPaths = [
+    '/api/admin/', // Todas as rotas administrativas
+    '/api/user', // Informações do usuário logado
+    '/api/cards/overdue-dashboard', // Cards atrasados
+    '/api/dashboard/', // Todas as rotas de dashboard
+  ];
+  
+  const isMutatingMethod = mutatingMethods.includes(req.method);
+  const isImportantRead = req.method === 'GET' && importantReadPaths.some(path => req.path.startsWith(path));
+  
+  if (!isMutatingMethod && !isImportantRead) {
     return next();
   }
 
@@ -160,14 +219,34 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
   }
 
   // Extrair informações da entidade da URL
-  const { entityType, entityId } = parseEntityFromUrl(req.path);
+  const { entityType, entityId, subAction } = parseEntityFromUrl(req.path);
   
-  // Se não conseguimos determinar o tipo de entidade, pular auditoria automática
+  // Se não conseguimos determinar o tipo de entidade, registrar como operação genérica do sistema
   if (!entityType) {
+            // Registrar operação genérica para debug e auditoria completa apenas se não for uma rota de health/debug
+        if (!req.path.includes('/health') && !req.path.includes('/debug') && !req.path.includes('/csrf-token')) {
+          setImmediate(() => {
+            AuditService.log({
+              req,
+              action: methodToAction[req.method] || AuditAction.READ,
+              entityType: EntityType.SESSION, // Usar SESSION como fallback
+              entityId: 'system',
+              metadata: {
+                method: req.method,
+                path: req.path,
+                body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+                query: Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : undefined,
+                userAgent: req.get('User-Agent'),
+                contentType: req.get('Content-Type'),
+                reason: 'generic_api_operation'
+              }
+            });
+          });
+        }
     return next();
   }
 
-  const action = methodToAction[req.method];
+  const action = methodToAction[req.method] || AuditAction.READ;
   let oldData: any = null;
 
   // Capturar estado anterior para UPDATE e DELETE
@@ -218,7 +297,12 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
             path: req.path,
             statusCode: res.statusCode,
             userAgent: req.get('User-Agent'),
-            contentType: req.get('Content-Type')
+            contentType: req.get('Content-Type'),
+            subAction: subAction || undefined,
+            requestBody: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+            queryParams: Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : undefined,
+            responseSize: typeof body === 'string' ? body.length : JSON.stringify(body || {}).length,
+            processingTime: Date.now() - ((req as any).auditStartTime || Date.now())
           }
         });
       });
@@ -251,7 +335,12 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
             path: req.path,
             statusCode: res.statusCode,
             userAgent: req.get('User-Agent'),
-            contentType: req.get('Content-Type')
+            contentType: req.get('Content-Type'),
+            subAction: subAction || undefined,
+            requestBody: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+            queryParams: Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : undefined,
+            responseSize: JSON.stringify(obj || {}).length,
+            processingTime: Date.now() - ((req as any).auditStartTime || Date.now())
           }
         });
       });
@@ -296,7 +385,12 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
               path: req.path,
               statusCode: res.statusCode,
               userAgent: req.get('User-Agent'),
-              contentType: req.get('Content-Type')
+              contentType: req.get('Content-Type'),
+              subAction: subAction || undefined,
+              requestBody: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+              queryParams: Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : undefined,
+              responseSize: chunk ? (Buffer.isBuffer(chunk) ? chunk.length : chunk.toString().length) : 0,
+              processingTime: Date.now() - ((req as any).auditStartTime || Date.now())
             }
           });
         });

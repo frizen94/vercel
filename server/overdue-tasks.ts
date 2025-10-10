@@ -57,6 +57,32 @@ export async function runOverdueCheck(): Promise<number> {
             relatedCardId: row.card_id,
             actionUrl: `/boards/${row.board_id}/cards/${row.card_id}`
           });
+          
+          // Registrar log de auditoria para detecção de tarefa atrasada
+          await appStorage.createAuditLog({
+            userId: null, // Sistema automático
+            sessionId: 'overdue-check-system',
+            action: 'VIEW',
+            entityType: 'card',
+            entityId: row.card_id.toString(),
+            ipAddress: '127.0.0.1',
+            userAgent: 'Overdue Tasks System Check',
+            oldData: null,
+            newData: JSON.stringify({
+              status: 'overdue',
+              dueDate: row.due_date,
+              title: row.card_title,
+              boardTitle: row.board_title
+            }),
+            metadata: JSON.stringify({
+              operation: 'overdue_detection',
+              targetUserId: row.user_id,
+              detectionTime: new Date().toISOString(),
+              daysPastDue: Math.floor((now.getTime() - new Date(row.due_date).getTime()) / (1000 * 60 * 60 * 24)),
+              boardId: row.board_id
+            })
+          });
+          
           cardNotificationsCreated++;
           console.log(`[OVERDUE-CHECK] Notificação criada: cartão "${row.card_title}" para usuário ${row.user_id}`);
         } else {
@@ -114,6 +140,34 @@ export async function runOverdueCheck(): Promise<number> {
             relatedCardId: row.card_id,
             actionUrl: `/boards/${row.board_id}/cards/${row.card_id}`
           });
+          
+          // Registrar log de auditoria para detecção de subtarefa atrasada
+          await appStorage.createAuditLog({
+            userId: null, // Sistema automático
+            sessionId: 'overdue-check-system',
+            action: 'VIEW',
+            entityType: 'checklist_item',
+            entityId: row.item_id.toString(),
+            ipAddress: '127.0.0.1',
+            userAgent: 'Overdue Tasks System Check',
+            oldData: null,
+            newData: JSON.stringify({
+              status: 'overdue',
+              dueDate: row.due_date,
+              content: row.item_content,
+              cardTitle: row.card_title,
+              boardTitle: row.board_title
+            }),
+            metadata: JSON.stringify({
+              operation: 'subtask_overdue_detection',
+              targetUserId: row.assigned_to_user_id,
+              detectionTime: new Date().toISOString(),
+              daysPastDue: Math.floor((now.getTime() - new Date(row.due_date).getTime()) / (1000 * 60 * 60 * 24)),
+              boardId: row.board_id,
+              cardId: row.card_id
+            })
+          });
+          
           subtaskNotificationsCreated++;
           console.log(`[OVERDUE-CHECK] Notificação criada: subtarefa "${row.item_content}" para usuário ${row.assigned_to_user_id}`);
         } else {

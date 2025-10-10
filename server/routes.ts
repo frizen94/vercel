@@ -49,6 +49,7 @@ import {
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection } from "./middlewares";
 import { auditMiddleware } from "./audit-middleware";
+import { AuditService, EntityType } from "./audit-service";
 import { sql } from "./database";
 import { createAutomaticNotifications } from "./notification-service";
 
@@ -975,6 +976,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { completed } = req.body;
       const newCompletedStatus = completed !== undefined ? completed : !existingCard.completed;
 
+      // Registrar log de auditoria específico para conclusão de tarefa
+      await AuditService.logTaskCompletion(req, EntityType.CARD, id, newCompletedStatus);
+
       // Atualizar o cartão
       const updatedCard = await appStorage.updateCard(id, { completed: newCompletedStatus });
       
@@ -1559,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar informações dos colaboradores
       const collaborators = [];
-      for (const userId of collaboratorIds) {
+      for (const userId of Array.from(collaboratorIds)) {
         try {
           const user = await appStorage.getUser(userId);
           if (user) {
@@ -1694,7 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   boardName: board.title,
                   listName: list.title,
                   createdAt: card.createdAt,
-                  updatedAt: card.updatedAt
+                  updatedAt: card.createdAt // Usar createdAt como fallback para updatedAt
                 });
               }
             }
@@ -1936,6 +1940,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
+      // Log de auditoria para upload de imagem de perfil
+      await AuditService.logFileUpload(req, req.file.filename, req.file.size, id);
+
       res.json(user);
     } catch (error) {
       console.error("Erro ao fazer upload de imagem de perfil:", error);
@@ -1983,6 +1990,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cardMember = await appStorage.addMemberToCard(validatedData);
+
+      // Log de auditoria para atribuição de membro ao cartão
+      await AuditService.logAssignment(req, EntityType.CARD, validatedData.cardId, validatedData.userId);
 
       // Criar notificação para o usuário atribuído
       if (req.user && req.user.id !== validatedData.userId) {
@@ -2033,6 +2043,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ message: "Membro não encontrado no cartão" });
       }
+
+      // Log de auditoria para remoção de membro do cartão
+      await AuditService.logUnassignment(req, EntityType.CARD, cardId, userId);
 
       // Criar notificação para o usuário removido
       if (req.user && req.user.id !== userId) {
@@ -2266,6 +2279,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const item = await appStorage.updateChecklistItem(id, itemData);
 
+      // Log de auditoria se o status de conclusão mudou
+      if (itemData.completed !== undefined && itemData.completed !== currentItem.completed) {
+        await AuditService.logTaskCompletion(req, EntityType.CHECKLIST_ITEM, id, itemData.completed);
+      }
+
       // Se a subtarefa foi marcada como concluída, criar notificações automáticas
       if (req.user && itemData.completed && !currentItem.completed) {
         try {
@@ -2406,6 +2424,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const boardMember = await appStorage.addMemberToBoard(validatedData);
+        
+        // Log de auditoria para adição de membro ao quadro
+        await AuditService.logAssignment(req, EntityType.BOARD, validatedData.boardId, validatedData.userId);
+        
         res.status(201).json(boardMember);
       } else {
         res.status(403).json({ message: "Permissão negada para adicionar membros a este quadro" });
@@ -2472,6 +2494,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!success) {
           return res.status(404).json({ message: "Membro não encontrado neste quadro" });
         }
+        
+        // Log de auditoria para remoção de membro do quadro
+        await AuditService.logUnassignment(req, EntityType.BOARD, boardId, userId);
+        
         res.status(204).end();
       } else {
         res.status(403).json({ message: "Permissão negada para remover membros deste quadro" });
@@ -2592,6 +2618,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const success = await appStorage.markAsRead(notificationId, req.user.id);
 
       if (success) {
+        // Log de auditoria para marcação de notificação como lida
+        await AuditService.logNotificationAction(req, notificationId, 'read');
         res.json({ success: true });
       } else {
         res.status(404).json({ message: 'Notificação não encontrada' });
@@ -2613,6 +2641,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const markedCount = await appStorage.markAllAsRead(req.user.id);
+      
+      // Log de auditoria para marcar todas as notificações como lidas
+      if (markedCount > 0) {
+        await AuditService.logNotificationAction(req, 0, 'mark_all_read');
+      }
+      
       res.json({ success: true, markedCount });
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -2638,6 +2672,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const success = await appStorage.deleteNotification(notificationId, req.user.id);
 
       if (success) {
+        // Log de auditoria para exclusão de notificação
+        await AuditService.logNotificationAction(req, notificationId, 'delete');
         res.json({ success: true });
       } else {
         res.status(404).json({ message: 'Notificação não encontrada' });
@@ -2664,6 +2700,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
    */
   app.get("/api/admin/audit-logs", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
+      // Log de auditoria para acesso aos logs de auditoria
+      await AuditService.logSystemOperation(req, 'audit_logs_access', {
+        queryFilters: JSON.stringify(req.query),
+        accessLevel: 'admin'
+      });
+
       const {
         page = "1",
         limit = "50",

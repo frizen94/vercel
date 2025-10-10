@@ -264,8 +264,9 @@ export function AppSidebar() {
     // Create portfolio mutation
   const { mutate: createPortfolio, isPending: isCreatingPortfolio } = useMutation({
     mutationFn: async (data: typeof portfolioFormData) => {
-      const res = await apiRequest("POST", "/api/portfolios", data);
-      return await res.json();
+      // `apiRequest` already returns parsed JSON when the response
+      // content-type is application/json, so just return its result.
+      return await apiRequest("POST", "/api/portfolios", data);
     },
     onSuccess: () => {
       toast({

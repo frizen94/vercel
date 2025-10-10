@@ -81,52 +81,7 @@ export class DatabaseStorage implements IStorage {
     return updated[0];
   }
 
-  // Notificações
-  async getNotifications(userId: number, options: { limit?: number; offset?: number; unreadOnly?: boolean } = {}): Promise<Notification[]> {
-    const { limit = 50, offset = 0, unreadOnly = false } = options;
-
-    let query = db.select().from(schema.notifications).where(eq(schema.notifications.userId, userId));
-
-    if (unreadOnly) {
-      query = query.where(eq(schema.notifications.read, false));
-    }
-
-    return query
-      .orderBy(desc(schema.notifications.createdAt))
-      .limit(limit)
-      .offset(offset);
-  }
-
-  async createNotification(notificationData: InsertNotification): Promise<Notification> {
-    const inserted = await db.insert(schema.notifications).values(notificationData).returning();
-    return inserted[0];
-  }
-
-  async markAsRead(id: number, userId: number): Promise<boolean> {
-    const updated = await db
-      .update(schema.notifications)
-      .set({ read: true })
-      .where(and(eq(schema.notifications.id, id), eq(schema.notifications.userId, userId)))
-      .returning();
-    return updated.length > 0;
-  }
-
-  async markAllAsRead(userId: number): Promise<number> {
-    const result = await db
-      .update(schema.notifications)
-      .set({ read: true })
-      .where(and(eq(schema.notifications.userId, userId), eq(schema.notifications.read, false)))
-      .returning();
-    return result.length;
-  }
-
-  async deleteNotification(id: number, userId: number): Promise<boolean> {
-    const deleted = await db
-      .delete(schema.notifications)
-      .where(and(eq(schema.notifications.id, id), eq(schema.notifications.userId, userId)))
-      .returning();
-    return deleted.length > 0;
-  }
+  // Notificações (removidas - versão duplicada, a implementação correta está mais abaixo)
 
   async deleteUser(id: number): Promise<boolean> {
     try {
