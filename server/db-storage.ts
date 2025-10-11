@@ -264,7 +264,8 @@ export class DatabaseStorage implements IStorage {
         })
         .from(schema.boards)
         .leftJoin(schema.users, eq(schema.boards.userId, schema.users.id))
-        .where(eq(schema.boards.portfolioId, portfolioId))
+        // Exclude archived boards from portfolio listing
+        .where(and(eq(schema.boards.portfolioId, portfolioId), eq(schema.boards.archived, false)))
         .orderBy(desc(schema.boards.createdAt));
 
       return boards as Board[];
