@@ -348,7 +348,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_session_id ON audit_logs(session_id);
 CREATE TABLE IF NOT EXISTS activities (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) NOT NULL,
-    board_id INTEGER REFERENCES boards(id),
+    board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
     activity_type TEXT NOT NULL, -- "board_created", "card_created", "task_completed", etc.
     entity_type TEXT NOT NULL, -- "board", "card", "checklist", "task", etc.
     entity_id INTEGER, -- ID da entidade relacionada

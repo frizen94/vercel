@@ -1,7 +1,28 @@
 import { sql } from './database';
+import fs from 'fs/promises';
+import path from 'path';
 
 export async function runInitialMigrations() {
   try {
+    // If running on Railway, prefer executing the single init.sql bootstrap file
+    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID;
+    if (isRailway) {
+      try {
+        console.log('🔄 Railway environment detected — applying `init.sql` bootstrap...');
+        const initPath = path.join(__dirname, '..', 'init.sql');
+        const raw = await fs.readFile(initPath, 'utf8');
+        // Some tools may leave code fences in the file when authored; strip triple backticks if present
+        const cleaned = raw.replace(/```sql/g, '').replace(/```/g, '');
+        // Use unsafe to execute the full SQL bootstrap (contains multiple statements and DO blocks)
+        await (sql as any).unsafe(cleaned);
+        console.log('✅ `init.sql` executed successfully');
+        return true;
+      } catch (err) {
+        console.error('❌ Failed to run init.sql bootstrap on Railway:', err);
+        throw err;
+      }
+    }
+
     console.log('🔄 Creating initial database schema...');
     
     // Create all tables in the correct order (respecting foreign key dependencies)
