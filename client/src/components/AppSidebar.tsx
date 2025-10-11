@@ -2,28 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
-// Função para buscar quadros arquivados
-const fetchArchivedBoards = async () => {
-  const response = await fetch("/api/boards/archived", {
-    credentials: "include",
-  });
-  if (!response.ok) {
-    throw new Error("Failed to fetch archived boards");
-  }
-  return response.json();
-};
-
-// Função para desarquivar um quadro
-const unarchiveBoard = async (boardId: number) => {
-  const response = await fetch(`/api/boards/${boardId}/unarchive`, {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!response.ok) {
-    throw new Error("Failed to unarchive board");
-  }
-  return response.json();
-};
+// NOTE: fetchArchivedBoards and unarchiveBoard are implemented inline below
+// using the shared `apiRequest` helper so CSRF token and headers are applied.
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -128,12 +108,12 @@ function ArchivedBoardsList() {
     refetch: refetchArchived,
   } = useQuery({
     queryKey: ["archived-boards"],
-    queryFn: fetchArchivedBoards,
+    queryFn: () => apiRequest('GET', '/api/boards/archived'),
   });
 
   // Mutation para desarquivar quadro
   const unarchiveMutation = useMutation({
-    mutationFn: unarchiveBoard,
+    mutationFn: (boardId: number) => apiRequest('POST', `/api/boards/${boardId}/unarchive`),
     onSuccess: () => {
       toast({
         title: "Sucesso!",
@@ -176,9 +156,9 @@ function ArchivedBoardsList() {
   return (
     <SidebarMenu>
       {archivedBoards.map((board: any) => (
-        <SidebarMenuItem key={board.id}>
+          <SidebarMenuItem key={board.id}>
           <SidebarMenuButton
-            onClick={() => navigate(`/portfolio/${board.portfolioId}/board/${board.id}`)}
+            onClick={() => navigate(`/board/${board.id}`)}
             className="w-full justify-between group"
           >
             <div className="flex items-center gap-2">
