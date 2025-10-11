@@ -253,6 +253,11 @@ export function AppSidebar() {
     });
   };
 
+  // Sidebar expand/collapse state for sections
+  const [boardsSectionExpanded, setBoardsSectionExpanded] = useState<boolean>(true);
+  const [projectsSectionExpanded, setProjectsSectionExpanded] = useState<boolean>(true);
+  const [archivedSectionExpanded, setArchivedSectionExpanded] = useState<boolean>(true);
+
   const handleCreatePortfolio = () => {
     if (!portfolioFormData.name.trim()) {
       toast({
@@ -604,50 +609,67 @@ export function AppSidebar() {
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel className="flex items-center justify-between">
-                <span>Quadros</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-1 hover:bg-white/10"
-                  onClick={() => setIsCreateBoardModalOpen(true)}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    aria-label={boardsSectionExpanded ? 'Recolher quadros' : 'Expandir quadros'}
+                    className="p-1"
+                    onClick={() => setBoardsSectionExpanded(prev => !prev)}
+                  >
+                    {boardsSectionExpanded ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </button>
+                  <span>Quadros</span>
+                </div>
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-1 hover:bg-white/10 mr-2"
+                    onClick={() => setIsCreateBoardModalOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
               </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {boards.slice(0, 10).map((board) => (
-                    <SidebarMenuItem key={board.id}>
-                      <SidebarMenuButton asChild className="w-full justify-start" isActive={isActiveStart(`/board/${board.id}`)}>
-                        <Link href={`/board/${board.id}`}>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button onClick={(e) => { e.preventDefault(); setSelectedBoard(board); }} aria-label="Editar cor do quadro" className="mr-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: board.color || '#22C55E' }} />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-2">
-                              <div className="grid grid-cols-3 gap-2">
-                                {colors.map(color => (
-                                  <button key={color} className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500" style={{ backgroundColor: color }} onClick={() => handleColorChange(color)} />
-                                ))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                          <span className="truncate max-w-[120px]">{board.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                  {boards.length > 10 && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton className="w-full justify-start text-xs text-muted-foreground">
-                        +{boards.length - 10} quadros...
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
-                </SidebarMenu>
-              </SidebarGroupContent>
+              {boardsSectionExpanded && (
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {boards.slice(0, 10).map((board) => (
+                      <SidebarMenuItem key={board.id}>
+                        <SidebarMenuButton asChild className="w-full justify-start" isActive={isActiveStart(`/board/${board.id}`)}>
+                          <Link href={`/board/${board.id}`}>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button onClick={(e) => { e.preventDefault(); setSelectedBoard(board); }} aria-label="Editar cor do quadro" className="mr-2">
+                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: board.color || '#22C55E' }} />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  {colors.map(color => (
+                                    <button key={color} className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500" style={{ backgroundColor: color }} onClick={() => handleColorChange(color)} />
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <span className="truncate max-w-[120px]">{board.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                    {boards.length > 10 && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton className="w-full justify-start text-xs text-muted-foreground">
+                          +{boards.length - 10} quadros...
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              )}
             </SidebarGroup>
           </>
         )}
@@ -658,43 +680,60 @@ export function AppSidebar() {
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel className="flex items-center justify-between">
-                <span>Projetos Avulsos</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-1 hover:bg-white/10"
-                  onClick={() => setIsCreateBoardModalOpen(true)}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    aria-label={projectsSectionExpanded ? 'Recolher projetos avulsos' : 'Expandir projetos avulsos'}
+                    className="p-1"
+                    onClick={() => setProjectsSectionExpanded(prev => !prev)}
+                  >
+                    {projectsSectionExpanded ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </button>
+                  <span>Projetos Avulsos</span>
+                </div>
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-1 hover:bg-white/10"
+                    onClick={() => setIsCreateBoardModalOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
               </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {getBoardsByPortfolio(undefined).slice(0, 8).map((board) => (
-                    <SidebarMenuItem key={board.id}>
-                      <SidebarMenuButton asChild className="w-full justify-start" isActive={isActiveStart(`/board/${board.id}`)}>
-                        <Link href={`/board/${board.id}`}>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button onClick={(e) => { e.preventDefault(); setSelectedBoard(board); }} aria-label="Editar cor do quadro" className="mr-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: board.color || '#22C55E' }} />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-2">
-                              <div className="grid grid-cols-3 gap-2">
-                                {colors.map(color => (
-                                  <button key={color} className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500" style={{ backgroundColor: color }} onClick={() => handleColorChange(color)} />
-                                ))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                          <span className="truncate max-w-[120px]">{board.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
+              {projectsSectionExpanded && (
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {getBoardsByPortfolio(undefined).slice(0, 8).map((board) => (
+                      <SidebarMenuItem key={board.id}>
+                        <SidebarMenuButton asChild className="w-full justify-start" isActive={isActiveStart(`/board/${board.id}`)}>
+                          <Link href={`/board/${board.id}`}>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button onClick={(e) => { e.preventDefault(); setSelectedBoard(board); }} aria-label="Editar cor do quadro" className="mr-2">
+                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: board.color || '#22C55E' }} />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  {colors.map(color => (
+                                    <button key={color} className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500" style={{ backgroundColor: color }} onClick={() => handleColorChange(color)} />
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <span className="truncate max-w-[120px]">{board.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              )}
             </SidebarGroup>
           </>
         )}
@@ -755,13 +794,31 @@ export function AppSidebar() {
   
         {/* Quadros Arquivados */}
         <SidebarGroup>
-          <SidebarGroupLabel>
-            <Archive className="h-4 w-4" />
-            Quadros Arquivados
+          <SidebarGroupLabel className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                aria-label={archivedSectionExpanded ? 'Recolher quadros arquivados' : 'Expandir quadros arquivados'}
+                className="p-1"
+                onClick={() => setArchivedSectionExpanded(prev => !prev)}
+              >
+                {archivedSectionExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+              </button>
+              <div className="flex items-center gap-2">
+                <Archive className="h-4 w-4" />
+                <span>Quadros Arquivados</span>
+              </div>
+            </div>
+            <div />
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <ArchivedBoardsList />
-          </SidebarGroupContent>
+          {archivedSectionExpanded && (
+            <SidebarGroupContent>
+              <ArchivedBoardsList />
+            </SidebarGroupContent>
+          )}
         </SidebarGroup>
       </SidebarContent>
 
