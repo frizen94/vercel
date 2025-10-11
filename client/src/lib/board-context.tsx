@@ -28,6 +28,9 @@ interface BoardContextType {
   createCard: (title: string, listId: number) => Promise<Card>;
   updateCard: (id: number, updates: Partial<Card>) => Promise<Card>;
   deleteCard: (id: number) => Promise<void>;
+  archiveCard: (id: number) => Promise<Card>;
+  unarchiveCard: (id: number) => Promise<Card>;
+  fetchArchivedCards: (listId?: number, boardId?: number) => Promise<Card[]>;
   moveCard: (cardId: number, sourceListId: number, destinationListId: number, newIndex: number) => Promise<void>;
   moveList: (listId: number, newIndex: number) => Promise<void>;
   fetchComments: (cardId: number, checklistItemId?: number) => Promise<Comment[]>;
@@ -337,6 +340,81 @@ export function BoardProvider({ children }: BoardProviderProps) {
       
       return newCards;
     });
+  };
+
+  const archiveCard = async (id: number): Promise<Card> => {
+    const archivedCard = await apiRequest("POST", `/api/cards/${id}/archive`);
+    
+    // Remove card from current view
+    setCards(prevCards => {
+      const newCards = { ...prevCards };
+      
+      // Find which list the card is in and remove it
+      for (const listId in newCards) {
+        const cardIndex = newCards[Number(listId)].findIndex(card => card.id === id);
+        if (cardIndex !== -1) {
+          newCards[Number(listId)] = newCards[Number(listId)].filter(card => card.id !== id);
+          break;
+        }
+      }
+      
+      // Update visible cards
+      if (!searchFilter.trim()) {
+        setVisibleCards(newCards);
+      } else {
+        setCardVisibilityFilter(searchFilter);
+      }
+      
+      return newCards;
+    });
+
+    return archivedCard;
+  };
+
+  const unarchiveCard = async (id: number): Promise<Card> => {
+    const unarchivedCard = await apiRequest("POST", `/api/cards/${id}/unarchive`);
+    
+    // Add card back to its list
+    setCards(prevCards => {
+      const newCards = { ...prevCards };
+      const listId = unarchivedCard.listId;
+      
+      if (!newCards[listId]) {
+        newCards[listId] = [];
+      }
+      
+      // Add the card back
+      newCards[listId].push(unarchivedCard);
+      
+      // Update visible cards
+      if (!searchFilter.trim()) {
+        setVisibleCards(newCards);
+      } else {
+        setCardVisibilityFilter(searchFilter);
+      }
+      
+      return newCards;
+    });
+
+    return unarchivedCard;
+  };
+
+  const fetchArchivedCards = async (listId?: number, boardId?: number): Promise<Card[]> => {
+    let url = '/api/cards/archived';
+    const params = new URLSearchParams();
+    
+    if (listId) {
+      params.append('listId', listId.toString());
+    }
+    if (boardId) {
+      params.append('boardId', boardId.toString());
+    }
+    
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+    
+    return await apiRequest("GET", url);
   };
 
   const moveCard = async (
@@ -1055,6 +1133,9 @@ export function BoardProvider({ children }: BoardProviderProps) {
     createCard,
     updateCard,
     deleteCard,
+    archiveCard,
+    unarchiveCard,
+    fetchArchivedCards,
     moveCard,
     moveList,
     fetchComments,

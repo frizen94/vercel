@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS cards (
     "order" INTEGER NOT NULL DEFAULT 0,
     due_date TIMESTAMP,
     completed BOOLEAN NOT NULL DEFAULT FALSE,
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
     list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL
@@ -213,6 +214,9 @@ CREATE INDEX IF NOT EXISTS idx_cards_list_id ON cards(list_id);
 CREATE INDEX IF NOT EXISTS idx_cards_order ON cards("order");
 CREATE INDEX IF NOT EXISTS idx_cards_due_date ON cards(due_date);
 CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);
+-- Índices para arquivamento de cartões (performance em consultas de arquivados)
+CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);
+CREATE INDEX IF NOT EXISTS idx_cards_list_archived ON cards(list_id, archived);
 
 -- Índices para etiquetas
 CREATE INDEX IF NOT EXISTS idx_labels_board_id ON labels(board_id);

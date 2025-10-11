@@ -208,6 +208,7 @@ export type List = typeof lists.$inferSelect;
  * - Referência à lista pai (listId)
  * - Ordem de exibição dentro da lista
  * - Data de vencimento (deadline)
+ * - Status de arquivamento (archived)
  * - Data de criação
  */
 export const cards = pgTable("cards", {
@@ -218,6 +219,7 @@ export const cards = pgTable("cards", {
   order: integer("order").notNull().default(0),
   dueDate: timestamp("due_date"),
   completed: boolean("completed").notNull().default(false),
+  archived: boolean("archived").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

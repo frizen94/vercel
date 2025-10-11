@@ -590,7 +590,10 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(schema.cards)
-      .where(eq(schema.cards.listId, listId))
+      .where(and(
+        eq(schema.cards.listId, listId),
+        eq(schema.cards.archived, false)
+      ))
       .orderBy(asc(schema.cards.order));
   }
 
@@ -647,6 +650,75 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Erro ao excluir cartão:', error);
       return false;
+    }
+  }
+
+  // Archive/Unarchive card methods
+  async archiveCard(id: number): Promise<Card | null> {
+    const updated = await db
+      .update(schema.cards)
+      .set({ archived: true })
+      .where(eq(schema.cards.id, id))
+      .returning();
+    return updated[0] || null;
+  }
+
+  async unarchiveCard(id: number): Promise<Card | null> {
+    const updated = await db
+      .update(schema.cards)
+      .set({ archived: false })
+      .where(eq(schema.cards.id, id))
+      .returning();
+    return updated[0] || null;
+  }
+
+  async getArchivedCards(listId?: number, boardId?: number): Promise<Card[]> {
+    try {
+      if (listId) {
+        // Get archived cards from specific list
+        const cards = await db
+          .select()
+          .from(schema.cards)
+          .where(and(
+            eq(schema.cards.archived, true),
+            eq(schema.cards.listId, listId)
+          ))
+          .orderBy(desc(schema.cards.createdAt));
+        return cards;
+      } else if (boardId) {
+        // Get archived cards from all lists in the board
+        const cards = await db
+          .select({
+            id: schema.cards.id,
+            title: schema.cards.title,
+            description: schema.cards.description,
+            listId: schema.cards.listId,
+            order: schema.cards.order,
+            dueDate: schema.cards.dueDate,
+            completed: schema.cards.completed,
+            archived: schema.cards.archived,
+            createdAt: schema.cards.createdAt,
+          })
+          .from(schema.cards)
+          .innerJoin(schema.lists, eq(schema.cards.listId, schema.lists.id))
+          .where(and(
+            eq(schema.cards.archived, true),
+            eq(schema.lists.boardId, boardId)
+          ))
+          .orderBy(desc(schema.cards.createdAt));
+        return cards as Card[];
+      } else {
+        // Get all archived cards
+        const cards = await db
+          .select()
+          .from(schema.cards)
+          .where(eq(schema.cards.archived, true))
+          .orderBy(desc(schema.cards.createdAt));
+        return cards;
+      }
+    } catch (error) {
+      console.error("Erro ao buscar cartões arquivados:", error);
+      return [];
     }
   }
 

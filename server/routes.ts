@@ -49,7 +49,7 @@ import {
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection } from "./middlewares";
 import { auditMiddleware } from "./audit-middleware";
-import { AuditService, EntityType } from "./audit-service";
+import { AuditService, EntityType, AuditAction } from "./audit-service";
 import { sql } from "./database";
 import { createAutomaticNotifications } from "./notification-service";
 
@@ -855,6 +855,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get archived cards endpoint - MUST come before /api/cards/:id
+  app.get("/api/cards/archived", isAuthenticated, async (req: Request, res: Response) => {
+    console.log('🔥 ARCHIVED CARDS ENDPOINT HIT - Query:', req.query, 'User:', req.user);
+    try {
+      console.log('[DEBUG] Archived cards endpoint called with query:', req.query);
+      
+      const listId = req.query.listId ? parseInt(req.query.listId as string) : undefined;
+      const boardId = req.query.boardId ? parseInt(req.query.boardId as string) : undefined;
+
+      console.log('[DEBUG] Parsed IDs - listId:', listId, 'boardId:', boardId);
+
+      if (listId && isNaN(listId)) {
+        console.log('[DEBUG] Invalid listId:', listId);
+        return res.status(400).json({ message: "ID da lista inválido" });
+      }
+
+      if (boardId && isNaN(boardId)) {
+        console.log('[DEBUG] Invalid boardId:', boardId);
+        return res.status(400).json({ message: "ID do quadro inválido" });
+      }
+
+      console.log('[DEBUG] About to call getArchivedCards');
+      const archivedCards = await appStorage.getArchivedCards(listId, boardId);
+      console.log('[DEBUG] Retrieved archived cards:', archivedCards.length);
+      
+      res.json(archivedCards);
+    } catch (error) {
+      console.error('Error fetching archived cards:', error);
+      res.status(500).json({ message: "Falha ao buscar cartões arquivados" });
+    }
+  });
+
   app.get("/api/cards/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -1106,6 +1138,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete card" });
     }
   });
+
+  // Archive/Unarchive card endpoints
+  app.post("/api/cards/:id/archive", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do cartão inválido" });
+      }
+
+      const card = await appStorage.archiveCard(id);
+      if (!card) {
+        return res.status(404).json({ message: "Cartão não encontrado" });
+      }
+
+      // Log de auditoria
+      await AuditService.log({
+        req,
+        action: AuditAction.UPDATE,
+        entityType: EntityType.CARD,
+        entityId: id,
+        newData: { archived: true }
+      });
+      
+      res.json(card);
+    } catch (error) {
+      console.error('Error archiving card:', error);
+      res.status(500).json({ message: "Falha ao arquivar cartão" });
+    }
+  });
+
+  app.post("/api/cards/:id/unarchive", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do cartão inválido" });
+      }
+
+      const card = await appStorage.unarchiveCard(id);
+      if (!card) {
+        return res.status(404).json({ message: "Cartão não encontrado" });
+      }
+
+      // Log de auditoria
+      await AuditService.log({
+        req,
+        action: AuditAction.UPDATE,
+        entityType: EntityType.CARD,
+        entityId: id,
+        newData: { archived: false }
+      });
+      
+      res.json(card);
+    } catch (error) {
+      console.error('Error unarchiving card:', error);
+      res.status(500).json({ message: "Falha ao desarquivar cartão" });
+    }
+  });
+
+
 
   /**
    * Rotas para gerenciar Etiquetas (Labels)

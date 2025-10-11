@@ -8,13 +8,16 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "build:vercel": "vite build",
     "start": "NODE_ENV=production node dist/index.js",
+  "start:migrate": "node server/run-migrations-and-start.js",
     "check": "tsc",
     "validate-env": "node scripts/validate-environment.js",
     "db:push": "drizzle-kit push",
-    "db:migrate": "tsx server/seeder.ts",
+  "db:migrate": "tsx server/seeder.ts",
     "db:migrate-portfolios": "tsx server/schema-setup.ts",
     "db:migrate-missing": "node migrate-missing-tables.js",
     "fix-label-duplicates": "tsx server/scripts/fix-label-duplicates.ts"
+    ,
+    "postinstall": "node server/run-migrations-and-start.js || true"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

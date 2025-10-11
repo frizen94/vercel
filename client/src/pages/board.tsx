@@ -6,6 +6,7 @@ import { BoardHeader } from "@/components/board-header";
 import { CardModal } from "@/components/card-modal";
 import { BoardOverview } from "@/components/board-overview";
 import { BoardList } from "@/components/board-list";
+import { ArchivedCards } from "@/components/archived-cards";
 import { useBoardContext } from "@/lib/board-context";
 import type { Board, List } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +17,7 @@ export default function BoardPage() {
   const boardId = parseInt(id);
   const { currentBoard, fetchBoardData, isLoading } = useBoardContext();
   const { toast } = useToast();
-  const [currentView, setCurrentView] = useState<'overview' | 'board' | 'list'>('overview');
+  const [currentView, setCurrentView] = useState<'overview' | 'board' | 'list' | 'archived'>('overview');
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
 
@@ -85,6 +86,8 @@ export default function BoardPage() {
             />
           ) : currentView === 'board' ? (
             <BoardComponent boardId={parseInt(id || "0")} />
+          ) : currentView === 'archived' ? (
+            <ArchivedCards board={currentBoard} />
           ) : (
             <BoardList board={currentBoard} openCardModal={(id: number) => {
               // Reuse the Board component's modal by delegating to the parent via window event

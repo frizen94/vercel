@@ -54,7 +54,7 @@ export function Board({ boardId }: BoardProps) {
 
   return (
     <div className="board-background min-h-screen">
-      <main className="container-fluid py-6 overflow-x-auto min-h-[calc(100vh-200px)]">
+      <div className="board-container overflow-x-auto p-6" style={{ minHeight: 'calc(100vh - 200px)' }}>
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="all-lists" direction="horizontal" type="LIST">
             {(provided) => (
@@ -90,7 +90,7 @@ export function Board({ boardId }: BoardProps) {
             />
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

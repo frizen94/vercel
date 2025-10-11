@@ -327,6 +327,14 @@ export async function runMissingSqlMigrations() {
     
     await sql`CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);`;
     
+    // 6b. Add archived column to cards table (new migration to support card archiving)
+    await sql`
+      ALTER TABLE cards
+      ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT false;
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_cards_list_archived ON cards(list_id, archived);`;
+    
     // 7. Fix label duplicates and add unique constraint (from fix-label-duplicates.sql)
     await sql`
       DELETE FROM card_labels 

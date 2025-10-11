@@ -41,9 +41,10 @@ interface CardModalProps {
   cardId: number | null;
   isOpen: boolean;
   onClose: () => void;
+  isArchivedView?: boolean; // Para indicar se está visualizando um card arquivado
 }
 
-export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
+export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: CardModalProps) {
   const { 
     cards, 
     lists, 
@@ -56,7 +57,17 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
     fetchComments,
     createComment,
     deleteComment,
-    currentBoard
+    currentBoard,
+    fetchBoardData
+  } = useBoardContext();
+  const {
+    addLabelToCard,
+    addMemberToCard,
+    fetchChecklists,
+    fetchChecklistItems,
+    createChecklist,
+    createChecklistItem,
+    updateChecklistItem,
   } = useBoardContext();
 
   const { user } = useAuth();
@@ -93,27 +104,32 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
 
   useEffect(() => {
     if (cardId) {
-      // Find the card and its list
-      for (const [listId, listCards] of Object.entries(cards)) {
-        const foundCard = listCards.find(c => c.id === cardId);
-        if (foundCard) {
-          setCard(foundCard);
-          setTitle(foundCard.title);
-          setDescription(foundCard.description || "");
+      if (isArchivedView) {
+        // Para cards arquivados, buscar diretamente da API
+        loadArchivedCard(cardId);
+      } else {
+        // Para cards ativos, buscar do estado do contexto
+        for (const [listId, listCards] of Object.entries(cards)) {
+          const foundCard = listCards.find(c => c.id === cardId);
+          if (foundCard) {
+            setCard(foundCard);
+            setTitle(foundCard.title);
+            setDescription(foundCard.description || "");
 
-          const foundList = lists.find(l => l.id === parseInt(listId));
-          if (foundList) {
-            setList(foundList);
+            const foundList = lists.find(l => l.id === parseInt(listId));
+            if (foundList) {
+              setList(foundList);
+            }
+
+            // Load comments for this card
+            loadComments(cardId);
+
+            break;
           }
-
-          // Load comments for this card
-          loadComments(cardId);
-
-          break;
         }
       }
     }
-  }, [cardId, cards, lists]);
+  }, [cardId, cards, lists, isArchivedView]);
 
   // Load comments for a card (excluding subtask comments)
   const loadComments = async (cardId: number) => {
@@ -124,6 +140,27 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
       setCardComments(cardOnlyComments);
     } catch (error) {
       console.error("Error loading comments:", error);
+    }
+  };
+
+  // Load archived card data directly from API
+  const loadArchivedCard = async (cardId: number) => {
+    try {
+      const cardData = await apiRequest("GET", `/api/cards/${cardId}`);
+      setCard(cardData);
+      setTitle(cardData.title);
+      setDescription(cardData.description || "");
+
+      // Find the list for this card
+      const foundList = lists.find(l => l.id === cardData.listId);
+      if (foundList) {
+        setList(foundList);
+      }
+
+      // Load comments for this card
+      loadComments(cardId);
+    } catch (error) {
+      console.error("Error loading archived card:", error);
     }
   };
 
@@ -179,6 +216,30 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
     }
   };
 
+  const handleArchiveCard = async () => {
+    if (!card || !currentBoard) return;
+
+    try {
+      await apiRequest("POST", `/api/cards/${card.id}/archive`);
+      
+      // Recarregar os dados do quadro para remover o card da visualização
+      await fetchBoardData(currentBoard.id);
+      
+      toast({
+        title: "Cartão arquivado",
+        description: "O cartão foi arquivado com sucesso.",
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error archiving card:", error);
+      toast({
+        title: "Erro",
+        description: "Falha ao arquivar o cartão.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmitComment = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -198,6 +259,95 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
   const handleDeleteComment = (commentId: number) => {
     setCommentToDelete(commentId);
     setShowDeleteCommentDialog(true);
+  };
+
+  // Deep copy handler: copia o cartão inteiro exceto anexos e comentários
+  const handleDeepCopy = async () => {
+    if (!card || !list) return;
+
+    try {
+      const titleCopy = `${card.title} (Cópia)`;
+      // Cria o novo cartão na mesma lista
+      const newCard = await createCard(titleCopy, list.id);
+
+      // Atualiza campos adicionais (descrição, dueDate, completed)
+      const updates: any = {};
+      if (card.description) updates.description = card.description;
+      if (card.dueDate) updates.dueDate = card.dueDate;
+      if (typeof (card as any).completed !== 'undefined') updates.completed = (card as any).completed;
+
+      if (Object.keys(updates).length > 0) {
+        await updateCard(newCard.id, updates);
+      }
+
+      // Copiar etiquetas
+      const labelsToCopy = cardLabels[card.id] || [];
+      for (const lbl of labelsToCopy) {
+        try {
+          await addLabelToCard(newCard.id, lbl.id);
+        } catch (err) {
+          console.warn('Erro ao adicionar etiqueta na cópia:', err);
+        }
+      }
+
+      // Copiar membros
+      const membersToCopy = cardMembers[card.id] || [];
+      for (const m of membersToCopy) {
+        try {
+          await addMemberToCard(newCard.id, m.id);
+        } catch (err) {
+          console.warn('Erro ao adicionar membro na cópia:', err);
+        }
+      }
+
+      // Copiar checklists e itens (mantendo hierarquia)
+      try {
+        const originalChecklists = await fetchChecklists(card.id);
+        for (const cl of originalChecklists) {
+          const newChecklist = await createChecklist(cl.title, newCard.id);
+          const items = await fetchChecklistItems(cl.id);
+
+          // Map antigoId -> novoId para parentItemId
+          const idMap: Record<number, number> = {};
+
+          // Primeiro passe: criar itens na ordem e tentar atribuir parent quando possível
+          for (const item of items) {
+            const options: any = { completed: item.completed ?? false };
+            if (item.parentItemId) {
+              // se o parent já foi mapeado, passe id novo; caso contrário, omitimos e atualizamos depois
+              if (idMap[item.parentItemId]) options.parentItemId = idMap[item.parentItemId];
+            }
+
+            const created = await createChecklistItem(item.content, newChecklist.id, options);
+            idMap[item.id] = created.id;
+          }
+
+          // Segunda passe: garantir que parentItemId esteja ajustado quando faltou no primeiro passe
+          for (const item of items) {
+            if (item.parentItemId) {
+              const newId = idMap[item.id];
+              const newParentId = idMap[item.parentItemId];
+              if (newId && newParentId) {
+                try {
+                  await updateChecklistItem(newId, { parentItemId: newParentId });
+                } catch (err) {
+                  console.warn('Erro ao atualizar parentItemId na cópia:', err);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao copiar checklists:', err);
+      }
+
+      toast({ title: 'Cartão copiado', description: 'Cópia completa criada com sucesso.' });
+      // Opcional: fechar modal
+      onClose();
+    } catch (error) {
+      console.error('Erro ao copiar cartão:', error);
+      toast({ title: 'Erro', description: 'Não foi possível copiar o cartão.', variant: 'destructive' });
+    }
   };
 
   const confirmDeleteComment = async () => {
@@ -388,6 +538,24 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
                   </button>
                 </div>
               </div>
+                {/* Priority */}
+                <div className="mb-6">
+                  <div className="flex items-center text-sm text-[#5E6C84] mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 6h12l-2 4 2 4H4z" />
+                      <path d="M4 6v12" />
+                    </svg>
+                    <h3>Prioridade</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
+                      onClick={() => {/* abrir gerenciador de prioridade - placeholder */}}
+                    >
+                      + Definir prioridade
+                    </button>
+                  </div>
+                </div>
 
               {/* Labels */}
               <div className="mb-6">
@@ -416,6 +584,26 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
                   </button>
                 </div>
               </div>
+
+
+                {/* Duration */}
+                <div className="mb-6">
+                  <div className="flex items-center text-sm text-[#5E6C84] mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                    <h3>Tempo de Duração</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
+                      onClick={() => {/* abrir seletor de duração - placeholder */}}
+                    >
+                      + Definir tempo
+                    </button>
+                  </div>
+                </div>
 
               {/* Description */}
               <div className="mb-6">
@@ -693,16 +881,53 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
 
               <h3 className="text-xs font-medium text-[#5E6C84] mb-2">Ações</h3>
               <div className="space-y-1.5 mb-6">
-                {/* Botão para marcar como concluída */}
-                <button 
-                  className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${
-                    card.completed 
-                      ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                      : 'bg-green-50 text-green-600 hover:bg-green-100'
-                  }`}
-                  onClick={handleToggleCompleted}
-                >
-                  {card.completed ? (
+                {isArchivedView ? (
+                  /* Botão para desarquivar - apenas para cards arquivados */
+                  <button 
+                    className="w-full text-left py-1.5 px-3 text-blue-600 text-sm rounded hover:bg-blue-50 flex items-center"
+                    onClick={async () => {
+                      try {
+                        await apiRequest("POST", `/api/cards/${card.id}/unarchive`);
+                        
+                        // Recarregar os dados do board para mostrar o card na visualização principal
+                        if (currentBoard) {
+                          await fetchBoardData(currentBoard.id);
+                        }
+                        
+                        toast({
+                          title: "Cartão desarquivado",
+                          description: "O cartão foi desarquivado com sucesso.",
+                        });
+                        onClose();
+                      } catch (error) {
+                        console.error("Error unarchiving card:", error);
+                        toast({
+                          title: "Erro",
+                          description: "Falha ao desarquivar o cartão.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="5" />
+                      <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                      <path d="M10 12h4" />
+                    </svg>
+                    <span>Desarquivar</span>
+                  </button>
+                ) : (
+                  /* Botões normais para cards ativos */
+                  <>
+                    <button 
+                      className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${
+                        card.completed 
+                          ? 'bg-red-50 text-red-600 hover:bg-red-100' 
+                          : 'bg-green-50 text-green-600 hover:bg-green-100'
+                      }`}
+                      onClick={handleToggleCompleted}
+                    >
+                      {card.completed ? (
                     <>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10" />
@@ -750,10 +975,8 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
                 <button 
                   className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={() => {
-                    // Criar uma cópia do cartão na mesma lista
-                    createCard(`${card.title} (Cópia)`, list.id).then(() => {
-                      onClose();
-                    });
+                    // Criar uma cópia completa do cartão (exceto anexos e comentários)
+                    handleDeepCopy();
                   }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#5E6C84]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -761,6 +984,17 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg>
                   <span>Copiar</span>
+                </button>
+                <button 
+                  className="w-full text-left py-1.5 px-3 text-gray-700 text-sm rounded hover:bg-[#091E420A] flex items-center"
+                  onClick={handleArchiveCard}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="5" />
+                    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                    <path d="M10 12h4" />
+                  </svg>
+                  <span>Arquivar</span>
                 </button>
                 <div className="border-b border-gray-200 my-1"></div>
                 <button 
@@ -773,6 +1007,8 @@ export function CardModal({ cardId, isOpen, onClose }: CardModalProps) {
                   </svg>
                   <span>Excluir</span>
                 </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
