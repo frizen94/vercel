@@ -55,7 +55,21 @@ export function Board({ boardId }: BoardProps) {
   return (
     <div className="board-background min-h-screen">
       <div className="board-container overflow-x-auto p-6" style={{ minHeight: 'calc(100vh - 200px)' }}>
-        <DragDropContext onDragEnd={handleDragEnd}>
+        <DragDropContext
+          onDragStart={() => {
+            try {
+              document.body.classList.add('dnd-dragging');
+            } catch (e) {
+              /* ignore in SSR or strict environments */
+            }
+          }}
+          onDragEnd={(result) => {
+            try {
+              document.body.classList.remove('dnd-dragging');
+            } catch (e) {}
+            handleDragEnd(result);
+          }}
+        >
           <Droppable droppableId="all-lists" direction="horizontal" type="LIST">
             {(provided) => (
               <div

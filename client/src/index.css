@@ -206,6 +206,19 @@
   .floating-delayed {
     animation: floating 3s ease-in-out infinite 1s;
   }
+
+  /* Se houver um drag em andamento, neutralizamos transforms/animations que podem afetar o cálculo
+     de posicionamento do snapshot do Draggable (portal) */
+  body.dnd-dragging .floating,
+  body.dnd-dragging .floating-delayed,
+  body.dnd-dragging .board-container,
+  body.dnd-dragging .board-lists,
+  body.dnd-dragging .list-container,
+  body.dnd-dragging .list-cards {
+    animation: none !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+  }
   
   @keyframes floating {
     0%, 100% { transform: translateY(0px); }
@@ -299,144 +312,44 @@
     position: relative !important;
   }
   
-  /* Remove transformações que podem afetar o posicionamento do drag */
+  /* --- Drag-and-drop (react-beautiful-dnd) safe overrides --- */
+  /*
+    Notas:
+    - A biblioteca aplica `position: fixed` e `transform` inline ao elemento clonado durante o drag.
+    - Não devemos sobrescrever `left`, `top` ou `transform` inline — isso causa offset entre cursor e card.
+    - Mantemos somente regras que garantem visibilidade e que o elemento não capture eventos.
+  */
+
+  /* Remove transform no contêiner apenas se ele causar problemas de stacking, mas não sobrescreve inline */
   .board-background,
   .board-container,
   .board-lists,
   .list-container,
   .list-cards {
-    transform: none !important;
-    transform-style: flat !important;
-    perspective: none !important;
-    -webkit-transform: none !important;
-    -webkit-transform-style: flat !important;
-    -webkit-perspective: none !important;
+    /* Não forçar transform:none aqui para não interferir no cálculo da biblioteca de DnD */
   }
-  
-  /* Corrige o posicionamento do elemento arrastado para seguir o cursor do mouse */
-  [data-rbd-draggable-context-id] {
-    transform-origin: 0 0 !important;
-  }
-  
-  /* Garante que o card sendo arrastado fique sempre visível e siga o cursor */
-  [data-rbd-draggable-id*="card"][style*="position: fixed"] {
+
+  /* Torna o elemento arrastado visível e acima dos demais, sem alterar sua posição calculada */
+  [data-rbd-draggable-id*="card"] {
     z-index: 99999 !important;
     opacity: 1 !important;
     visibility: visible !important;
-    pointer-events: none !important;
-    transform-origin: 0 0 !important;
+    pointer-events: none !important; /* evita capturar eventos enquanto arrastado */
   }
 
-  /* Força visibilidade durante drag */
-  [data-rbd-drag-handle-draggable-id*="card"] {
-    z-index: 99999 !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-  }
-
-  /* Garante que elementos em drag ficam sempre por cima */
-  body [style*="position: fixed"][data-rbd-draggable-id] {
-    z-index: 99999 !important;
-  }
-
-  /* Override para qualquer opacity/visibility durante drag */
   .rbd-draggable--is-dragging {
     opacity: 1 !important;
     visibility: visible !important;
     z-index: 99999 !important;
   }
-  
-  /* Corrige o posicionamento do elemento arrastado */
-  [data-rbd-draggable-id][style*="position: fixed"] {
-    position: fixed !important;
-    margin: 0 !important;
-    padding: 0 !important;
+
+  body [style*="position: fixed"][data-rbd-draggable-id] {
+    z-index: 99999 !important;
+    pointer-events: none !important;
   }
-  
-  /* Garante que o contêiner de rolagem não afete o posicionamento */
-  .board-container.overflow-x-auto {
-    overflow-x: auto !important;
-    transform: none !important;
-  }
-  
-  /* Remove qualquer transformação do contêiner de listas */
-  .board-lists.flex {
-    transform: none !important;
-    transform-style: flat !important;
-  }
-  
-  /* Força o elemento arrastado a seguir exatamente a posição do cursor */
-  [data-rbd-draggable-id][style*="translate"] {
-    transform: translate(0px, 0px) !important;
-  }
-  
-  /* Garante que o body tenha posição relativa para o portal funcionar corretamente */
-  body {
-    position: relative !important;
-  }
-  
-  /* Remove margens/paddings que podem afetar o cálculo de posição */
-  [data-rbd-draggable-context-id] {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
-  /* Força o elemento arrastado a seguir exatamente a posição do cursor do mouse */
-  [data-rbd-draggable-id][style*="position: fixed"][style*="transform"] {
-    position: fixed !important;
-    transform: none !important;
-    left: 0 !important;
-    top: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
-  /* Remove qualquer regra que possa afetar o posicionamento do elemento arrastado */
-  [data-rbd-draggable-id] {
-    position: static !important;
-  }
-  
-  /* Garante que o elemento arrastado não tenha posição relativa que afete o cálculo */
-  [data-rbd-draggable-context-id][style*="position: relative"] {
-    position: static !important;
-  }
-  
-  /* Força o elemento arrastado a seguir exatamente a posição do cursor do mouse */
-  [data-rbd-draggable-id][style*="transform: translate"] {
-    transform: translate(0px, 0px) !important;
-  }
-  
-  /* Remove todas as transformações do elemento arrastado */
-  [data-rbd-draggable-context-id][style*="transform"] {
-    transform: none !important;
-  }
-  
-  /* Força o elemento arrastado a usar coordenadas absolutas */
-  [data-rbd-draggable-id][style*="position: fixed"] {
-    left: 0 !important;
-    top: 0 !important;
-    transform: none !important;
-  }
-  
-  /* Garante que o elemento arrastado siga exatamente o cursor do mouse */
-  [data-rbd-drag-handle-draggable-id*="card"][style*="position: fixed"] {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    transform: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
-  /* Remove qualquer regra que possa afetar o posicionamento do elemento arrastado */
-  [data-rbd-drag-handle-draggable-id*="card"] {
-    position: static !important;
-  }
-  
-  /* Garante que o elemento arrastado siga exatamente o cursor do mouse */
-  [data-rbd-drag-handle-draggable-id*="card"][style*="translate"] {
-    transform: translate(0px, 0px) !important;
-  }
+
+  /* Não sobrescrever transform/left/top aplicados inline pela biblioteca */
+  /* Fim do bloco de ajustes para drag */
   
   /* Enhanced button styles */
   .btn-gradient {
