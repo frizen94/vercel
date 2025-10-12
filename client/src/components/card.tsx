@@ -22,7 +22,7 @@ interface CardProps {
 }
 
 export function Card({ card, index, openCardModal }: CardProps) {
-  const { cardLabels, fetchCardLabels, deleteCard, updateCard, createCard, cardMembers, fetchCardMembers } = useBoardContext();
+  const { cardLabels, fetchCardLabels, deleteCard, updateCard, createCard, cardMembers, fetchCardMembers, cardPriorities, fetchCardPriority } = useBoardContext();
   const { toast } = useToast();
 
   // Função para verificar se um cartão está atrasado
@@ -69,6 +69,13 @@ export function Card({ card, index, openCardModal }: CardProps) {
       fetchCardLabels(card.id);
     }
   }, [card.id, cardLabels, fetchCardLabels]);
+
+  // Fetch priority for this card if not loaded
+  useEffect(() => {
+    if (cardPriorities[card.id] === undefined) {
+      fetchCardPriority(card.id).catch(() => {});
+    }
+  }, [card.id, cardPriorities, fetchCardPriority]);
 
   // Fetch first card members (used to display avatar on card preview)
   useEffect(() => {
@@ -287,6 +294,14 @@ export function Card({ card, index, openCardModal }: CardProps) {
           {/* Bottom row: members (left) and due date (right) */}
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center">
+              {/* Card priority badge */}
+              {cardPriorities[card.id] && (
+                <div className="mr-2">
+                  <div className="px-2 py-0.5 rounded text-xs" style={{ backgroundColor: cardPriorities[card.id]!.color }}>
+                    {cardPriorities[card.id]!.name}
+                  </div>
+                </div>
+              )}
               {(() => {
                 const members = cardMembers[card.id] || [];
                 const assignee = members[0];

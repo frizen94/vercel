@@ -125,7 +125,7 @@ export const loginRateLimit = rateLimit({
     if (forwarded) {
       return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
     }
-    return req.ip;
+    return req.ip || 'unknown';
   },
   handler: (req: Request, res: Response) => {
     console.log(`Rate limit exceeded for IP: ${req.ip} - Login attempt blocked`);
@@ -147,7 +147,7 @@ export const changePasswordRateLimit = rateLimit({
     if (forwarded) {
       return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
     }
-    return req.ip;
+    return req.ip || 'unknown';
   },
   handler: (req: Request, res: Response) => {
     console.log(`Rate limit exceeded for IP: ${req.ip} - Password change blocked`);
@@ -169,7 +169,7 @@ export const registerRateLimit = rateLimit({
     if (forwarded) {
       return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
     }
-    return req.ip;
+    return req.ip || 'unknown';
   },
   handler: (req: Request, res: Response) => {
     console.log(`Rate limit exceeded for IP: ${req.ip} - Registration blocked`);

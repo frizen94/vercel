@@ -1,6 +1,6 @@
 import { sql } from './database';
-import fs from 'fs/promises';
-import path from 'path';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 export async function runInitialMigrations() {
   try {
@@ -97,6 +97,26 @@ export async function runInitialMigrations() {
         name TEXT NOT NULL,
         color TEXT NOT NULL,
         board_id INTEGER REFERENCES boards(id) NOT NULL
+      );
+    `;
+
+    // 6b. Priorities table (depends on boards)
+    await sql`
+      CREATE TABLE IF NOT EXISTS priorities (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL,
+        board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `;
+
+    // card_priorities junction table (depends on cards and priorities)
+    await sql`
+      CREATE TABLE IF NOT EXISTS card_priorities (
+        id SERIAL PRIMARY KEY,
+        card_id INTEGER REFERENCES cards(id) NOT NULL,
+        priority_id INTEGER REFERENCES priorities(id) NOT NULL
       );
     `;
 

@@ -81,6 +81,22 @@ CREATE TABLE IF NOT EXISTS labels (
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
+-- 6b. Tabela de prioridades (depende de boards)
+CREATE TABLE IF NOT EXISTS priorities (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Relacionamento entre cartões e prioridades
+CREATE TABLE IF NOT EXISTS card_priorities (
+    id SERIAL PRIMARY KEY,
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    priority_id INTEGER NOT NULL REFERENCES priorities(id) ON DELETE CASCADE
+);
+
 -- 7. Tabela de comentários (depende de cards)
 CREATE TABLE IF NOT EXISTS comments (
     id SERIAL PRIMARY KEY,
@@ -384,13 +400,13 @@ BEGIN
         'users', 'portfolios', 'boards', 'lists', 'cards', 'labels', 
         'comments', 'checklists', 'checklist_items', 'card_labels', 
         'card_members', 'board_members', 'checklist_item_members', 'session', 'notifications',
-        'audit_logs', 'activities'
+        'audit_logs', 'activities', 'priorities', 'card_priorities'
     );
     
-    IF table_count = 17 THEN
-        RAISE NOTICE 'Todas as 17 tabelas foram criadas com sucesso!';
+    IF table_count = 19 THEN
+        RAISE NOTICE 'Todas as 19 tabelas foram criadas com sucesso!';
     ELSE
-        RAISE WARNING 'Apenas % de 17 tabelas foram criadas. Verifique os erros acima.', table_count;
+        RAISE WARNING 'Apenas % de 19 tabelas foram criadas. Verifique os erros acima.', table_count;
     END IF;
 END$$;
 

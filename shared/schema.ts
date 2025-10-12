@@ -224,6 +224,47 @@ export const cards = pgTable("cards", {
 });
 
 /**
+ * Tabela de Prioridades
+ * Similar às etiquetas, mas cada prioridade é única por quadro e um cartão pode ter uma prioridade.
+ */
+export const priorities = pgTable("priorities", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").notNull(),
+  boardId: integer("board_id").references(() => boards.id).notNull(),
+});
+
+export const insertPrioritySchema = createInsertSchema(priorities, {
+  name: z.string().min(1, "Nome é obrigatório").max(100, "Nome não pode exceder 100 caracteres"),
+  color: z.string().min(1, "Cor é obrigatória").max(20, "Cor não pode exceder 20 caracteres"),
+}).pick({
+  name: true,
+  color: true,
+  boardId: true,
+});
+
+export type InsertPriority = z.infer<typeof insertPrioritySchema>;
+export type Priority = typeof priorities.$inferSelect;
+
+/**
+ * Associação 1:1 entre cartão e prioridade
+ * Usamos uma tabela separada para não alterar a definição de `cards` (menor risco)
+ */
+export const cardPriorities = pgTable("card_priorities", {
+  id: serial("id").primaryKey(),
+  cardId: integer("card_id").references(() => cards.id).notNull(),
+  priorityId: integer("priority_id").references(() => priorities.id).notNull(),
+});
+
+export const insertCardPrioritySchema = createInsertSchema(cardPriorities).pick({
+  cardId: true,
+  priorityId: true,
+});
+
+export type InsertCardPriority = z.infer<typeof insertCardPrioritySchema>;
+export type CardPriority = typeof cardPriorities.$inferSelect;
+
+/**
  * Schema para inserção de cartões
  * Define os campos necessários e opcionais para criar um novo cartão
  */

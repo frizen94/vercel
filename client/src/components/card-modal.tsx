@@ -30,6 +30,7 @@ import DescriptionEditor from '@/components/description-editor';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LabelManager } from "@/components/label-manager";
+import { PriorityManager } from "@/components/priority-manager";
 import { MemberManager } from "@/components/member-manager";
 import { ChecklistManager } from "@/components/checklist-manager";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -70,6 +71,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
     updateChecklistItem,
   } = useBoardContext();
 
+  // also read priorities mapping from board context
+  const { cardPriorities, fetchCardPriority } = useBoardContext();
+
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -86,6 +90,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
   const [isMemberManagerOpen, setIsMemberManagerOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isPriorityManagerOpen, setIsPriorityManagerOpen] = useState(false);
   const [isChecklistManagerOpen, setIsChecklistManagerOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
@@ -123,6 +128,21 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
             // Load comments for this card
             loadComments(cardId);
+
+            // lazy-load priority mapping for this card (so the badge shows in the Priority section)
+            if (fetchCardPriority) {
+              try {
+                // only fetch if mapping not present yet
+                // note: board-context stores null when there's no priority
+                // so check for undefined
+                const existing = (cardPriorities as any) && (cardPriorities as any)[cardId];
+                if (typeof existing === 'undefined') {
+                  fetchCardPriority(cardId).catch(() => {});
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
 
             break;
           }
@@ -548,12 +568,22 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     <h3>Prioridade</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button 
-                      className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
-                      onClick={() => {/* abrir gerenciador de prioridade - placeholder */}}
-                    >
-                      + Definir prioridade
-                    </button>
+                      {/* Current priority (if any) */}
+                      {card && cardPriorities && cardPriorities[card.id] ? (
+                        <span
+                          className="px-3 py-1 rounded text-white text-xs"
+                          style={{ backgroundColor: (cardPriorities[card.id] as any).color || '#6B7280' }}
+                        >
+                          {(cardPriorities[card.id] as any).name}
+                        </span>
+                      ) : null}
+
+                      <button 
+                        className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
+                        onClick={() => setIsPriorityManagerOpen(true)}
+                      >
+                        + Definir prioridade
+                      </button>
                   </div>
                 </div>
 
@@ -1020,6 +1050,16 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
         <LabelManager
           isOpen={isLabelManagerOpen}
           onClose={() => setIsLabelManagerOpen(false)}
+          cardId={card.id}
+          boardId={currentBoard.id}
+        />
+      )}
+
+      {/* Priority Manager */}
+      {card && currentBoard && (
+        <PriorityManager
+          isOpen={isPriorityManagerOpen}
+          onClose={() => setIsPriorityManagerOpen(false)}
           cardId={card.id}
           boardId={currentBoard.id}
         />

@@ -1324,6 +1324,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Priorities endpoints
+   */
+  app.get("/api/boards/:boardId/priorities", async (req: Request, res: Response) => {
+    try {
+      const boardId = parseInt(req.params.boardId);
+      if (isNaN(boardId)) return res.status(400).json({ message: 'Invalid board id' });
+      const priorities = await appStorage.getPriorities(boardId);
+      res.json(priorities);
+    } catch (err) {
+      console.error('Failed to fetch priorities', err);
+      res.status(500).json({ message: 'Failed to fetch priorities' });
+    }
+  });
+
+  // Aggregated endpoint: return all card-priority associations for a board
+  app.get('/api/boards/:boardId/cards/priorities', async (req: Request, res: Response) => {
+    try {
+      const boardId = parseInt(req.params.boardId);
+      if (isNaN(boardId)) return res.status(400).json({ message: 'Invalid board id' });
+
+      const rows = await appStorage.getBoardCardsPriorities(boardId);
+      res.json(rows);
+    } catch (err) {
+      console.error('Failed to fetch board card priorities', err);
+      res.status(500).json({ message: 'Failed to fetch board card priorities' });
+    }
+  });
+
+  app.post('/api/priorities', async (req: Request, res: Response) => {
+    try {
+      const data = req.body;
+      const created = await appStorage.createPriority(data);
+      res.status(201).json(created);
+    } catch (err) {
+      console.error('Failed to create priority', err);
+      res.status(500).json({ message: 'Failed to create priority' });
+    }
+  });
+
+  app.patch('/api/priorities/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updated = await appStorage.updatePriority(id, updates);
+      res.json(updated);
+    } catch (err) {
+      console.error('Failed to update priority', err);
+      res.status(500).json({ message: 'Failed to update priority' });
+    }
+  });
+
+  app.delete('/api/priorities/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const ok = await appStorage.deletePriority(id);
+      if (!ok) return res.status(404).json({ message: 'Priority not found' });
+      res.status(204).end();
+    } catch (err) {
+      console.error('Failed to delete priority', err);
+      res.status(500).json({ message: 'Failed to delete priority' });
+    }
+  });
+
+  // Card priority association
+  app.get('/api/cards/:cardId/priority', async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.cardId);
+      const cp = await appStorage.getCardPriority(cardId);
+      res.json(cp);
+    } catch (err) {
+      console.error('Failed to get card priority', err);
+      res.status(500).json({ message: 'Failed to get card priority' });
+    }
+  });
+
+  app.post('/api/card-priorities', async (req: Request, res: Response) => {
+    try {
+      const data = req.body; // { cardId, priorityId }
+      const created = await appStorage.setCardPriority(data);
+      res.status(201).json(created);
+    } catch (err) {
+      console.error('Failed to set card priority', err);
+      res.status(500).json({ message: 'Failed to set card priority' });
+    }
+  });
+
+  app.delete('/api/cards/:cardId/priority', async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.cardId);
+      const ok = await appStorage.removeCardPriority(cardId);
+      if (!ok) return res.status(404).json({ message: 'Card priority not found' });
+      res.status(204).end();
+    } catch (err) {
+      console.error('Failed to remove card priority', err);
+      res.status(500).json({ message: 'Failed to remove card priority' });
+    }
+  });
+
+  /**
    * Rotas para gerenciar Comentários
    */
   app.get("/api/cards/:cardId/comments", async (req: Request, res: Response) => {

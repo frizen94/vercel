@@ -731,6 +731,80 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.labels.boardId, boardId));
   }
 
+  // Priorities
+  async getPriorities(boardId: number): Promise<any[]> {
+    try {
+      return await db.select().from(schema.priorities).where(eq(schema.priorities.boardId, boardId));
+    } catch (err) {
+      console.error('Erro ao buscar prioridades:', err);
+      return [];
+    }
+  }
+
+  async createPriority(data: any): Promise<any> {
+    try {
+      const inserted = await db.insert(schema.priorities).values({
+        name: data.name,
+        color: data.color,
+        boardId: data.boardId
+      }).returning();
+      return inserted[0];
+    } catch (err) {
+      console.error('Erro ao criar prioridade:', err);
+      throw err;
+    }
+  }
+
+  async updatePriority(id: number, updates: Partial<any>): Promise<any | null> {
+    const updated = await db.update(schema.priorities).set(updates).where(eq(schema.priorities.id, id)).returning();
+    return updated[0] || null;
+  }
+
+  async deletePriority(id: number): Promise<boolean> {
+    try {
+      // Remove association first
+      await db.delete(schema.cardPriorities).where(eq(schema.cardPriorities.priorityId, id));
+      const deleted = await db.delete(schema.priorities).where(eq(schema.priorities.id, id)).returning();
+      return deleted.length > 0;
+    } catch (err) {
+      console.error('Erro ao deletar prioridade:', err);
+      return false;
+    }
+  }
+
+  // Card priorities
+  async getCardPriority(cardId: number): Promise<any | null> {
+    try {
+      const rows = await db.select().from(schema.cardPriorities).where(eq(schema.cardPriorities.cardId, cardId));
+      return rows[0] || null;
+    } catch (err) {
+      console.error('Erro ao buscar prioridade do cartão:', err);
+      return null;
+    }
+  }
+
+  async setCardPriority(data: { cardId: number; priorityId: number }): Promise<any> {
+    try {
+      // Upsert: remove existing then insert
+      await db.delete(schema.cardPriorities).where(eq(schema.cardPriorities.cardId, data.cardId));
+      const inserted = await db.insert(schema.cardPriorities).values(data).returning();
+      return inserted[0];
+    } catch (err) {
+      console.error('Erro ao definir prioridade do cartão:', err);
+      throw err;
+    }
+  }
+
+  async removeCardPriority(cardId: number): Promise<boolean> {
+    try {
+      const deleted = await db.delete(schema.cardPriorities).where(eq(schema.cardPriorities.cardId, cardId)).returning();
+      return deleted.length > 0;
+    } catch (err) {
+      console.error('Erro ao remover prioridade do cartão:', err);
+      return false;
+    }
+  }
+
   async getLabel(id: number): Promise<Label | undefined> {
     const labels = await db.select().from(schema.labels).where(eq(schema.labels.id, id));
     return labels[0];
@@ -784,6 +858,22 @@ export class DatabaseStorage implements IStorage {
 
     // Finally, return card_labels for those cards
     return db.select().from(schema.cardLabels).where(inArray(schema.cardLabels.cardId, cardIds));
+  }
+
+  async getBoardCardsPriorities(boardId: number): Promise<{ cardId: number; priorityId: number }[]> {
+    // Find lists for the board
+    const lists = await db.select().from(schema.lists).where(eq(schema.lists.boardId, boardId));
+    if (lists.length === 0) return [];
+    const listIds = lists.map(l => l.id);
+
+    // Find cards under those lists
+    const cards = await db.select().from(schema.cards).where(inArray(schema.cards.listId, listIds));
+    if (cards.length === 0) return [];
+    const cardIds = cards.map(c => c.id);
+
+    // Return card_priorities for those cards
+    const rows = await db.select().from(schema.cardPriorities).where(inArray(schema.cardPriorities.cardId, cardIds));
+    return rows.map(r => ({ cardId: r.cardId, priorityId: r.priorityId }));
   }
 
   async addLabelToCard(cardLabelData: InsertCardLabel): Promise<CardLabel> {

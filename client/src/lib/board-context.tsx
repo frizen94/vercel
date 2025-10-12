@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Board, List, Card, Comment, Label, CardLabel, User, Checklist, ChecklistItem } from "@shared/schema";
+import { Board, List, Card, Comment, Label, CardLabel, User, Checklist, ChecklistItem, Priority } from "@shared/schema";
 
 interface BoardContextType {
   currentBoard: Board | null;
@@ -9,6 +9,8 @@ interface BoardContextType {
   comments: { [cardId: number]: Comment[] };
   labels: Label[];
   cardLabels: { [cardId: number]: Label[] };
+  priorities: Priority[];
+  cardPriorities: { [cardId: number]: Priority | null };
   cardMembers: { [cardId: number]: User[] };
   users: User[];
   checklists: { [cardId: number]: Checklist[] };
@@ -43,6 +45,11 @@ interface BoardContextType {
   fetchCardLabels: (cardId: number) => Promise<Label[]>;
   addLabelToCard: (cardId: number, labelId: number) => Promise<void>;
   removeLabelFromCard: (cardId: number, labelId: number) => Promise<void>;
+  fetchPriorities: (boardId: number) => Promise<Priority[]>;
+  createPriority: (name: string, color: string, boardId: number) => Promise<Priority>;
+  fetchCardPriority: (cardId: number) => Promise<Priority | null>;
+  setCardPriority: (cardId: number, priorityId: number) => Promise<void>;
+  removeCardPriority: (cardId: number) => Promise<void>;
   fetchCardMembers: (cardId: number) => Promise<User[]>;
   fetchUsers: () => Promise<User[]>;
   addMemberToCard: (cardId: number, userId: number) => Promise<void>;
@@ -95,6 +102,8 @@ export function BoardProvider({ children }: BoardProviderProps) {
   // Label-related states must be declared before the filter effect
   const [labels, setLabels] = useState<Label[]>([]);
   const [cardLabels, setCardLabels] = useState<{ [cardId: number]: Label[] }>({});
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [cardPriorities, setCardPriorities] = useState<{ [cardId: number]: Priority | null }>({});
   const [cardMembers, setCardMembers] = useState<{ [cardId: number]: User[] }>({});
   const [users, setUsers] = useState<User[]>([]);
   const [checklists, setChecklists] = useState<{ [cardId: number]: Checklist[] }>({});
@@ -202,6 +211,35 @@ export function BoardProvider({ children }: BoardProviderProps) {
           }
           return next;
         });
+      }
+
+      // Fetch priorities for the board and card-priorities mapping in a way
+      // that avoids reading a stale `priorities` state (setState is async).
+      let boardPriorities: Priority[] = [];
+      try {
+        const prRes = await fetch(`/api/boards/${boardId}/priorities`);
+        if (prRes.ok) {
+          boardPriorities = await prRes.json();
+          setPriorities(boardPriorities);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch priorities during board load', err);
+      }
+
+      // Fetch card priorities mapping for the board (single request)
+      try {
+        const resp = await fetch(`/api/boards/${boardId}/cards/priorities`);
+        if (resp.ok) {
+          const rows: { cardId: number; priorityId: number }[] = await resp.json();
+          const map: { [cardId: number]: Priority | null } = {};
+          rows.forEach(r => {
+            // Use the freshly fetched boardPriorities instead of the `priorities` state
+            map[r.cardId] = boardPriorities.find(p => p.id === r.priorityId) || null;
+          });
+          setCardPriorities(map);
+        }
+      } catch (err) {
+        // If endpoint missing, we'll lazily fetch per-card when needed
       }
     } catch (error) {
       console.error("Error fetching board data:", error);
@@ -615,6 +653,82 @@ export function BoardProvider({ children }: BoardProviderProps) {
     } catch (error) {
       console.error("Error creating label:", error);
       throw new Error("Failed to create label");
+    }
+  };
+
+  // Priorities methods
+  const fetchPriorities = async (boardId: number): Promise<Priority[]> => {
+    try {
+      const fetched: Priority[] = await apiRequest("GET", `/api/boards/${boardId}/priorities`);
+      setPriorities(fetched);
+      return fetched;
+    } catch (error) {
+      console.error("Error fetching priorities:", error);
+      return [];
+    }
+  };
+
+  const createPriority = async (name: string, color: string, boardId: number): Promise<Priority> => {
+    try {
+      const created: Priority = await apiRequest("POST", "/api/priorities", { name, color, boardId });
+      setPriorities(prev => [...prev, created]);
+      return created;
+    } catch (error) {
+      console.error("Error creating priority:", error);
+      throw new Error("Failed to create priority");
+    }
+  };
+
+  const fetchCardPriority = async (cardId: number): Promise<Priority | null> => {
+    try {
+      const cp = await apiRequest("GET", `/api/cards/${cardId}/priority`);
+      if (cp && cp.priorityId) {
+        // ensure priorities list is loaded
+        const pr = priorities.find(p => p.id === cp.priorityId);
+        if (pr) {
+          setCardPriorities(prev => ({ ...prev, [cardId]: pr }));
+          return pr;
+        }
+        // fallback: fetch the single priority
+        const fetched = await apiRequest("GET", `/api/priorities/${cp.priorityId}`);
+        if (fetched) {
+          setCardPriorities(prev => ({ ...prev, [cardId]: fetched }));
+          return fetched;
+        }
+      }
+      setCardPriorities(prev => ({ ...prev, [cardId]: null }));
+      return null;
+    } catch (error) {
+      console.error("Error fetching card priority:", error);
+      return null;
+    }
+  };
+
+  const setCardPriority = async (cardId: number, priorityId: number): Promise<void> => {
+    try {
+      await apiRequest("POST", "/api/card-priorities", { cardId, priorityId });
+      // update local mapping
+      const pr = priorities.find(p => p.id === priorityId);
+      if (pr) {
+        setCardPriorities(prev => ({ ...prev, [cardId]: pr }));
+      } else {
+        // fetch priority if not in list
+        const fetched = await apiRequest("GET", `/api/priorities/${priorityId}`);
+        if (fetched) setCardPriorities(prev => ({ ...prev, [cardId]: fetched }));
+      }
+    } catch (error) {
+      console.error("Error setting card priority:", error);
+      throw new Error("Failed to set card priority");
+    }
+  };
+
+  const removeCardPriority = async (cardId: number): Promise<void> => {
+    try {
+      await apiRequest("DELETE", `/api/cards/${cardId}/priority`);
+      setCardPriorities(prev => ({ ...prev, [cardId]: null }));
+    } catch (error) {
+      console.error("Error removing card priority:", error);
+      throw new Error("Failed to remove card priority");
     }
   };
 
@@ -1114,6 +1228,8 @@ export function BoardProvider({ children }: BoardProviderProps) {
     comments,
     labels,
     cardLabels,
+    priorities,
+    cardPriorities,
     cardMembers,
     users,
     checklists,
@@ -1143,9 +1259,16 @@ export function BoardProvider({ children }: BoardProviderProps) {
     deleteComment,
     fetchLabels,
     createLabel,
+  updateLabel,
+  deleteLabel,
+  fetchPriorities,
+  createPriority,
     fetchCardLabels,
     addLabelToCard,
     removeLabelFromCard,
+  fetchCardPriority,
+  setCardPriority,
+  removeCardPriority,
     fetchCardMembers,
     fetchUsers,
     addMemberToCard,
@@ -1178,6 +1301,8 @@ export function BoardProvider({ children }: BoardProviderProps) {
     comments,
     labels,
     cardLabels,
+    priorities,
+    cardPriorities,
     cardMembers,
     users,
     checklists,

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 import { Loader2, LogOut, Plus, User, BarChart3, LineChart, UserPlus, Settings } from "lucide-react";
 import {
   DropdownMenu,

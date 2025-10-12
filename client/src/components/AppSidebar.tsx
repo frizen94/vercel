@@ -195,7 +195,7 @@ export function AppSidebar() {
   // fora do BoardProvider — nesse caso evitamos o crash oferecendo um fallback.
   let boards: any[] = [];
   let fetchBoards = async () => {};
-  let updateBoard = async (id: number, updates: any) => {};
+  let updateBoard = async (id: number, updates: any): Promise<any> => { return {} as any; };
 
   try {
     const ctx = useBoard();

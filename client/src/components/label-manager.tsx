@@ -227,7 +227,7 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
               </p>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {labels.length > 0 ? (
-                  labels.map(label => (
+                  labels.map((label: Label) => (
                     <div key={label.id} className="group flex flex-col sm:flex-row sm:items-center sm:justify-between px-3 py-2 rounded hover:bg-gray-50 gap-2">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-6 h-4 rounded border flex-shrink-0" style={{ backgroundColor: label.color }} />
