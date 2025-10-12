@@ -40,6 +40,7 @@ import {
   insertBoardSchema, 
   insertListSchema, 
   insertCardSchema, 
+  updateCardSchema,
   insertLabelSchema, 
   insertCardLabelSchema,
   insertCommentSchema,
@@ -1019,7 +1020,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const validatedData = insertCardSchema.partial().parse(cardData);
+      // Verificar se startDate está sendo enviado (formato YYYY-MM-DD string)
+      if (cardData.startDate !== undefined) {
+        if (cardData.startDate !== null && cardData.startDate !== '') {
+          // Validar formato de data (YYYY-MM-DD)
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(cardData.startDate)) {
+            return res.status(400).json({ message: "startDate deve estar no formato YYYY-MM-DD" });
+          }
+          // Validar se é uma data válida
+          const dateObj = new Date(cardData.startDate + 'T00:00:00.000Z');
+          if (isNaN(dateObj.getTime())) {
+            return res.status(400).json({ message: "startDate inválida" });
+          }
+        } else {
+          cardData.startDate = null;
+        }
+      }
+
+      // Verificar se endDate está sendo enviado (formato YYYY-MM-DD string)
+      if (cardData.endDate !== undefined) {
+        if (cardData.endDate !== null && cardData.endDate !== '') {
+          // Validar formato de data (YYYY-MM-DD)
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(cardData.endDate)) {
+            return res.status(400).json({ message: "endDate deve estar no formato YYYY-MM-DD" });
+          }
+          // Validar se é uma data válida
+          const dateObj = new Date(cardData.endDate + 'T00:00:00.000Z');
+          if (isNaN(dateObj.getTime())) {
+            return res.status(400).json({ message: "endDate inválida" });
+          }
+        } else {
+          cardData.endDate = null;
+        }
+      }
+
+      // Validar se startDate <= endDate quando ambas estão definidas
+      if (cardData.startDate && cardData.endDate) {
+        const startDate = new Date(cardData.startDate + 'T00:00:00.000Z');
+        const endDate = new Date(cardData.endDate + 'T00:00:00.000Z');
+        if (startDate > endDate) {
+          return res.status(400).json({ message: "Data de início deve ser anterior ou igual à data de término" });
+        }
+      }
+
+      // Converter strings vazias para null para campos de data
+      if (cardData.startDate === '') cardData.startDate = null;
+      if (cardData.endDate === '') cardData.endDate = null;
+
+      const validatedData = updateCardSchema.parse(cardData);
       const updatedCard = await appStorage.updateCard(id, validatedData);
       res.json(updatedCard);
     } catch (error) {

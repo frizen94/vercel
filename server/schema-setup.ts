@@ -86,6 +86,8 @@ export async function runInitialMigrations() {
         list_id INTEGER REFERENCES lists(id) NOT NULL,
         "order" INTEGER NOT NULL DEFAULT 0,
         due_date TIMESTAMP,
+        start_date DATE,
+        end_date DATE,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
     `;
@@ -382,6 +384,19 @@ export async function runMissingSqlMigrations() {
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_cards_list_archived ON cards(list_id, archived);`;
+    
+    // 6c. Add start_date and end_date columns to cards table (from 20251012_add_cards_start_end_dates.sql)
+    await sql`
+      ALTER TABLE cards
+      ADD COLUMN IF NOT EXISTS start_date DATE;
+    `;
+    await sql`
+      ALTER TABLE cards
+      ADD COLUMN IF NOT EXISTS end_date DATE;
+    `;
+    
+    await sql`CREATE INDEX IF NOT EXISTS idx_cards_start_date ON cards(start_date);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_cards_end_date ON cards(end_date);`;
     
     // 7. Fix label duplicates and add unique constraint (from fix-label-duplicates.sql)
     await sql`

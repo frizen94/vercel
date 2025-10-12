@@ -6,7 +6,7 @@
  * correspondentes para manter a consistência dos dados entre frontend e backend.
  */
 
-import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, varchar, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -208,6 +208,8 @@ export type List = typeof lists.$inferSelect;
  * - Referência à lista pai (listId)
  * - Ordem de exibição dentro da lista
  * - Data de vencimento (deadline)
+ * - Data de início (startDate) - para cálculo de duração
+ * - Data de término (endDate) - para cálculo de duração
  * - Status de arquivamento (archived)
  * - Data de criação
  */
@@ -218,6 +220,8 @@ export const cards = pgTable("cards", {
   listId: integer("list_id").references(() => lists.id).notNull(),
   order: integer("order").notNull().default(0),
   dueDate: timestamp("due_date"),
+  startDate: date("start_date"), // DATE column for card start date
+  endDate: date("end_date"), // DATE column for card end date
   completed: boolean("completed").notNull().default(false),
   archived: boolean("archived").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -271,24 +275,71 @@ export type CardPriority = typeof cardPriorities.$inferSelect;
 export const insertCardSchema = createInsertSchema(cards, {
   title: z.string().min(1, "Título é obrigatório").max(300, "Título não pode exceder 300 caracteres"),
   description: z.string().max(5000, "Descrição não pode exceder 5000 caracteres").optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional(),
 }).pick({
   title: true,
   description: true,
   listId: true,
   order: true,
   dueDate: true,
+  startDate: true,
+  endDate: true,
   completed: true,
 }).partial({
   description: true,
   order: true,
   dueDate: true,
+  startDate: true,
+  endDate: true,
   completed: true,
+})
+.refine((data) => {
+  // Validação: se ambas as datas estiverem definidas, startDate deve ser <= endDate
+  if (data.startDate && data.endDate) {
+    return new Date(data.startDate) <= new Date(data.endDate);
+  }
+  return true;
+}, {
+  message: "Data de início deve ser anterior ou igual à data de término",
+  path: ["endDate"], // Campo onde o erro será exibido
+});
+
+/**
+ * Schema para atualizações de cartões
+ * Todos os campos são opcionais para permitir atualizações parciais
+ */
+export const updateCardSchema = createInsertSchema(cards, {
+  title: z.string().min(1, "Título é obrigatório").max(300, "Título não pode exceder 300 caracteres").optional(),
+  description: z.string().max(5000, "Descrição não pode exceder 5000 caracteres").optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").nullable().optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").nullable().optional(),
+}).pick({
+  title: true,
+  description: true,
+  listId: true,
+  order: true,
+  dueDate: true,
+  startDate: true,
+  endDate: true,
+  completed: true,
+}).partial()
+.refine((data) => {
+  // Validação: se ambas as datas estiverem definidas, startDate deve ser <= endDate
+  if (data.startDate && data.endDate) {
+    return new Date(data.startDate) <= new Date(data.endDate);
+  }
+  return true;
+}, {
+  message: "Data de início deve ser anterior ou igual à data de término",
+  path: ["endDate"], // Campo onde o erro será exibido
 });
 
 /**
  * Tipos para cartões
  */
 export type InsertCard = z.infer<typeof insertCardSchema>;
+export type UpdateCard = z.infer<typeof updateCardSchema>;
 export type Card = typeof cards.$inferSelect;
 
 /**

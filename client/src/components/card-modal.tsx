@@ -6,7 +6,8 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle, 
+  DialogTitle,
+  DialogDescription,
   DialogClose 
 } from "@/components/ui/dialog";
 import {
@@ -96,6 +97,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [startDate, setStartDate] = useState<string>(''); // String no formato YYYY-MM-DD
+  const [endDate, setEndDate] = useState<string>(''); // String no formato YYYY-MM-DD
+  const [showDurationDialog, setShowDurationDialog] = useState(false);
   const { checklists, checklistItems } = useBoardContext();
 
   // Set initial username from auth context
@@ -458,6 +462,17 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
     }
   }, [card]);
 
+  // Set the initial startDate and endDate states when the card loads
+  useEffect(() => {
+    if (card) {
+      setStartDate(card.startDate || '');
+      setEndDate(card.endDate || '');
+    } else {
+      setStartDate('');
+      setEndDate('');
+    }
+  }, [card]);
+
   const handleDueDateChange = async (newDueDate: Date | null) => {
     if (!card) return;
 
@@ -478,6 +493,97 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
     } catch (error) {
       console.error("Error updating due date:", error);
     }
+  };
+
+  const handleStartDateChange = async (newStartDate: string) => {
+    if (!card) return;
+
+    try {
+      // Validar se a data não conflita com endDate
+      if (newStartDate && endDate) {
+        const startDateObj = new Date(newStartDate);
+        const endDateObj = new Date(endDate);
+        if (startDateObj > endDateObj) {
+          toast({
+            title: "Data inválida",
+            description: "Data de início deve ser anterior ou igual à data de término",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      const updateData = { startDate: newStartDate || null };
+      await updateCard(card.id, updateData);
+      setStartDate(newStartDate);
+    } catch (error) {
+      console.error("Error updating start date:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar data de início",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEndDateChange = async (newEndDate: string) => {
+    if (!card) return;
+
+    try {
+      // Validar se a data não conflita com startDate
+      if (newEndDate && startDate) {
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(newEndDate);
+        if (startDateObj > endDateObj) {
+          toast({
+            title: "Data inválida",
+            description: "Data de término deve ser posterior ou igual à data de início",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      const updateData = { endDate: newEndDate || null };
+      await updateCard(card.id, updateData);
+      setEndDate(newEndDate);
+    } catch (error) {
+      console.error("Error updating end date:", error);
+      toast({
+        title: "Erro", 
+        description: "Erro ao atualizar data de término",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Calcular duração entre as datas
+  const calculateDuration = (): string => {
+    if (!startDate && !endDate) return '';
+    
+    const today = new Date();
+    const startDateObj = startDate ? new Date(startDate) : null;
+    const endDateObj = endDate ? new Date(endDate) : null;
+
+    if (startDateObj && endDateObj) {
+      // Duração fixa: ambas as datas estão definidas
+      const diffTime = Math.abs(endDateObj.getTime() - startDateObj.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return `${diffDays} dia${diffDays !== 1 ? 's' : ''}`;
+    } else if (startDateObj && !endDateObj) {
+      // Duração ativa: contar desde a data de início até hoje
+      const diffTime = Math.abs(today.getTime() - startDateObj.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return `${diffDays} dia${diffDays !== 1 ? 's' : ''} (ativo)`;
+    }
+    
+    return '';
+  };
+
+  const formatDateForDisplay = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR'); // Formato DD/MM/YYYY
   };
 
   if (!card || !list) return null;
@@ -515,10 +621,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     {card.title}
                   </DialogTitle>
                 )}
+                <DialogDescription className="text-sm text-[#5E6C84]">
+                  na lista <span className="font-medium">{list.title}</span>
+                </DialogDescription>
               </div>
-              <p className="text-sm text-[#5E6C84]">
-                na lista <span className="font-medium">{list.title}</span>
-              </p>
             </div>
           </DialogHeader>
 
@@ -626,12 +732,25 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     <h3>Tempo de Duração</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button 
-                      className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
-                      onClick={() => {/* abrir seletor de duração - placeholder */}}
-                    >
-                      + Definir tempo
-                    </button>
+                    {calculateDuration() ? (
+                      <button 
+                        className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-center gap-1"
+                        onClick={() => setShowDurationDialog(true)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12,6 12,12 16,14" />
+                        </svg>
+                        {calculateDuration()}
+                      </button>
+                    ) : (
+                      <button 
+                        className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
+                        onClick={() => setShowDurationDialog(true)}
+                      >
+                        + Definir tempo
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -901,6 +1020,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     </div>
                   </div>
                 )}
+
+                {/* Seção de Duração (Start Date e End Date) */}
+
+
                 <button className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#5E6C84]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -1144,6 +1267,101 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir comentário
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal de Duração */}
+      <AlertDialog open={showDurationDialog} onOpenChange={setShowDurationDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Definir Tempo de Duração</AlertDialogTitle>
+            <AlertDialogDescription>
+              Configure as datas de início e término para calcular a duração da tarefa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            {/* Data de Início */}
+            <div>
+              <label className="block text-sm font-medium text-[#172B4D] mb-2">Data de Início</label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full"
+                placeholder="Selecionar data de início"
+              />
+              {startDate && (
+                <div className="text-xs text-[#5E6C84] mt-1">
+                  {formatDateForDisplay(startDate)}
+                </div>
+              )}
+            </div>
+
+            {/* Data de Término */}
+            <div>
+              <label className="block text-sm font-medium text-[#172B4D] mb-2">Data de Término</label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full"
+                placeholder="Selecionar data de término (opcional)"
+              />
+              {endDate && (
+                <div className="text-xs text-[#5E6C84] mt-1">
+                  {formatDateForDisplay(endDate)}
+                </div>
+              )}
+            </div>
+
+            {/* Prévia da Duração */}
+            {calculateDuration() && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12,6 12,12 16,14" />
+                  </svg>
+                  <span className="text-sm font-medium text-blue-800">
+                    Duração: {calculateDuration()}
+                  </span>
+                </div>
+                {startDate && !endDate && (
+                  <div className="text-xs text-blue-600 mt-1">
+                    ⏱️ Contagem ativa desde {formatDateForDisplay(startDate)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <AlertDialogFooter className="gap-2">
+            {/* Botão para limpar */}
+            {(startDate || endDate) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStartDate('');
+                  setEndDate('');
+                }}
+              >
+                Limpar
+              </Button>
+            )}
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              // Salvar as alterações
+              try {
+                await handleStartDateChange(startDate);
+                await handleEndDateChange(endDate);
+                setShowDurationDialog(false);
+              } catch (error) {
+                // Se houver erro, não fechar o modal para que o usuário possa corrigir
+                console.error('Erro ao salvar duração:', error);
+              }
+            }}>
+              Aplicar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
