@@ -140,9 +140,10 @@ CREATE TABLE IF NOT EXISTS checklist_items (
 
 -- Relacionamento entre cartões e etiquetas
 CREATE TABLE IF NOT EXISTS card_labels (
+    id SERIAL PRIMARY KEY,
     card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
     label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
-    PRIMARY KEY (card_id, label_id)
+    UNIQUE(card_id, label_id)
 );
 
 -- Relacionamento entre cartões e membros
@@ -157,6 +158,7 @@ CREATE TABLE IF NOT EXISTS board_members (
     board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(50) DEFAULT 'member',
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     PRIMARY KEY (board_id, user_id)
 );
 
@@ -283,13 +285,6 @@ COMMENT ON COLUMN cards.completed IS 'Indica se o cartão foi marcado como concl
 COMMENT ON TABLE checklist_items IS 'Itens de checklist que podem ter subitens (hierarquia através de parent_item_id)';
 COMMENT ON COLUMN checklist_items.parent_item_id IS 'Referência ao item pai para criar hierarquia de subitens';
 
-COMMENT ON TABLE notifications IS 'Tabela para armazenar notificações do sistema para usuários';
-COMMENT ON COLUMN notifications.type IS 'Tipo da notificação (task_assigned, comment, mention, invitation, deadline)';
-COMMENT ON COLUMN notifications.action_url IS 'URL para redirecionar ao clicar na notificação';
-COMMENT ON COLUMN notifications.related_card_id IS 'Referência ao cartão relacionado à notificação';
-COMMENT ON COLUMN notifications.related_checklist_item_id IS 'Referência ao item de checklist relacionado à notificação';
-COMMENT ON COLUMN notifications.from_user_id IS 'Referência ao usuário que gerou a notificação';
-
 -- ============================================================================
 -- LIMPEZA DE DADOS (se necessário)
 -- ============================================================================
@@ -329,6 +324,13 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 CREATE INDEX IF NOT EXISTS idx_notifications_related_card ON notifications(related_card_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_related_checklist_item ON notifications(related_checklist_item_id);
+
+COMMENT ON TABLE notifications IS 'Tabela para armazenar notificações do sistema para usuários';
+COMMENT ON COLUMN notifications.type IS 'Tipo da notificação (task_assigned, comment, mention, invitation, deadline)';
+COMMENT ON COLUMN notifications.action_url IS 'URL para redirecionar ao clicar na notificação';
+COMMENT ON COLUMN notifications.related_card_id IS 'Referência ao cartão relacionado à notificação';
+COMMENT ON COLUMN notifications.related_checklist_item_id IS 'Referência ao item de checklist relacionado à notificação';
+COMMENT ON COLUMN notifications.from_user_id IS 'Referência ao usuário que gerou a notificação';
 
 -- ============================================================================
 -- SISTEMA DE AUDITORIA E ATIVIDADES

@@ -281,6 +281,13 @@ export async function runMissingSqlMigrations() {
     await sql`ALTER TABLE card_members DROP CONSTRAINT IF EXISTS card_members_card_id_fkey`;
     await sql`ALTER TABLE card_members ADD CONSTRAINT card_members_card_id_fkey 
       FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE`;
+
+    // Ensure board_members has created_at column (some deployments expect this column)
+    await sql`
+      ALTER TABLE board_members
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW() NOT NULL;
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_board_members_created_at ON board_members(created_at);`;
     
     // Fix checklists constraint  
     await sql`ALTER TABLE checklists DROP CONSTRAINT IF EXISTS checklists_card_id_fkey`;
