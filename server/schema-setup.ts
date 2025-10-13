@@ -1,6 +1,12 @@
 import { sql } from './database';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// When compiled to ESM (dist run with node using file://), `__dirname` is not defined.
+// Compute equivalent values using import.meta.url so the code can run in both ESM and CJS.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function runInitialMigrations() {
   try {
