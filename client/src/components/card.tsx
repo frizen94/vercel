@@ -175,16 +175,8 @@ export function Card({ card, index, openCardModal }: CardProps) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`bg-white rounded shadow-sm p-4 mb-2 flex flex-col justify-between min-h-[96px] cursor-grab hover:bg-[#F4F5F7] transition-all duration-200 ${snapshot.isDragging ? 'board-card-dragging shadow-2xl opacity-100 visible' : ''}`}
-          style={{
-            ...provided.draggableProps.style,
-            ...(snapshot.isDragging && {
-              zIndex: 99999,
-              opacity: 1,
-              visibility: 'visible',
-              backgroundColor: '#ffffff',
-            })
-          }}
+          className={`bg-white rounded shadow-sm p-4 mb-2 flex flex-col justify-between min-h-[96px] cursor-grab hover:bg-[#F4F5F7] transition-all duration-200 ${snapshot.isDragging ? 'board-card-dragging shadow-2xl' : ''}`}
+          style={provided.draggableProps.style}
           onClick={handleCardClick}
         >
           {/* Card labels */}

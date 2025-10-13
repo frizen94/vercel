@@ -198,13 +198,16 @@
     box-shadow: var(--shadow-medium);
   }
   
-  /* Floating animations */
+  /* Floating animations (DESATIVADAS) */
+  /* Removidas para evitar transforms em ancestors que causam offset no drag-and-drop */
   .floating {
-    animation: floating 3s ease-in-out infinite;
+    animation: none !important;
+    transform: none !important;
   }
-  
+
   .floating-delayed {
-    animation: floating 3s ease-in-out infinite 1s;
+    animation: none !important;
+    transform: none !important;
   }
 
   /* Se houver um drag em andamento, neutralizamos transforms/animations que podem afetar o cálculo
@@ -218,6 +221,10 @@
     animation: none !important;
     transform: none !important;
     -webkit-transform: none !important;
+  }
+
+  body.dnd-dragging .board-card {
+    transform: none !important;
   }
   
   @keyframes floating {
@@ -290,7 +297,6 @@
     opacity: 1 !important;
     background-color: #ffffff !important;
     z-index: 99999 !important;
-    position: relative !important;
   }
 
   /* Melhora o comportamento do drag and drop */

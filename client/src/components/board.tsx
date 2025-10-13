@@ -14,6 +14,7 @@ export function Board({ boardId }: BoardProps) {
   const { lists, moveCard, moveList, currentBoard } = useBoardContext();
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  // lightweight drag markers only
 
   const openCardModal = (cardId: number) => {
     setActiveCardId(cardId);
@@ -78,7 +79,7 @@ export function Board({ boardId }: BoardProps) {
                 className="board-lists flex space-x-6 pb-8 pt-4 items-start"
               >
                 {lists.map((list, index) => (
-                  <div key={list.id} className="floating" style={{animationDelay: `${index * 0.1}s`}}>
+                  <div key={list.id} style={{animationDelay: `${index * 0.1}s`}}>
                     <List 
                       list={list} 
                       index={index}
@@ -87,7 +88,7 @@ export function Board({ boardId }: BoardProps) {
                   </div>
                 ))}
                 {provided.placeholder}
-                <div className="floating-delayed">
+                <div>
                   <AddList boardId={boardId} />
                 </div>
               </div>
