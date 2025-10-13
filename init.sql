@@ -329,9 +329,37 @@ COMMENT ON COLUMN boards.portfolio_id IS 'Referência opcional ao portfólio que
 COMMENT ON COLUMN boards.color IS 'Cor de identificação do quadro em hexadecimal';
 
 COMMENT ON TABLE cards IS 'Tabela para armazenar cartões/tarefas nos quadros Kanban';
-COMMENT ON COLUMN cards.completed IS 'Indica se o cartão foi marcado como concluído (funcionalidade similar ao Asana)';
-COMMENT ON COLUMN cards.start_date IS 'Data de início do cartão (opcional)';
-COMMENT ON COLUMN cards.end_date IS 'Data de término do cartão (opcional)';
+
+-- Adicionar comentário apenas se a coluna completed existir
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'completed'
+    ) THEN
+        COMMENT ON COLUMN cards.completed IS 'Indica se o cartão foi marcado como concluído (funcionalidade similar ao Asana)';
+    END IF;
+END$$;
+
+-- Adicionar comentários apenas se as colunas start_date e end_date existirem
+DO $$
+BEGIN
+    -- Comentário para start_date
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'start_date'
+    ) THEN
+        COMMENT ON COLUMN cards.start_date IS 'Data de início do cartão (opcional)';
+    END IF;
+    
+    -- Comentário para end_date
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'end_date'
+    ) THEN
+        COMMENT ON COLUMN cards.end_date IS 'Data de término do cartão (opcional)';
+    END IF;
+END$$;
 
 COMMENT ON TABLE checklist_items IS 'Itens de checklist que podem ter subitens (hierarquia através de parent_item_id)';
 COMMENT ON COLUMN checklist_items.parent_item_id IS 'Referência ao item pai para criar hierarquia de subitens';
