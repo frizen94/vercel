@@ -221,8 +221,18 @@ CREATE INDEX IF NOT EXISTS idx_portfolios_created_at ON portfolios(created_at);
 -- Índices para quadros
 CREATE INDEX IF NOT EXISTS idx_boards_user_id ON boards(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_portfolio_id ON boards(portfolio_id);
-CREATE INDEX IF NOT EXISTS idx_boards_archived ON boards(archived);
-CREATE INDEX IF NOT EXISTS idx_boards_user_archived ON boards(user_id, archived);
+-- Verificar se a coluna archived existe antes de criar os índices
+DO $$
+BEGIN
+    -- Criar índices archived se a coluna existir
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'boards' AND column_name = 'archived'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_boards_archived ON boards(archived);
+        CREATE INDEX IF NOT EXISTS idx_boards_user_archived ON boards(user_id, archived);
+    END IF;
+END$$;
 CREATE INDEX IF NOT EXISTS idx_boards_created_at ON boards(created_at);
 
 -- Índices para listas
@@ -252,10 +262,28 @@ BEGIN
         CREATE INDEX IF NOT EXISTS idx_cards_end_date ON cards(end_date);
     END IF;
 END$$;
-CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);
--- Índices para arquivamento de cartões (performance em consultas de arquivados)
-CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);
-CREATE INDEX IF NOT EXISTS idx_cards_list_archived ON cards(list_id, archived);
+-- Verificar se a coluna completed existe antes de criar o índice
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'completed'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);
+    END IF;
+END$$;
+-- Verificar se a coluna archived existe antes de criar os índices de arquivamento
+DO $$
+BEGIN
+    -- Criar índices archived se a coluna existir
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'archived'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);
+        CREATE INDEX IF NOT EXISTS idx_cards_list_archived ON cards(list_id, archived);
+    END IF;
+END$$;
 
 -- Índices para etiquetas
 CREATE INDEX IF NOT EXISTS idx_labels_board_id ON labels(board_id);
