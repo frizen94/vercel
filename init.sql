@@ -233,8 +233,25 @@ CREATE INDEX IF NOT EXISTS idx_lists_order ON lists("order");
 CREATE INDEX IF NOT EXISTS idx_cards_list_id ON cards(list_id);
 CREATE INDEX IF NOT EXISTS idx_cards_order ON cards("order");
 CREATE INDEX IF NOT EXISTS idx_cards_due_date ON cards(due_date);
-CREATE INDEX IF NOT EXISTS idx_cards_start_date ON cards(start_date);
-CREATE INDEX IF NOT EXISTS idx_cards_end_date ON cards(end_date);
+-- Verificar se as colunas existem antes de criar os índices
+DO $$
+BEGIN
+    -- Criar índice start_date se a coluna existir
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'start_date'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_cards_start_date ON cards(start_date);
+    END IF;
+    
+    -- Criar índice end_date se a coluna existir
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'cards' AND column_name = 'end_date'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_cards_end_date ON cards(end_date);
+    END IF;
+END$$;
 CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);
 -- Índices para arquivamento de cartões (performance em consultas de arquivados)
 CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);
