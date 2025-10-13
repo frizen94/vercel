@@ -1027,11 +1027,16 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                 {/* Seção de Duração (Start Date e End Date) */}
 
 
-                <button className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#5E6C84]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <button
+                  className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded opacity-50 cursor-not-allowed pointer-events-none flex items-center"
+                  aria-disabled="true"
+                  title="Recurso em implementação — desabilitado por enquanto"
+                  tabIndex={-1}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#9AA6B2]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
-                  <span>Anexo</span>
+                  <span>Anexo (em construção)</span>
                 </button>
               </div>
 
