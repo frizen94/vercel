@@ -43,7 +43,8 @@ export async function runInitialMigrations() {
         name TEXT NOT NULL,
         profile_picture TEXT,
         role TEXT NOT NULL DEFAULT 'user',
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
     `;
 
@@ -66,9 +67,11 @@ export async function runInitialMigrations() {
         title VARCHAR(255) NOT NULL,
         description TEXT,
         color TEXT DEFAULT '#22C55E',
+        archived BOOLEAN NOT NULL DEFAULT FALSE,
         user_id INTEGER REFERENCES users(id),
         portfolio_id INTEGER REFERENCES portfolios(id),
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
     `;
 
@@ -79,7 +82,8 @@ export async function runInitialMigrations() {
         title TEXT NOT NULL,
         board_id INTEGER REFERENCES boards(id) NOT NULL,
         "order" INTEGER NOT NULL DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
     `;
 
@@ -94,7 +98,10 @@ export async function runInitialMigrations() {
         due_date TIMESTAMP,
         start_date DATE,
         end_date DATE,
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        completed BOOLEAN NOT NULL DEFAULT FALSE,
+        archived BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
     `;
 
