@@ -22,7 +22,8 @@ interface CardProps {
 }
 
 export function Card({ card, index, openCardModal }: CardProps) {
-  const { cardLabels, fetchCardLabels, deleteCard, updateCard, createCard, cardMembers, fetchCardMembers, cardPriorities, fetchCardPriority } = useBoardContext();
+  const { cardLabels, fetchCardLabels, deleteCard, updateCard, createCard, cardMembers, fetchCardMembers, cardPriorities, fetchCardPriority,
+    addLabelToCard, addMemberToCard, fetchChecklists, createChecklist, fetchChecklistItems, createChecklistItem, updateChecklistItem } = useBoardContext();
   const { toast } = useToast();
 
   // Função para verificar se um cartão está atrasado
@@ -118,26 +119,86 @@ export function Card({ card, index, openCardModal }: CardProps) {
   // Handler para copiar o cartão
   const handleCopyCard = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Previne que o cartão seja aberto quando clicamos nas reticências
-
     try {
-      // Criar uma cópia do cartão na mesma lista
-      const cardCopy = {
-        title: `${card.title} (Cópia)`,
-        description: card.description,
-        dueDate: card.dueDate
-      };
+      // Deep copy behavior: mirror card-modal's handleDeepCopy
+      const titleCopy = `${card.title} (Cópia)`;
+      // Cria o novo cartão na mesma lista
+      const newCard = await createCard(titleCopy, card.listId);
 
-      await createCard(cardCopy.title, card.listId);
-      toast({
-        title: "Cartão copiado",
-        description: "Uma cópia do cartão foi criada com sucesso.",
-      });
+      // Atualiza campos adicionais (descrição, dueDate, completed)
+      const updates: any = {};
+      if (card.description) updates.description = card.description;
+      if (card.dueDate) updates.dueDate = card.dueDate;
+      if (typeof (card as any).completed !== 'undefined') updates.completed = (card as any).completed;
+
+      if (Object.keys(updates).length > 0) {
+        await updateCard(newCard.id, updates);
+      }
+
+      // Copiar etiquetas
+      const labelsToCopy = cardLabels[card.id] || [];
+      for (const lbl of labelsToCopy) {
+        try {
+          await addLabelToCard(newCard.id, lbl.id);
+        } catch (err) {
+          console.warn('Erro ao adicionar etiqueta na cópia:', err);
+        }
+      }
+
+      // Copiar membros
+      const membersToCopy = cardMembers[card.id] || [];
+      for (const m of membersToCopy) {
+        try {
+          await addMemberToCard(newCard.id, m.id);
+        } catch (err) {
+          console.warn('Erro ao adicionar membro na cópia:', err);
+        }
+      }
+
+      // Copiar checklists e itens (mantendo hierarquia)
+      try {
+        const originalChecklists = await fetchChecklists(card.id);
+        for (const cl of originalChecklists) {
+          const newChecklist = await createChecklist(cl.title, newCard.id);
+          const items = await fetchChecklistItems(cl.id);
+
+          // Map antigoId -> novoId para parentItemId
+          const idMap: Record<number, number> = {};
+
+          // Primeiro passe: criar itens na ordem e tentar atribuir parent quando possível
+          for (const item of items) {
+            const options: any = { completed: item.completed ?? false };
+            if (item.parentItemId) {
+              if (idMap[item.parentItemId]) options.parentItemId = idMap[item.parentItemId];
+            }
+
+            const created = await createChecklistItem(item.content, newChecklist.id, options);
+            idMap[item.id] = created.id;
+          }
+
+          // Segunda passe: garantir que parentItemId esteja ajustado quando faltou no primeiro passe
+          for (const item of items) {
+            if (item.parentItemId) {
+              const newId = idMap[item.id];
+              const newParentId = idMap[item.parentItemId];
+              if (newId && newParentId) {
+                try {
+                  await updateChecklistItem(newId, { parentItemId: newParentId });
+                } catch (err) {
+                  console.warn('Erro ao atualizar parentItemId na cópia:', err);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao copiar checklists:', err);
+      }
+
+      toast({ title: 'Cartão copiado', description: 'Cópia completa criada com sucesso.' });
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível copiar o cartão.",
-        variant: "destructive",
-      });
+      console.error('Erro ao copiar cartão:', error);
+      toast({ title: 'Erro', description: 'Não foi possível copiar o cartão.', variant: 'destructive' });
     }
   };
 
