@@ -10,6 +10,9 @@ Resumo rápido da estrutura e lista dos endpoints REST definidos em `server/rout
 
 ## Endpoints (resumo)
 - GET /api/health
+- GET /api/debug/session
+- GET /api/debug/database
+- GET /api/csrf-token
 
 Portfólios
 - GET /api/portfolios
@@ -27,6 +30,9 @@ Quadros (Boards)
 - PATCH /api/boards/:id
 - DELETE /api/boards/:id
 - GET /api/boards/:boardId/lists
+- GET /api/boards/archived
+- POST /api/boards/:id/archive
+- POST /api/boards/:id/unarchive
 
 Listas (Lists)
 - POST /api/lists
@@ -40,6 +46,11 @@ Cartões (Cards)
 - POST /api/cards
 - PATCH /api/cards/:id
 - DELETE /api/cards/:id
+- GET /api/cards/archived
+- POST /api/cards/:id/archive
+- POST /api/cards/:id/unarchive
+- PATCH /api/cards/:id/complete
+- GET /api/cards/overdue-dashboard
 
 Etiquetas (Labels)
 - GET /api/boards/:boardId/labels
@@ -50,6 +61,16 @@ Etiquetas (Labels)
 - GET /api/boards/:boardId/cards/labels
 - POST /api/card-labels
 - DELETE /api/cards/:cardId/labels/:labelId
+
+Prioridades (Priorities)
+- GET /api/boards/:boardId/priorities
+- GET /api/boards/:boardId/cards/priorities
+- POST /api/priorities
+- PATCH /api/priorities/:id
+- DELETE /api/priorities/:id
+- GET /api/cards/:cardId/priority
+- POST /api/card-priorities
+- DELETE /api/cards/:cardId/priority
 
 Comentários
 - GET /api/cards/:cardId/comments
@@ -93,6 +114,7 @@ Dashboard
 - GET /api/dashboard/collaborators
 - GET /api/dashboard/stats
 - GET /api/dashboard/recent-tasks
+- GET /api/dashboard/checklist-items
 
 Overdue check
 - POST /api/check-overdue-tasks
@@ -102,9 +124,14 @@ Notificações
 - GET /api/notifications/unread-count
 - POST /api/notifications/:id/read
 - POST /api/notifications/mark-all-read
+- POST /api/notifications/:id/clear
+- POST /api/notifications/clear-all
 - DELETE /api/notifications/:id
 
 Uploads
 - POST /api/users/:id/profile-image (multipart/form-data)
+
+Admin
+- GET /api/admin/audit-logs
 
 > Observação: muitas rotas requerem autenticação (ver `isAuthenticated` e middlewares). Consulte `server/routes.ts` para detalhes de validação e comportamento específico de cada rota.
