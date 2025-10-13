@@ -33,10 +33,21 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any; // Tipo para a session store
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true
-    });
+    try {
+      this.sessionStore = new PostgresSessionStore({
+        pool,
+        createTableIfMissing: true
+      });
+    } catch (error) {
+      // Se a criação da session store do Postgres falhar (por exemplo, ETIMEDOUT
+      // ao tentar comunicar com o banco durante o deploy), evitamos lançar uma
+      // exceção que derrube a inicialização da app. Em vez disso, fazemos fallback
+      // para a MemoryStore do express-session (apenas para manter a app no ar
+      // até o DB ficar disponível). Registrar o erro para auditoria.
+      console.error('Falha ao inicializar Postgres session store, usando MemoryStore como fallback:', error);
+      const session = require('express-session');
+      this.sessionStore = new session.MemoryStore();
+    }
   }
 
   // User methods

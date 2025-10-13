@@ -189,6 +189,13 @@ export const globalErrorHandler = (
   res: Response,
   next: NextFunction
 ) => {
+  // If headers were already sent by earlier middleware/route handlers,
+  // delegate to the default Express error handling to avoid "Cannot set headers"
+  // and double-response errors.
+  if (res.headersSent) {
+    console.error('Headers already sent for request, delegating to next error handler', { url: req.url });
+    return next(err);
+  }
   // Log completo para desenvolvedores/auditoria
   console.error('Erro da aplicação:', {
     message: err.message,
