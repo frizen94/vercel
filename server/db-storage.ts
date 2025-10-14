@@ -646,6 +646,15 @@ export class DatabaseStorage implements IStorage {
       // 4. Excluir itens das checklists
       const cardChecklists = await db.select().from(schema.checklists).where(eq(schema.checklists.cardId, id));
       for (const checklist of cardChecklists) {
+        // Primeiro, buscar todos os itens de checklist para esta checklist
+        const checklistItems = await db.select().from(schema.checklistItems).where(eq(schema.checklistItems.checklistId, checklist.id));
+        
+        // Excluir notificações que referenciam esses itens de checklist
+        for (const item of checklistItems) {
+          await db.delete(schema.notifications).where(eq(schema.notifications.relatedChecklistItemId, item.id));
+        }
+        
+        // Agora podemos excluir os itens de checklist com segurança
         await db.delete(schema.checklistItems).where(eq(schema.checklistItems.checklistId, checklist.id));
       }
 
