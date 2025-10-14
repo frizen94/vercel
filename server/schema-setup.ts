@@ -319,6 +319,11 @@ export async function runMissingSqlMigrations() {
     await sql`ALTER TABLE notifications ADD CONSTRAINT notifications_related_card_id_fkey 
       FOREIGN KEY (related_card_id) REFERENCES cards(id) ON DELETE CASCADE`;
     
+    // Add missing constraint fix for checklist items in notifications
+    await sql`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_related_checklist_item_id_fkey`;
+    await sql`ALTER TABLE notifications ADD CONSTRAINT notifications_related_checklist_item_id_fkey 
+      FOREIGN KEY (related_checklist_item_id) REFERENCES checklist_items(id) ON DELETE CASCADE`;
+    
     // Add archived column to boards for archiving functionality
     await sql`
       ALTER TABLE boards 
