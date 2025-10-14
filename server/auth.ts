@@ -51,7 +51,7 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       httpOnly: true, // Previne acesso via JavaScript
-      secure: false, // Temporariamente false para debug no Railway
+      secure: isProduction, // Força HTTPS em produção
       sameSite: 'lax', // Mudado de 'none' para 'lax' para compatibilidade
       domain: undefined // Deixar undefined para Railway gerenciar automaticamente
     },

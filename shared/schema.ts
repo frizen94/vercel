@@ -639,7 +639,9 @@ export const notifications = pgTable("notifications", {
 /**
  * Schema para inserção de notificações
  */
-export const insertNotificationSchema = createInsertSchema(notifications).pick({
+export const insertNotificationSchema = createInsertSchema(notifications, {
+    actionUrl: z.string().url("URL inválida").optional(),
+}).pick({
   userId: true,
   type: true,
   title: true,

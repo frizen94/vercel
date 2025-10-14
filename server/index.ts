@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
-import { globalErrorHandler, csrfProtection } from "./middlewares";
+import { globalErrorHandler, csrfProtection, globalApiRateLimit, sanitizeInput } from "./middlewares";
 import { setupVite, serveStatic } from "./vite";
 import { initializeDatabase } from "./database";
 import { runSeeder } from "./seeder";
@@ -12,6 +12,9 @@ const app = express();
 // Configurar trust proxy para Railway/Vercel/Railway
 app.set('trust proxy', 1);
 
+// Detectar ambiente de produção
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Configuração de segurança com Helmet
 app.use(helmet({
   contentSecurityPolicy: {
@@ -20,11 +23,11 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      scriptSrc: [
-        "'self'", 
-        "'unsafe-inline'", // Permite scripts inline para desenvolvimento
-        "'unsafe-eval'" // Para Vite HMR em desenvolvimento
-      ],
+      // Em produção: bloqueia unsafe-inline e unsafe-eval para máxima segurança contra XSS
+      // Em desenvolvimento: permite para compatibilidade com Vite HMR
+      scriptSrc: isProduction 
+        ? ["'self'"] 
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       connectSrc: ["'self'", "ws:", "wss:"], // Para WebSocket do Vite HMR
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -34,8 +37,21 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false // Para compatibilidade
 }));
 
+// Log da configuração CSP aplicada
+if (isProduction) {
+  console.log("🔒 [SEGURANÇA] CSP em modo PRODUÇÃO: unsafe-inline e unsafe-eval BLOQUEADOS");
+} else {
+  console.log("🔧 [DEV] CSP em modo DESENVOLVIMENTO: unsafe-inline e unsafe-eval permitidos para Vite HMR");
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Sanitizar todas as entradas
+app.use(sanitizeInput);
+
+// Aplicar limitação de taxa global a todas as rotas da API
+app.use("/api/", globalApiRateLimit);
 
 // CSRF será configurado após as sessões nas rotas
 

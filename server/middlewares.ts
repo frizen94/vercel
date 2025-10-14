@@ -1,7 +1,48 @@
 import { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import csrf from "csurf";
+import sanitizeHtml from "sanitize-html";
 import { storage as appStorage } from "./db-storage";
+
+// Middleware para sanitizar entradas
+export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
+  const sanitizeString = (value: string) => {
+    return sanitizeHtml(value, {
+      allowedTags: ['p','br','strong','em','u','ol','ul','li','blockquote'],
+      allowedAttributes: {},
+      allowedSchemes: ['http','https','mailto']
+    });
+  };
+
+  const sanitize = (obj: any) => {
+    if (obj === null || typeof obj !== 'object') {
+      return;
+    }
+
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        if (typeof value === 'string') {
+          obj[key] = sanitizeString(value);
+        } else if (typeof value === 'object') {
+          sanitize(value);
+        }
+      }
+    }
+  };
+
+  if (req.body) {
+    sanitize(req.body);
+  }
+  if (req.query) {
+    sanitize(req.query);
+  }
+  if (req.params) {
+    sanitize(req.params);
+  }
+
+  next();
+};
 
 // Middleware de proteção CSRF
 export const csrfProtection = csrf({
@@ -106,8 +147,32 @@ export async function hasCardAccess(req: Request, res: Response, next: NextFunct
 }
 
 /**
- * Rate limiting middlewares para proteger contra ataques de força bruta
+ * Rate limiting middlewares para proteger contra ataques de força bruta e DoS
  */
+
+export const globalApiRateLimit = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 200, // Máximo 200 requisições por IP por minuto
+  message: {
+    error: "Muitas requisições. Tente novamente em 1 minuto."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  trustProxy: true,
+  keyGenerator: (req: Request) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
+    }
+    return req.ip || 'unknown';
+  },
+  handler: (req: Request, res: Response) => {
+    console.log(`Global rate limit exceeded for IP: ${req.ip} - Request blocked`);
+    res.status(429).json({
+      error: "Muitas requisições. Tente novamente em 1 minuto."
+    });
+  }
+});
 
 export const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos

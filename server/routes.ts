@@ -48,7 +48,7 @@ import {
   insertBoardMemberSchema
 } from "@shared/schema";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
-import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection } from "./middlewares";
+import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection, sanitizeInput } from "./middlewares";
 import { auditMiddleware } from "./audit-middleware";
 import { AuditService, EntityType, AuditAction } from "./audit-service";
 import { sql } from "./database";
@@ -142,6 +142,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * Captura todas as operações mutantes (POST, PUT, PATCH, DELETE) e registra logs de auditoria
    */
   app.use(auditMiddleware);
+
+  /**
+   * Middleware de Sanitização de Entrada
+   * Aplica sanitização em todas as entradas (body, query, params) para prevenir XSS
+   * IMPORTANTE: Protege contra injeção de código malicioso em todas as rotas da API
+   */
+  app.use('/api', sanitizeInput);
 
   /**
    * Configuração de diretório para servir arquivos estáticos
