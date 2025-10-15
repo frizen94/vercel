@@ -734,11 +734,26 @@ export function BoardProvider({ children }: BoardProviderProps) {
 
   const updateLabel = async (id: number, updates: { name?: string; color?: string }): Promise<Label | null> => {
     const updated = await apiRequest('PATCH', `/api/labels/${id}`, updates);
-    // refresh labels list
+    
+    // Atualizar labels list localmente (otimista)
+    setLabels(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+    
+    // Atualizar cardLabels para todos os cards que usam essa label
+    setCardLabels(prev => {
+      const next = { ...prev };
+      for (const cardId in next) {
+        next[Number(cardId)] = next[Number(cardId)].map(label => 
+          label.id === id ? { ...label, ...updates } : label
+        );
+      }
+      return next;
+    });
+    
+    // Refresh completo da lista de labels do board (em background)
     if (currentBoard) {
-      const boardLabels = await fetchLabels(currentBoard.id);
-      setLabels(boardLabels);
+      fetchLabels(currentBoard.id);
     }
+    
     return updated;
   };
 

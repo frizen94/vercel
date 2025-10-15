@@ -342,7 +342,7 @@ export function AppSidebar() {
     queryFn: () => apiRequest('GET', '/api/notifications/unread-count'),
     enabled: !!user, // Só executar se usuário estiver autenticado
     staleTime: 5 * 1000,
-    refetchInterval: !!user ? 10 * 1000 : false, // Só fazer polling se autenticado
+    refetchInterval: !!user ? 30 * 1000 : false, // Só fazer polling se autenticado
     retry: (failureCount, error: any) => {
       // Não tentar novamente se for erro de autenticação
       if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {

@@ -137,24 +137,29 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
   // confirmação agora usa Dialog estilizado em vez de controles inline
   // confirmação agora usa Dialog estilizado em vez de controles inline
   
-  // Carregar etiquetas do quadro
+  // Carregar etiquetas do quadro - somente se não estiverem já carregadas
   useEffect(() => {
-    if (boardId && isOpen) {
+    if (boardId && isOpen && labels.length === 0) {
       fetchLabels(boardId);
     }
-  }, [boardId, isOpen, fetchLabels]);
+  }, [boardId, isOpen, labels.length, fetchLabels]);
   
-  // Carregar etiquetas do cartão (se cardId for fornecido)
+  // Carregar etiquetas do cartão (se cardId for fornecido) - usa dados do cache quando possível
   useEffect(() => {
     if (cardId && isOpen) {
-      const loadCardLabels = async () => {
-        const fetchedLabels = await fetchCardLabels(cardId);
-        setCurrentCardLabels(fetchedLabels);
-      };
-      
-      loadCardLabels();
+      // Primeiro tenta usar os dados já em cache
+      if (cardLabels[cardId]) {
+        setCurrentCardLabels(cardLabels[cardId]);
+      } else {
+        // Só faz fetch se não houver dados em cache
+        const loadCardLabels = async () => {
+          const fetchedLabels = await fetchCardLabels(cardId);
+          setCurrentCardLabels(fetchedLabels);
+        };
+        loadCardLabels();
+      }
     }
-  }, [cardId, isOpen, fetchCardLabels]);
+  }, [cardId, isOpen, cardLabels, fetchCardLabels]);
   
   // Atualizar labels do cartão quando cardLabels mudar
   useEffect(() => {
@@ -262,13 +267,23 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
                             <button aria-label="Salvar etiqueta" title="Salvar" className="px-2 py-1 text-sm rounded-md bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
                               if (!editName.trim()) return;
                               try {
+                                let updatedLabel: any;
                                 if (typeof updateLabel === 'function') {
-                                  await updateLabel(label.id, { name: editName.trim(), color: editColor });
+                                  updatedLabel = await updateLabel(label.id, { name: editName.trim(), color: editColor });
                                 } else {
                                   // Fallback to direct API call when context method is unavailable
-                                  await apiRequest('PATCH', `/api/labels/${label.id}`, { name: editName.trim(), color: editColor });
+                                  updatedLabel = await apiRequest('PATCH', `/api/labels/${label.id}`, { name: editName.trim(), color: editColor });
+                                  // Atualizar estado local quando não está usando contexto
+                                  setLocalLabels(prev => prev.map(l => l.id === label.id ? updatedLabel : l));
                                 }
-                                if (boardId) await fetchLabels(boardId);
+                                
+                                // Atualizar currentCardLabels se esta label está no card atual
+                                if (cardId && currentCardLabels.some(l => l.id === label.id)) {
+                                  setCurrentCardLabels(prev => prev.map(l => 
+                                    l.id === label.id ? { ...l, name: editName.trim(), color: editColor } : l
+                                  ));
+                                }
+                                
                                 toast({ title: 'Etiqueta atualizada', description: `Etiqueta "${editName.trim()}" atualizada.` });
                                 setEditingLabelId(null);
                               } catch (err) {
@@ -394,7 +409,6 @@ export function LabelManager({ isOpen, onClose, cardId, boardId }: LabelManagerP
                     // Fallback: chama a API diretamente se o método do contexto não estiver presente (casos HMR/edge)
                     await apiRequest('DELETE', `/api/labels/${confirmDeleteLabel.id}`);
                   }
-                  if (boardId) await fetchLabels(boardId);
                   toast({ title: 'Etiqueta excluída', description: `Etiqueta "${confirmDeleteLabel.name}" removida.` });
                 } catch (err) {
                   console.error('Erro ao deletar etiqueta', err);

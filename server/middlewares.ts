@@ -152,13 +152,21 @@ export async function hasCardAccess(req: Request, res: Response, next: NextFunct
 
 export const globalApiRateLimit = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 200, // Máximo 200 requisições por IP por minuto
+  max: 2000, // Máximo 2000 requisições por IP por minuto (aumentado para desenvolvimento)
   message: {
     error: "Muitas requisições. Tente novamente em 1 minuto."
   },
   standardHeaders: true,
   legacyHeaders: false,
   trustProxy: true,
+  skip: (req: Request) => {
+    // Em desenvolvimento, ser mais permissivo com localhost
+    if (process.env.NODE_ENV === 'development' && 
+        (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip?.includes('localhost'))) {
+      return true;
+    }
+    return false;
+  },
   keyGenerator: (req: Request) => {
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {
@@ -167,7 +175,7 @@ export const globalApiRateLimit = rateLimit({
     return req.ip || 'unknown';
   },
   handler: (req: Request, res: Response) => {
-    console.log(`Global rate limit exceeded for IP: ${req.ip} - Request blocked`);
+    console.log(`Global rate limit exceeded for IP: ${req.ip}, URL: ${req.url} - Request blocked`);
     res.status(429).json({
       error: "Muitas requisições. Tente novamente em 1 minuto."
     });
