@@ -333,7 +333,8 @@ export function AppSidebar() {
   const { data: portfolios = [] } = useQuery<Portfolio[]>({
     queryKey: ['/api/portfolios'],
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 10 * 60 * 1000, // 10 minutos (aumentado de 5)
+    refetchOnWindowFocus: false, // Não refetch automático
   });
 
   // Buscar contagem de notificações não lidas para exibir badge na sidebar
@@ -341,8 +342,9 @@ export function AppSidebar() {
     queryKey: ['/api/notifications/unread-count'],
     queryFn: () => apiRequest('GET', '/api/notifications/unread-count'),
     enabled: !!user, // Só executar se usuário estiver autenticado
-    staleTime: 5 * 1000,
-    refetchInterval: !!user ? 30 * 1000 : false, // Só fazer polling se autenticado
+    staleTime: 30 * 1000, // Considera dados válidos por 30 segundos
+    refetchInterval: !!user ? 60 * 1000 : false, // Polling a cada 60s (reduzido de 30s)
+    refetchOnWindowFocus: false, // Não refetch automático ao focar janela
     retry: (failureCount, error: any) => {
       // Não tentar novamente se for erro de autenticação
       if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {

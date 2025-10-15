@@ -46,8 +46,9 @@ export default function Inbox() {
     queryKey: ["/api/notifications"],
     queryFn: () => apiRequest('GET', '/api/notifications'),
     enabled: !!user,
-    staleTime: 5 * 1000,
-    refetchInterval: 10 * 1000, // Atualiza a cada 10 segundos
+    staleTime: 30 * 1000, // Considera dados válidos por 30 segundos
+    refetchInterval: 60 * 1000, // Atualiza a cada 60 segundos (reduzido de 10s)
+    refetchOnWindowFocus: false, // Não refetch ao focar a janela
     retry: false,
   });
 
