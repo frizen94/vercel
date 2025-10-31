@@ -120,11 +120,14 @@ const OverdueItem = ({ title, dueDate, listName, boardName, boardId }: {
   listName: string;
   boardName?: string;
   boardId?: number;
+  cardId?: number;
 }) => {
   const [, navigate] = useLocation();
   
   const handleClick = () => {
-    if (boardId) {
+    if (boardId && typeof cardId === 'number') {
+      navigate(`/board/${boardId}?card=${cardId}`);
+    } else if (boardId) {
       navigate(`/board/${boardId}`);
     }
   };
@@ -347,6 +350,11 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
+  // Buscar cartões (projetos) categorizados para o dashboard (todo/completed/overdue)
+  const { data: dashboardCards, isLoading: isLoadingDashboardCards } = useQuery<{ todo: OverdueCard[]; completed: OverdueCard[]; overdue: OverdueCard[] }>({
+    queryKey: ['/api/dashboard/cards'],
+    enabled: !!user,
+  });
   // Buscar itens de checklist categorizados para o dashboard
   const { data: checklistItems, isLoading: isLoadingChecklistItems } = useQuery<ChecklistItems>({
     queryKey: ['/api/dashboard/checklist-items'],
@@ -578,7 +586,7 @@ const Dashboard = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          <TabsTrigger value="overdue">Atrasados</TabsTrigger>
+          <TabsTrigger value="projects">Projetos</TabsTrigger>
           <TabsTrigger value="tasks">Tarefas</TabsTrigger>
           {user?.role === "admin" && (
             <TabsTrigger value="users">Usuários</TabsTrigger>
@@ -873,51 +881,115 @@ const Dashboard = () => {
           </div>
         </TabsContent>
 
-        {/* Tab: Itens Atrasados */}
-        <TabsContent value="overdue">
+        {/* Tab: Projetos */}
+        <TabsContent value="projects">
           <Card>
             <CardHeader>
-              <CardTitle>Tarefas Atrasadas</CardTitle>
-              <CardDescription>
-                Itens com prazo de entrega vencido que precisam de atenção.
-              </CardDescription>
+              <CardTitle>Projetos</CardTitle>
+              <CardDescription>Projetos organizados por status</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingOverdue || isLoadingChecklistItems ? (
+              {isLoadingDashboardCards || isLoadingChecklistItems ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               ) : (
-                <div>
-                  {((overdueCards || []).length > 0 || (checklistItems?.overdue || []).length > 0) ? (
-                    <div className="divide-y">
-                      {(overdueCards || []).map((card) => (
-                        <OverdueItem 
-                          key={`card-${card.id}`}
-                          title={card.title}
-                          dueDate={card.dueDate}
-                          listName={card.listName}
-                          boardName={card.boardName}
-                          boardId={card.boardId}
-                        />
-                      ))}
+                dashboardCards ? (
+                  <Tabs defaultValue="todo" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="todo">A Fazer ({dashboardCards.todo.length})</TabsTrigger>
+                      <TabsTrigger value="completed">Concluídos ({dashboardCards.completed.length})</TabsTrigger>
+                      <TabsTrigger value="overdue">Atrasados ({dashboardCards.overdue.length})</TabsTrigger>
+                    </TabsList>
 
-                      {/* Checklist items that are overdue */}
-                      {checklistItems?.overdue && checklistItems.overdue.map((item) => (
-                        <OverdueItem 
-                          key={`checkitem-${item.id}`}
-                          title={item.content}
-                          dueDate={item.dueDate || ""}
-                          listName={item.listName}
-                          boardName={item.boardName}
-                          boardId={item.boardId}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    renderEmptyState("Não há tarefas atrasadas. Bom trabalho!")
-                  )}
-                </div>
+                    <TabsContent value="todo" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                      {dashboardCards.todo.length > 0 ? (
+                        dashboardCards.todo.map((card) => (
+                          <div 
+                            key={`card-todo-${card.id}`}
+                            className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                            onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
+                          >
+                            <div className="space-y-1 flex-1">
+                              <div className="font-medium">{card.title}</div>
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <span>{card.boardName}</span>
+                                <span>•</span>
+                                <span>{card.listName}</span>
+                              </div>
+                            </div>
+                            {card.dueDate && (
+                              <Badge variant="outline" className="flex items-center space-x-1 ml-2">
+                                <Clock className="h-3 w-3 mr-1" />
+                                <span>{new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
+                              </Badge>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        renderEmptyState('Nenhum projeto pendente')
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="completed" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                      {dashboardCards.completed.length > 0 ? (
+                        dashboardCards.completed.map((card) => (
+                          <div 
+                            key={`card-completed-${card.id}`}
+                            className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                            onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
+                          >
+                            <div className="space-y-1 flex-1">
+                              <div className="font-medium line-through text-muted-foreground">{card.title}</div>
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <span>{card.boardName}</span>
+                                <span>•</span>
+                                <span>{card.listName}</span>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
+                              <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                              <span>Concluído</span>
+                            </Badge>
+                          </div>
+                        ))
+                      ) : (
+                        renderEmptyState('Nenhum projeto concluído')
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="overdue" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                      {dashboardCards.overdue.length > 0 ? (
+                        dashboardCards.overdue.map((card) => (
+                          <div 
+                            key={`card-overdue-${card.id}`}
+                            className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
+                            onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
+                          >
+                            <div className="space-y-1 flex-1">
+                              <div className="font-medium">{card.title}</div>
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <span>{card.boardName}</span>
+                                <span>•</span>
+                                <span>{card.listName}</span>
+                              </div>
+                            </div>
+                            {card.dueDate && (
+                              <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
+                                <Clock className="h-3 w-3 mr-1" />
+                                <span>Vencido em {new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
+                              </Badge>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        renderEmptyState('Nenhum projeto atrasado. Bom trabalho!')
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                ) : (
+                  renderEmptyState('Não há projetos para exibir')
+                )
               )}
             </CardContent>
           </Card>

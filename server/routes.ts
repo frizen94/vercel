@@ -2044,6 +2044,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Obtém cartões (projetos) categorizados para o dashboard
+   * Retorna: { todo: [], completed: [], overdue: [] }
+   */
+  app.get("/api/dashboard/cards", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
+
+      const now = new Date();
+      const categorized = { todo: [] as any[], completed: [] as any[], overdue: [] as any[] };
+
+      // Boards acessíveis pelo usuário
+      const boards = await appStorage.getBoardsUserCanAccess(req.user.id);
+
+      for (const board of boards) {
+        try {
+          const lists = await appStorage.getLists(board.id);
+          for (const list of lists) {
+            const cards = await appStorage.getCards(list.id);
+            for (const card of cards) {
+              const cardData = {
+                id: card.id,
+                title: card.title,
+                dueDate: card.dueDate,
+                listName: list.title,
+                boardName: board.title,
+                boardId: board.id
+              };
+
+              if (card.completed) {
+                categorized.completed.push(cardData);
+              } else if (card.dueDate && new Date(card.dueDate) < now) {
+                categorized.overdue.push(cardData);
+              } else {
+                categorized.todo.push(cardData);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`Erro ao processar quadros/listas do board ${board.id}:`, err);
+          continue;
+        }
+      }
+
+      res.json(categorized);
+    } catch (error) {
+      console.error('Erro ao buscar cartões do dashboard:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  /**
    * Obtém itens de checklist categorizados para o dashboard (admin e usuário)
    * Retorna: { todo: [], completed: [], overdue: [] }
    */
