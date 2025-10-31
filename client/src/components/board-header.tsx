@@ -111,7 +111,7 @@ export function BoardHeader({ board, currentView, onViewChange }: BoardHeaderPro
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setLocation('/dashboard')}
+              onClick={() => window.history.back()}
               className="p-2 text-gray-600 hover:bg-gray-100"
               data-testid="button-back-dashboard"
             >

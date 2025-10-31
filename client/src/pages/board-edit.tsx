@@ -88,9 +88,9 @@ export default function BoardEdit() {
           <div className="text-muted-foreground mb-2">
             Quadro não encontrado ou você não tem permissão para acessá-lo.
           </div>
-          <Button onClick={() => navigate("/")} variant="outline">
+          <Button onClick={() => window.history.back()} variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para o Dashboard
+            Voltar
           </Button>
         </div>
       </div>
@@ -99,9 +99,9 @@ export default function BoardEdit() {
 
   return (
     <div className="container mx-auto py-10">
-      <Button onClick={() => navigate("/")} variant="outline" className="mb-4">
+      <Button onClick={() => window.history.back()} variant="outline" className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Voltar para o Dashboard
+        Voltar
       </Button>
       
       <Card className="max-w-md mx-auto">
@@ -127,7 +127,7 @@ export default function BoardEdit() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" type="button" onClick={() => navigate("/")}>
+            <Button variant="outline" type="button" onClick={() => window.history.back()}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isPending}>

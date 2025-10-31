@@ -222,9 +222,9 @@ export default function PortfolioDetail() {
       <div className="container mx-auto py-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-700 mb-4">ID do portfólio inválido</h2>
-          <Button onClick={() => navigate('/portfolios')}>
+          <Button onClick={() => window.history.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar aos Portfólios
+            Voltar
           </Button>
         </div>
       </div>
@@ -245,9 +245,9 @@ export default function PortfolioDetail() {
       <div className="container mx-auto py-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-700 mb-4">Portfólio não encontrado</h2>
-          <Button onClick={() => navigate('/portfolios')}>
+          <Button onClick={() => window.history.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar aos Portfólios
+            Voltar
           </Button>
         </div>
       </div>
@@ -259,7 +259,7 @@ export default function PortfolioDetail() {
       {/* Header do Portfólio */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/portfolios')}>
+          <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div
