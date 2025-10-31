@@ -71,13 +71,19 @@ Calcular e exibir tempo médio da criação da tarefa até a conclusão.
 Criar dashboards dedicados para cada portfólio mostrando tarefas, progresso e métricas.
 
 #### Funcionalidades
-- **Tabelas de Tarefas:** Três seções em formato de datatable
-  - Tarefas a Fazer: Tarefas pendentes com responsável e data de vencimento
-  - Tarefas Concluídas: Tarefas concluídas com data de conclusão
-  - Tarefas Atrasadas: Tarefas com data passada com prazo original
+- **Tabelas de Projetos (Cards):** Três seções em formato de datatable
+  - Projetos a Fazer: Projetos pendentes com responsável e data de vencimento
+  - Projetos Concluídos: Projetos concluídos com data de conclusão
+  - Projetos Atrasados: Projetos com `due_date` passado e não concluídos
+
+- **Tabela de Tarefas Atrasadas (Checklist Items):** Seção separada
+  - Lista de subtarefas (checklist items) com `due_date` passado e não concluídas
+  - Mostra: nome da tarefa, projeto pai, responsável, data de vencimento
+  - **Independente do status do projeto:** uma tarefa pode estar atrasada mesmo que o projeto esteja no prazo
 
 - **Métricas de Portfólio:**
-  - Contagens totais de tarefas, concluídas, atrasadas
+  - Contagens totais de projetos, concluídos, atrasados
+  - Contagem de tarefas (checklist items) atrasadas
   - Tempo médio de resolução para o portfólio
   - Porcentagem de taxa de conclusão
   - Tendências semanais/mensais de conclusão
@@ -149,9 +155,10 @@ Adicionar insights de produtividade aos dashboards de usuários regulares.
 ## Histórias de Usuário
 
 ### Gestor de Portfólio
-- Como gestor de portfólio, quero ver todas as tarefas do meu portfólio de relance para priorizar o trabalho
-- Como gestor de portfólio, quero saber o tempo médio para concluir tarefas no meu portfólio para definir prazos realistas
-- Como gestor de portfólio, quero identificar tarefas atrasadas rapidamente para reatribuir ou acompanhar
+- Como gestor de portfólio, quero ver todos os projetos do meu portfólio de relance para priorizar o trabalho
+- Como gestor de portfólio, quero ver tarefas atrasadas separadamente de projetos atrasados para gerenciar adequadamente
+- Como gestor de portfólio, quero saber o tempo médio para concluir projetos no meu portfólio para definir prazos realistas
+- Como gestor de portfólio, quero identificar projetos e tarefas atrasados rapidamente para reatribuir ou acompanhar
 
 ### Administrador do Sistema
 - Como admin, quero ver métricas de produtividade de todos os usuários para identificar alto/baixo desempenho
@@ -252,7 +259,8 @@ export const portfolioMetrics = pgView("portfolio_metrics", {
 - **Performance:** Monitorar queries após deploy para ajustar índices se necessário
 
 ### Endpoints de API
-- `GET /api/portfolios/{id}/tasks` - Dados de tarefas do portfólio
+- `GET /api/portfolios/{id}/tasks` - Dados de projetos (cards) do portfólio categorizados
+- `GET /api/portfolios/{id}/overdue-checklist-items` - Tarefas (checklist items) atrasadas do portfólio
 - `GET /api/dashboard/resolution-times` - Cálculos de tempo médio de resolução
 - `GET /api/admin/productivity-metrics` - Dados de produtividade do usuário
 - `GET /api/audit/summary` - Resumo de logs de auditoria

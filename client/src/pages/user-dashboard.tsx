@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Interfaces para tipagem
 interface Board {
@@ -30,8 +31,22 @@ interface ChecklistItem {
   id: number;
   content: string;
   dueDate: string | null;
-  assignedToUserId: number | null;
   completed: boolean;
+  description?: string;
+  checklistId: number;
+  checklistTitle: string;
+  cardId: number;
+  cardTitle: string;
+  boardId: number;
+  boardName: string;
+  listName: string;
+  assignees: { id: number; name: string; username: string }[];
+}
+
+interface ChecklistItems {
+  todo: ChecklistItem[];
+  completed: ChecklistItem[];
+  overdue: ChecklistItem[];
 }
 
 interface ChecklistCard {
@@ -106,6 +121,11 @@ export default function UserDashboard() {
     queryKey: ["/api/cards/checklists-dashboard"],
   });
 
+  // Consultar checklist items categorizados
+  const checklistItemsQuery = useQuery<ChecklistItems>({
+    queryKey: ["/api/dashboard/checklist-items"],
+  });
+
   // Função para navegar para um quadro
   const goToBoard = (boardId: number) => {
     navigate(`/board/${boardId}`);
@@ -153,6 +173,7 @@ export default function UserDashboard() {
   const boards = (boardsQuery.data as Board[]) || [];
   const overdueCards = (overdueCardsQuery.data as OverdueCard[]) || [];
   const checklistCards = (checklistCardsQuery.data as ChecklistCard[]) || [];
+  const checklistItems = (checklistItemsQuery.data as ChecklistItems) || { todo: [], completed: [], overdue: [] };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -357,6 +378,125 @@ export default function UserDashboard() {
               Não há cartões com checklists ativos.
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Minhas Tarefas (Checklist Items)</CardTitle>
+          <CardDescription>Tarefas organizadas por status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="todo" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="todo">
+                A Fazer ({checklistItems.todo.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Concluídos ({checklistItems.completed.length})
+              </TabsTrigger>
+              <TabsTrigger value="overdue">
+                Atrasados ({checklistItems.overdue.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="todo" className="space-y-4 max-h-[400px] overflow-y-auto">
+              {checklistItems.todo.length > 0 ? (
+                checklistItems.todo.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                    onClick={() => goToCard(item.boardId, item.cardId)}
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="font-medium">{item.content}</div>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <span>{item.boardName}</span>
+                        <span>•</span>
+                        <span>{item.cardTitle}</span>
+                        <span>•</span>
+                        <span>{item.checklistTitle}</span>
+                      </div>
+                    </div>
+                    {item.dueDate && (
+                      <Badge variant="outline" className="flex items-center space-x-1 ml-2">
+                        <Clock className="h-3 w-3 mr-1" />
+                        <span>{formatDate(item.dueDate)}</span>
+                      </Badge>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  Não há tarefas pendentes
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="completed" className="space-y-4 max-h-[400px] overflow-y-auto">
+              {checklistItems.completed.length > 0 ? (
+                checklistItems.completed.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                    onClick={() => goToCard(item.boardId, item.cardId)}
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="font-medium line-through text-muted-foreground">{item.content}</div>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <span>{item.boardName}</span>
+                        <span>•</span>
+                        <span>{item.cardTitle}</span>
+                        <span>•</span>
+                        <span>{item.checklistTitle}</span>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
+                      <Check className="h-3 w-3 mr-1 text-green-600" />
+                      <span>Concluído</span>
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  Nenhuma tarefa concluída ainda
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="overdue" className="space-y-4 max-h-[400px] overflow-y-auto">
+              {checklistItems.overdue.length > 0 ? (
+                checklistItems.overdue.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
+                    onClick={() => goToCard(item.boardId, item.cardId)}
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="font-medium">{item.content}</div>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <span>{item.boardName}</span>
+                        <span>•</span>
+                        <span>{item.cardTitle}</span>
+                        <span>•</span>
+                        <span>{item.checklistTitle}</span>
+                      </div>
+                    </div>
+                    {item.dueDate && (
+                      <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
+                        <Clock className="h-3 w-3 mr-1" />
+                        <span>Vencido em {formatDate(item.dueDate)}</span>
+                      </Badge>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  Não há tarefas atrasadas. Parabéns!
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

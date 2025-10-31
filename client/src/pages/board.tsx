@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Board as BoardComponent } from "@/components/board";
 import { BoardHeader } from "@/components/board-header";
@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function BoardPage() {
   const { id } = useParams<{ id: string }>();
   const boardId = parseInt(id);
+  const [location] = useLocation();
   const { currentBoard, fetchBoardData, isLoading } = useBoardContext();
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState<'overview' | 'board' | 'list' | 'archived'>('overview');
@@ -33,6 +34,23 @@ export default function BoardPage() {
     window.addEventListener('open-card-modal', handler as EventListener);
     return () => window.removeEventListener('open-card-modal', handler as EventListener);
   }, []);
+
+  // If URL contains ?card=ID open the card modal automatically (supports navigation from other pages)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cardParam = params.get('card');
+      if (cardParam) {
+        const parsed = parseInt(cardParam, 10);
+        if (!isNaN(parsed)) {
+          setActiveCardId(parsed);
+          setIsCardModalOpen(true);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [location]);
 
   useEffect(() => {
     if (isNaN(boardId)) {
@@ -104,7 +122,24 @@ export default function BoardPage() {
               <CardModal
                 cardId={activeCardId}
                 isOpen={isCardModalOpen}
-                onClose={() => { setIsCardModalOpen(false); setActiveCardId(null); }}
+                onClose={() => {
+                  // close modal and clear active card
+                  setIsCardModalOpen(false);
+                  setActiveCardId(null);
+
+                  // remove ?card= from URL so refresh doesn't reopen the modal
+                  try {
+                    const params = new URLSearchParams(window.location.search);
+                    if (params.has('card')) {
+                      params.delete('card');
+                      const search = params.toString();
+                      const newUrl = window.location.pathname + (search ? `?${search}` : '');
+                      window.history.replaceState({}, '', newUrl);
+                    }
+                  } catch (e) {
+                    // ignore
+                  }
+                }}
               />
             </div>
           )}

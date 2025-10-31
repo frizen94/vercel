@@ -33,10 +33,32 @@ interface Task {
   assignees: TaskAssignee[];
 }
 
+interface ChecklistItem {
+  id: number;
+  content: string;
+  description?: string;
+  dueDate: string;
+  completed: boolean;
+  checklistId: number;
+  checklistTitle: string;
+  cardId: number;
+  cardTitle: string;
+  boardId: number;
+  boardName: string;
+  listName: string;
+  assignees: TaskAssignee[];
+}
+
 interface PortfolioTasks {
   todo: Task[];
   completed: Task[];
   overdue: Task[];
+}
+
+interface ChecklistItems {
+  todo: ChecklistItem[];
+  completed: ChecklistItem[];
+  overdue: ChecklistItem[];
 }
 
 interface ResolutionMetrics {
@@ -57,6 +79,11 @@ const PortfolioMiniDashboard: React.FC = () => {
 
   const { data: tasks, isLoading, error } = useQuery<PortfolioTasks>({
     queryKey: [`/api/portfolios/${portfolioId}/tasks`],
+    enabled: !!portfolioId && portfolioId > 0,
+  });
+
+  const { data: checklistItems, isLoading: isLoadingChecklistItems } = useQuery<ChecklistItems>({
+    queryKey: [`/api/portfolios/${portfolioId}/checklist-items`],
     enabled: !!portfolioId && portfolioId > 0,
   });
 
@@ -92,7 +119,7 @@ const PortfolioMiniDashboard: React.FC = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tarefa</TableHead>
+              <TableHead>Projeto</TableHead>
               <TableHead>Quadro</TableHead>
               <TableHead>Lista</TableHead>
               <TableHead>Responsável</TableHead>
@@ -137,6 +164,83 @@ const PortfolioMiniDashboard: React.FC = () => {
                 </TableCell>
               </TableRow>
             ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
+  const renderChecklistItemsTable = (items: ChecklistItem[], emptyMessage: string) => {
+    if (!items || items.length === 0) {
+      return (
+        <div className="text-center py-8 text-muted-foreground">
+          {emptyMessage}
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tarefa</TableHead>
+              <TableHead>Projeto</TableHead>
+              <TableHead>Checklist</TableHead>
+              <TableHead>Quadro</TableHead>
+              <TableHead>Responsável</TableHead>
+              <TableHead>Prazo</TableHead>
+              <TableHead className="text-right">Ação</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => {
+              const isOverdue = item.dueDate && new Date(item.dueDate) < new Date() && !item.completed;
+              
+              return (
+                <TableRow
+                  key={item.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
+                  <TableCell className="font-medium">{item.content}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{item.cardTitle}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-xs">{item.checklistTitle}</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm">{item.boardName}</TableCell>
+                  <TableCell>
+                    {item.assignees && item.assignees.length > 0 ? (
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span className="text-sm">
+                          {item.assignees.map((a) => a.name).join(", ")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Não atribuído</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className={`flex items-center gap-1 ${isOverdue ? 'text-destructive' : ''}`}>
+                      <Calendar className="h-3 w-3" />
+                      <span className={isOverdue ? 'font-medium' : ''}>{formatDate(item.dueDate)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/board/${item.boardId}?card=${item.cardId}`);
+                      }}
+                    >
+                      Ver
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -192,10 +296,10 @@ const PortfolioMiniDashboard: React.FC = () => {
       </div>
 
       {/* Métricas resumidas */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Tarefas</CardTitle>
+            <CardTitle className="text-sm font-medium">Total de Projetos</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -205,7 +309,7 @@ const PortfolioMiniDashboard: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Concluídas</CardTitle>
+            <CardTitle className="text-sm font-medium">Concluídos</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -218,11 +322,24 @@ const PortfolioMiniDashboard: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Atrasadas</CardTitle>
+            <CardTitle className="text-sm font-medium">Projetos Atrasados</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{tasks?.overdue.length || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tarefas Atrasadas</CardTitle>
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{checklistItems?.overdue.length || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              checklist items
+            </p>
           </CardContent>
         </Card>
 
@@ -240,32 +357,32 @@ const PortfolioMiniDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Tabelas de tarefas */}
+      {/* Tabelas de projetos */}
       <Tabs defaultValue="todo" className="space-y-4">
         <TabsList>
           <TabsTrigger value="todo">
             A Fazer ({tasks?.todo.length || 0})
           </TabsTrigger>
           <TabsTrigger value="completed">
-            Concluídas ({tasks?.completed.length || 0})
+            Concluídos ({tasks?.completed.length || 0})
           </TabsTrigger>
           <TabsTrigger value="overdue">
-            Atrasadas ({tasks?.overdue.length || 0})
+            Atrasados ({tasks?.overdue.length || 0})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="todo" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tarefas a Fazer</CardTitle>
+              <CardTitle>Projetos a Fazer</CardTitle>
               <CardDescription>
-                Tarefas pendentes que precisam ser executadas
+                Projetos pendentes que precisam ser executados
               </CardDescription>
             </CardHeader>
             <CardContent>
               {renderTaskTable(
                 tasks?.todo || [],
-                "Não há tarefas pendentes"
+                "Não há projetos pendentes"
               )}
             </CardContent>
           </Card>
@@ -274,15 +391,15 @@ const PortfolioMiniDashboard: React.FC = () => {
         <TabsContent value="completed" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tarefas Concluídas</CardTitle>
+              <CardTitle>Projetos Concluídos</CardTitle>
               <CardDescription>
-                Tarefas que já foram finalizadas
+                Projetos que já foram finalizados
               </CardDescription>
             </CardHeader>
             <CardContent>
               {renderTaskTable(
                 tasks?.completed || [],
-                "Nenhuma tarefa concluída ainda"
+                "Nenhum projeto concluído ainda"
               )}
             </CardContent>
           </Card>
@@ -291,20 +408,71 @@ const PortfolioMiniDashboard: React.FC = () => {
         <TabsContent value="overdue" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tarefas Atrasadas</CardTitle>
+              <CardTitle>Projetos Atrasados</CardTitle>
               <CardDescription>
-                Tarefas com prazo vencido que precisam de atenção
+                Projetos com prazo vencido que precisam de atenção
               </CardDescription>
             </CardHeader>
             <CardContent>
               {renderTaskTable(
                 tasks?.overdue || [],
-                "Não há tarefas atrasadas. Ótimo trabalho!"
+                "Não há projetos atrasados. Ótimo trabalho!"
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Tarefas Atrasadas (Checklist Items) */}
+      {checklistItems && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              Tarefas (Checklist Items)
+            </CardTitle>
+            <CardDescription>
+              Subtarefas organizadas por status
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="todo" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="todo">
+                  A Fazer ({checklistItems.todo.length})
+                </TabsTrigger>
+                <TabsTrigger value="completed">
+                  Concluídos ({checklistItems.completed.length})
+                </TabsTrigger>
+                <TabsTrigger value="overdue">
+                  Atrasados ({checklistItems.overdue.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="todo">
+                {renderChecklistItemsTable(
+                  checklistItems.todo,
+                  "Não há tarefas pendentes"
+                )}
+              </TabsContent>
+
+              <TabsContent value="completed">
+                {renderChecklistItemsTable(
+                  checklistItems.completed,
+                  "Nenhuma tarefa concluída ainda"
+                )}
+              </TabsContent>
+
+              <TabsContent value="overdue">
+                {renderChecklistItemsTable(
+                  checklistItems.overdue,
+                  "Não há tarefas atrasadas. Ótimo trabalho!"
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

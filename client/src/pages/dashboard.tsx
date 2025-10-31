@@ -53,6 +53,28 @@ interface OverdueCard {
   boardId: number;
 }
 
+interface ChecklistItem {
+  id: number;
+  content: string;
+  dueDate: string | null;
+  completed: boolean;
+  description?: string;
+  checklistId: number;
+  checklistTitle: string;
+  cardId: number;
+  cardTitle: string;
+  boardId: number;
+  boardName: string;
+  listName: string;
+  assignees: { id: number; name: string; username: string }[];
+}
+
+interface ChecklistItems {
+  todo: ChecklistItem[];
+  completed: ChecklistItem[];
+  overdue: ChecklistItem[];
+}
+
 interface DashboardStats {
   totalBoards: number;
   totalCards: number;
@@ -325,10 +347,16 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Buscar itens de checklist (subtasks) para o dashboard
-  const { data: checklistItems, isLoading: isLoadingChecklistItems } = useQuery<any[]>({
+  // Buscar itens de checklist categorizados para o dashboard
+  const { data: checklistItems, isLoading: isLoadingChecklistItems } = useQuery<ChecklistItems>({
     queryKey: ['/api/dashboard/checklist-items'],
     enabled: !!user,
+  });
+
+  // Buscar tempo médio de resolução (apenas para admin)
+  const { data: resolutionMetrics } = useQuery<{ averageResolutionDays: number; totalCompletedTasks: number }>({
+    queryKey: ['/api/dashboard/resolution-times'],
+    enabled: !!user && user.role === 'admin',
   });
 
   const goToCreateBoard = () => {
@@ -446,7 +474,7 @@ const Dashboard = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Tarefas por Prioridade</CardTitle>
+          <CardTitle className="text-lg">Projetos por Prioridade</CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center">
           <div style={{ width: '100%', height: 250 }}>
@@ -492,7 +520,7 @@ const Dashboard = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Tarefas por Estágio</CardTitle>
+          <CardTitle className="text-lg">Projetos por Estágio</CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center">
           <div style={{ width: '100%', height: 250 }}>
@@ -551,6 +579,7 @@ const Dashboard = () => {
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="overdue">Atrasados</TabsTrigger>
+          <TabsTrigger value="tasks">Tarefas</TabsTrigger>
           {user?.role === "admin" && (
             <TabsTrigger value="users">Usuários</TabsTrigger>
           )}
@@ -558,37 +587,87 @@ const Dashboard = () => {
 
         {/* Tab: Visão Geral */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatCard 
-              title="Total de Quadros" 
-              value={totalBoards} 
-              icon={<Layers className="h-4 w-4" />} 
-            />
-            <StatCard 
-              title="Itens Atrasados" 
-              value={totalOverdue}
-              icon={<AlertCircle className="h-4 w-4" />} 
-              description="Tarefas com prazo vencido"
-            />
-            {user?.role === "admin" && (
-              <StatCard 
-                title="Usuários" 
-                value={totalUsers}
-                icon={<Users className="h-4 w-4" />} 
-              />
-            )}
-            <StatCard 
-              title="Taxa de Conclusão" 
-              value={`${completionRate}%`}
-              icon={<BarChart3 className="h-4 w-4" />} 
-              description="Média de conclusão dos projetos"
-            />
-          </div>
-
-          {user && user.role === "admin" && (
+          {user && user.role === "admin" ? (
             <>
+              {/* Métricas de Projetos (Cards) */}
+              <div>
+                <h2 className="text-2xl font-semibold mb-4">📊 Métricas de Projetos (Cards)</h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                  <StatCard 
+                    title="Total de Projetos" 
+                    value={stats?.totalCards || 0} 
+                    icon={<Layers className="h-4 w-4" />} 
+                  />
+                  <StatCard 
+                    title="A Fazer" 
+                    value={(stats?.totalCards || 0) - (stats?.completedCards || 0) - (stats?.overdueCards || 0)}
+                    icon={<CircleDashed className="h-4 w-4" />} 
+                    description="Projetos pendentes"
+                  />
+                  <StatCard 
+                    title="Concluídos" 
+                    value={stats?.completedCards || 0}
+                    icon={<CheckCircle className="h-4 w-4 text-green-600" />} 
+                    description={`${completionRate}% do total`}
+                  />
+                  <StatCard 
+                    title="Atrasados" 
+                    value={stats?.overdueCards || 0}
+                    icon={<AlertCircle className="h-4 w-4 text-destructive" />} 
+                    description="Projetos com prazo vencido"
+                  />
+                  <StatCard 
+                    title="Tempo Médio" 
+                    value={resolutionMetrics?.averageResolutionDays?.toFixed(1) || "0.0"}
+                    icon={<Clock className="h-4 w-4" />} 
+                    description="dias para conclusão"
+                  />
+                </div>
+              </div>
+
+              {/* Métricas de Tarefas (Checklist Items) */}
+              <div>
+                <h2 className="text-2xl font-semibold mb-4">✅ Métricas de Tarefas (Checklist Items)</h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                  <StatCard 
+                    title="Total de Tarefas" 
+                    value={(checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)} 
+                    icon={<ListChecks className="h-4 w-4" />} 
+                  />
+                  <StatCard 
+                    title="A Fazer" 
+                    value={checklistItems?.todo.length || 0}
+                    icon={<CircleDashed className="h-4 w-4" />} 
+                    description="Tarefas pendentes"
+                  />
+                  <StatCard 
+                    title="Concluídas" 
+                    value={checklistItems?.completed.length || 0}
+                    icon={<CheckCircle className="h-4 w-4 text-green-600" />} 
+                    description={`${
+                      ((checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)) > 0
+                        ? Math.round((checklistItems?.completed.length || 0) / ((checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)) * 100)
+                        : 0
+                    }% do total`}
+                  />
+                  <StatCard 
+                    title="Atrasadas" 
+                    value={checklistItems?.overdue.length || 0}
+                    icon={<AlertCircle className="h-4 w-4 text-destructive" />} 
+                    description="Tarefas com prazo vencido"
+                  />
+                  <StatCard 
+                    title="Quadros Ativos" 
+                    value={totalBoards}
+                    icon={<Layers className="h-4 w-4" />} 
+                    description="Total de quadros"
+                  />
+                </div>
+              </div>
+
+              {/* Gráficos de Projetos */}
               <div className="mt-8">
-                <h2 className="text-xl font-semibold mb-4">Métricas do Projeto</h2>
+                <h2 className="text-xl font-semibold mb-4">📈 Análise de Projetos</h2>
                 <div className="grid gap-6 md:grid-cols-2">
                   <TaskCompletionRadialChart completionRate={completionRate} />
                   <TaskOverdueRadialChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
@@ -596,23 +675,185 @@ const Dashboard = () => {
               </div>
 
               <div className="mt-8">
-                <h2 className="text-xl font-semibold mb-4">Análise de Tarefas</h2>
                 <div className="grid gap-6 md:grid-cols-2">
                   <TaskDistributionPieChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
                   <TasksByStageChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
                 </div>
               </div>
-            </>
-          )}
-          
-          {user && user.role !== "admin" && (
-            <div className="mt-6">
-              <h2 className="text-xl font-semibold mb-4">Progresso Geral</h2>
-              <Progress value={completionRate} className="h-2 mb-2" />
-              <div className="text-sm text-muted-foreground">
-                {completionRate}% das tarefas foram concluídas
+
+              {/* Gráficos de Tarefas (Checklist Items) */}
+              <div className="mt-8">
+                <h2 className="text-xl font-semibold mb-4">📋 Análise de Tarefas (Checklist Items)</h2>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Taxa de Conclusão de Tarefas</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                      <div style={{ width: '100%', height: 250 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadialBarChart 
+                            cx="50%" 
+                            cy="50%" 
+                            innerRadius="60%" 
+                            outerRadius="80%" 
+                            barSize={10} 
+                            data={[{
+                              name: 'Concluído',
+                              value: ((checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)) > 0
+                                ? Math.round((checklistItems?.completed.length || 0) / ((checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)) * 100)
+                                : 0,
+                              fill: '#22C55E'
+                            }]}
+                            startAngle={180}
+                            endAngle={0}
+                          >
+                            <RadialBar background dataKey="value" cornerRadius={10} />
+                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="chart-label">
+                              <tspan x="50%" dy="-0.5em" fontSize="26" fontWeight="bold" fill="#000">
+                                {((checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)) > 0
+                                  ? Math.round((checklistItems?.completed.length || 0) / ((checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)) * 100)
+                                  : 0}%
+                              </tspan>
+                              <tspan x="50%" dy="1.5em" fontSize="12" fill="#666">
+                                Taxa de Conclusão
+                              </tspan>
+                            </text>
+                          </RadialBarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Distribuição de Tarefas</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                      <div style={{ width: '100%', height: 250 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Concluídas', value: checklistItems?.completed.length || 0, color: '#22C55E' },
+                                { name: 'Atrasadas', value: checklistItems?.overdue.length || 0, color: '#EF4444' },
+                                { name: 'A Fazer', value: checklistItems?.todo.length || 0, color: '#F59E0B' },
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              paddingAngle={5}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                            >
+                              {[
+                                { name: 'Concluídas', value: checklistItems?.completed.length || 0, color: '#22C55E' },
+                                { name: 'Atrasadas', value: checklistItems?.overdue.length || 0, color: '#EF4444' },
+                                { name: 'A Fazer', value: checklistItems?.todo.length || 0, color: '#F59E0B' },
+                              ].map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: any) => [`${value} tarefa(s)`, '']} separator=" - " />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-            </div>
+
+              <div className="mt-8">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Tarefas por Status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                      <div style={{ width: '100%', height: 250 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              { name: 'A Fazer', valor: checklistItems?.todo.length || 0, cor: '#F59E0B' },
+                              { name: 'Concluídas', valor: checklistItems?.completed.length || 0, cor: '#22C55E' },
+                              { name: 'Atrasadas', valor: checklistItems?.overdue.length || 0, cor: '#EF4444' },
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => [`${value} tarefa(s)`, '']} />
+                            <Legend />
+                            <Bar dataKey="valor" name="Quantidade">
+                              {[
+                                { name: 'A Fazer', valor: checklistItems?.todo.length || 0, cor: '#F59E0B' },
+                                { name: 'Concluídas', valor: checklistItems?.completed.length || 0, cor: '#22C55E' },
+                                { name: 'Atrasadas', valor: checklistItems?.overdue.length || 0, cor: '#EF4444' },
+                              ].map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.cor} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Usuários do Sistema</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center items-center">
+                      <div className="text-center">
+                        <div className="text-6xl font-bold text-primary mb-2">{totalUsers}</div>
+                        <p className="text-muted-foreground">Usuários Ativos</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Visão simplificada para usuários normais */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <StatCard 
+                  title="Total de Quadros" 
+                  value={totalBoards} 
+                  icon={<Layers className="h-4 w-4" />} 
+                />
+                <StatCard 
+                  title="Itens Atrasados" 
+                  value={totalOverdue}
+                  icon={<AlertCircle className="h-4 w-4" />} 
+                  description="Tarefas com prazo vencido"
+                />
+                <StatCard 
+                  title="Taxa de Conclusão" 
+                  value={`${completionRate}%`}
+                  icon={<BarChart3 className="h-4 w-4" />} 
+                  description="Média de conclusão dos projetos"
+                />
+                <StatCard 
+                  title="Tarefas Totais" 
+                  value={(checklistItems?.todo.length || 0) + (checklistItems?.completed.length || 0) + (checklistItems?.overdue.length || 0)}
+                  icon={<ListChecks className="h-4 w-4" />} 
+                  description="Total de checklist items"
+                />
+              </div>
+
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-4">Progresso Geral</h2>
+                <Progress value={completionRate} className="h-2 mb-2" />
+                <div className="text-sm text-muted-foreground">
+                  {completionRate}% das tarefas foram concluídas
+                </div>
+              </div>
+            </>
           )}
 
           <div className="mt-8">
@@ -648,7 +889,7 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <div>
-                  {((overdueCards || []).length > 0 || (checklistItems || []).filter(i => i.overdue).length > 0) ? (
+                  {((overdueCards || []).length > 0 || (checklistItems?.overdue || []).length > 0) ? (
                     <div className="divide-y">
                       {(overdueCards || []).map((card) => (
                         <OverdueItem 
@@ -662,11 +903,11 @@ const Dashboard = () => {
                       ))}
 
                       {/* Checklist items that are overdue */}
-                      {(checklistItems || []).filter((i) => i.overdue).map((item) => (
+                      {checklistItems?.overdue && checklistItems.overdue.map((item) => (
                         <OverdueItem 
                           key={`checkitem-${item.id}`}
                           title={item.content}
-                          dueDate={item.dueDate}
+                          dueDate={item.dueDate || ""}
                           listName={item.listName}
                           boardName={item.boardName}
                           boardId={item.boardId}
@@ -677,6 +918,130 @@ const Dashboard = () => {
                     renderEmptyState("Não há tarefas atrasadas. Bom trabalho!")
                   )}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Tarefas (Checklist Items) */}
+        <TabsContent value="tasks">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tarefas (Checklist Items)</CardTitle>
+              <CardDescription>
+                Subtarefas organizadas por status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingChecklistItems ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Tabs defaultValue="todo" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="todo">
+                      A Fazer ({checklistItems?.todo.length || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="completed">
+                      Concluídos ({checklistItems?.completed.length || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="overdue">
+                      Atrasados ({checklistItems?.overdue.length || 0})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="todo" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                    {checklistItems && checklistItems.todo.length > 0 ? (
+                      checklistItems.todo.map((item) => (
+                        <div 
+                          key={item.id}
+                          className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="font-medium">{item.content}</div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <span>{item.boardName}</span>
+                              <span>•</span>
+                              <span>{item.cardTitle}</span>
+                              <span>•</span>
+                              <span>{item.checklistTitle}</span>
+                            </div>
+                          </div>
+                          {item.dueDate && (
+                            <Badge variant="outline" className="flex items-center space-x-1 ml-2">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>{new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      renderEmptyState("Não há tarefas pendentes")
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="completed" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                    {checklistItems && checklistItems.completed.length > 0 ? (
+                      checklistItems.completed.map((item) => (
+                        <div 
+                          key={item.id}
+                          className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="font-medium line-through text-muted-foreground">{item.content}</div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <span>{item.boardName}</span>
+                              <span>•</span>
+                              <span>{item.cardTitle}</span>
+                              <span>•</span>
+                              <span>{item.checklistTitle}</span>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
+                            <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                            <span>Concluído</span>
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      renderEmptyState("Nenhuma tarefa concluída ainda")
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="overdue" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                    {checklistItems && checklistItems.overdue.length > 0 ? (
+                      checklistItems.overdue.map((item) => (
+                        <div 
+                          key={item.id}
+                          className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="font-medium">{item.content}</div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <span>{item.boardName}</span>
+                              <span>•</span>
+                              <span>{item.cardTitle}</span>
+                              <span>•</span>
+                              <span>{item.checklistTitle}</span>
+                            </div>
+                          </div>
+                          {item.dueDate && (
+                            <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>Vencido em {new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      renderEmptyState("Não há tarefas atrasadas. Bom trabalho!")
+                    )}
+                  </TabsContent>
+                </Tabs>
               )}
             </CardContent>
           </Card>

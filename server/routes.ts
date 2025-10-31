@@ -2044,7 +2044,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
-   * Obtém itens de checklist para o dashboard
+   * Obtém itens de checklist categorizados para o dashboard (admin e usuário)
+   * Retorna: { todo: [], completed: [], overdue: [] }
    */
   app.get("/api/dashboard/checklist-items", async (req: Request, res: Response) => {
     try {
@@ -2052,8 +2053,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      // Por enquanto, retornar array vazio - funcionalidade será implementada em versão futura
-      res.json([]);
+      const now = new Date();
+      const categorized = {
+        todo: [] as any[],
+        completed: [] as any[],
+        overdue: [] as any[]
+      };
+
+      // Buscar boards acessíveis ao usuário
+      let boards: any[] = [];
+      
+      if (req.user.role === "admin") {
+        // Admin vê todos os boards
+        boards = await db.query.boards.findMany({
+          where: eq(schema.boards.archived, false)
+        });
+      } else {
+        // Usuário normal vê boards onde é membro
+        const memberships = await db.query.boardMembers.findMany({
+          where: eq(schema.boardMembers.userId, req.user.id)
+        });
+        const boardIds = memberships.map(m => m.boardId);
+        
+        if (boardIds.length > 0) {
+          boards = await db.query.boards.findMany({
+            where: and(
+              eq(schema.boards.archived, false),
+              or(...boardIds.map(id => eq(schema.boards.id, id)))
+            )
+          });
+        }
+      }
+
+      // Para cada board, buscar checklist items
+      for (const board of boards) {
+        const lists = await appStorage.getLists(board.id);
+        
+        for (const list of lists) {
+          const cards = await appStorage.getCards(list.id);
+          
+          for (const card of cards) {
+            const checklists = await appStorage.getChecklists(card.id);
+            
+            for (const checklist of checklists) {
+              const items = await appStorage.getChecklistItems(checklist.id);
+              
+              for (const item of items) {
+                const itemMembers = await appStorage.getChecklistItemMembers(item.id);
+                
+                const itemData = {
+                  id: item.id,
+                  content: item.content,
+                  description: item.description,
+                  dueDate: item.dueDate,
+                  completed: item.completed,
+                  checklistId: checklist.id,
+                  checklistTitle: checklist.title,
+                  cardId: card.id,
+                  cardTitle: card.title,
+                  boardId: board.id,
+                  boardName: board.title,
+                  listName: list.title,
+                  assignees: itemMembers.map((u: any) => ({
+                    id: u.id,
+                    name: u.name,
+                    username: u.username
+                  }))
+                };
+
+                // Categorizar
+                if (item.completed) {
+                  categorized.completed.push(itemData);
+                } else if (item.dueDate && new Date(item.dueDate) < now) {
+                  categorized.overdue.push(itemData);
+                } else {
+                  categorized.todo.push(itemData);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      res.json(categorized);
     } catch (error) {
       console.error("Erro ao buscar itens de checklist do dashboard:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
@@ -2150,6 +2232,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(tasks);
     } catch (error) {
       console.error("Erro ao buscar tarefas do portfólio:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
+   * Mini-Dashboard de Portfólio: Obtém todos os checklist items (tarefas) categorizados
+   * Retorna subtarefas separadas em: todo, completed, overdue
+   */
+  app.get("/api/portfolios/:id/checklist-items", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const portfolioId = parseInt(req.params.id);
+      if (isNaN(portfolioId)) {
+        return res.status(400).json({ message: "ID do portfólio inválido" });
+      }
+
+      // Verificar se o portfólio existe
+      const portfolio = await db.query.portfolios.findFirst({
+        where: eq(schema.portfolios.id, portfolioId)
+      });
+
+      if (!portfolio) {
+        return res.status(404).json({ message: "Portfólio não encontrado" });
+      }
+
+      // Buscar todos os boards do portfólio
+      const boards = await appStorage.getBoardsByPortfolio(portfolioId);
+      const now = new Date();
+      const allItems: any[] = [];
+
+      // Para cada board, buscar listas, cards, checklists e items
+      for (const board of boards) {
+        const lists = await appStorage.getLists(board.id);
+        
+        for (const list of lists) {
+          const cards = await appStorage.getCards(list.id);
+          
+          for (const card of cards) {
+            const checklists = await appStorage.getChecklists(card.id);
+            
+            for (const checklist of checklists) {
+              const items = await appStorage.getChecklistItems(checklist.id);
+              
+              for (const item of items) {
+                // Buscar membros do item (se houver)
+                const itemMembers = await appStorage.getChecklistItemMembers(item.id);
+                
+                allItems.push({
+                  id: item.id,
+                  content: item.content,
+                  description: item.description,
+                  dueDate: item.dueDate,
+                  completed: item.completed,
+                  checklistId: checklist.id,
+                  checklistTitle: checklist.title,
+                  cardId: card.id,
+                  cardTitle: card.title,
+                  boardId: board.id,
+                  boardName: board.title,
+                  listName: list.title,
+                  assignees: itemMembers.map((u: any) => ({
+                    id: u.id,
+                    name: u.name,
+                    username: u.username
+                  }))
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Categorizar tarefas (checklist items)
+      const categorized = {
+        todo: [] as any[],
+        completed: [] as any[],
+        overdue: [] as any[]
+      };
+
+      for (const item of allItems) {
+        if (item.completed) {
+          categorized.completed.push(item);
+        } else if (item.dueDate && new Date(item.dueDate) < now) {
+          categorized.overdue.push(item);
+        } else {
+          categorized.todo.push(item);
+        }
+      }
+
+      res.json(categorized);
+    } catch (error) {
+      console.error("Erro ao buscar checklist items do portfólio:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
