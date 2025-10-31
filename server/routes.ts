@@ -2061,6 +2061,253 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Mini-Dashboard de Portfólio: Obtém todas as tarefas de um portfólio
+   * Retorna tarefas categorizadas: a fazer, concluídas e atrasadas
+   */
+  app.get("/api/portfolios/:id/tasks", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const portfolioId = parseInt(req.params.id);
+      if (isNaN(portfolioId)) {
+        return res.status(400).json({ message: "ID do portfólio inválido" });
+      }
+
+      // Verificar se o portfólio existe
+      const portfolio = await db.query.portfolios.findFirst({
+        where: eq(schema.portfolios.id, portfolioId)
+      });
+
+      if (!portfolio) {
+        return res.status(404).json({ message: "Portfólio não encontrado" });
+      }
+
+      // Buscar todos os boards do portfólio via storage (mais resiliente que relações profundas do ORM)
+      const boards = await appStorage.getBoardsByPortfolio(portfolioId);
+
+      // Para cada board buscamos listas, cartões e membros usando os métodos do storage
+      for (const board of boards) {
+        const lists = await appStorage.getLists(board.id);
+        // Anexar listas ao objeto do board para simplificar o processamento abaixo
+        // (mantemos estrutura compatível com o formato esperado pela UI)
+        // @ts-ignore - adicionar propriedade dinâmica para uso temporário
+        (board as any).lists = [];
+
+        for (const list of lists) {
+          const cards = await appStorage.getCards(list.id);
+          // Anexar cards à lista
+          (list as any).cards = [];
+
+          for (const card of cards) {
+            const cardMembers = await appStorage.getCardMembers(card.id);
+            // Mapear membros para formato esperado (user object)
+            const members = cardMembers.map((u: any) => ({ id: u.id, name: u.name, username: u.username }));
+            // Anexar membro ao cartão para manter compatibilidade
+            (card as any).cardMembers = members.map((m: any) => ({ user: m }));
+            (list as any).cards.push(card);
+          }
+
+          (board as any).lists.push(list);
+        }
+      }
+
+      // Processar e categorizar as tarefas
+      const now = new Date();
+      const tasks = {
+        todo: [] as any[],
+        completed: [] as any[],
+        overdue: [] as any[]
+      };
+
+      for (const board of boards) {
+        for (const list of board.lists || []) {
+          for (const card of list.cards || []) {
+            const taskData = {
+              id: card.id,
+              title: card.title,
+              description: card.description,
+              dueDate: card.dueDate,
+              completionTimestamp: card.completionTimestamp,
+              boardId: board.id,
+              boardName: board.title,
+              listName: list.title,
+              assignees: card.cardMembers?.map((cm: any) => ({
+                id: cm.user.id,
+                name: cm.user.name,
+                username: cm.user.username
+              })) || []
+            };
+
+            if (card.completed) {
+              tasks.completed.push(taskData);
+            } else if (card.dueDate && new Date(card.dueDate) < now) {
+              tasks.overdue.push(taskData);
+            } else {
+              tasks.todo.push(taskData);
+            }
+          }
+        }
+      }
+
+      res.json(tasks);
+    } catch (error) {
+      console.error("Erro ao buscar tarefas do portfólio:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
+   * Obtém métricas de tempo de resolução
+   * Calcula tempo médio de conclusão de tarefas
+   */
+  app.get("/api/dashboard/resolution-times", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { portfolioId, userId, startDate, endDate } = req.query;
+
+      // Construir query base
+      let whereConditions: any[] = [
+        isNotNull(schema.cards.completionTimestamp)
+      ];
+
+      // Filtrar por portfólio se especificado
+      if (portfolioId) {
+        const pid = parseInt(portfolioId as string);
+        if (!isNaN(pid)) {
+          // Buscar boards do portfólio
+          const boardsInPortfolio = await db.query.boards.findMany({
+            where: eq(schema.boards.portfolioId, pid),
+            columns: { id: true }
+          });
+          const boardIds = boardsInPortfolio.map(b => b.id);
+          
+          // Filtrar cards desses boards (via lists)
+          if (boardIds.length > 0) {
+            const listsInBoards = await db.query.lists.findMany({
+              where: or(...boardIds.map(bid => eq(schema.lists.boardId, bid))),
+              columns: { id: true }
+            });
+            const listIds = listsInBoards.map(l => l.id);
+            if (listIds.length > 0) {
+              whereConditions.push(or(...listIds.map(lid => eq(schema.cards.listId, lid))));
+            }
+          }
+        }
+      }
+
+      // Buscar cards concluídos
+      const completedCards = await db.query.cards.findMany({
+        where: and(...whereConditions),
+        columns: {
+          id: true,
+          createdAt: true,
+          completionTimestamp: true
+        }
+      });
+
+      // Calcular tempo médio de resolução em dias
+      let totalResolutionTime = 0;
+      let count = 0;
+
+      for (const card of completedCards) {
+        if (card.completionTimestamp) {
+          const resolutionTime = new Date(card.completionTimestamp).getTime() - new Date(card.createdAt).getTime();
+          const resolutionDays = resolutionTime / (1000 * 60 * 60 * 24);
+          totalResolutionTime += resolutionDays;
+          count++;
+        }
+      }
+
+      const averageResolutionDays = count > 0 ? totalResolutionTime / count : 0;
+
+      res.json({
+        averageResolutionDays: parseFloat(averageResolutionDays.toFixed(2)),
+        totalCompletedTasks: count,
+        filters: {
+          portfolioId: portfolioId || null,
+          userId: userId || null,
+          startDate: startDate || null,
+          endDate: endDate || null
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao calcular tempos de resolução:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
+   * Obtém métricas de produtividade de usuários (Admin only)
+   */
+  app.get("/api/admin/productivity-metrics", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+    try {
+      const users = await db.query.users.findMany({
+        columns: {
+          id: true,
+          name: true,
+          username: true,
+          email: true
+        }
+      });
+
+      const metrics = [];
+
+      for (const user of users) {
+        // Contar tarefas atribuídas
+        const assignedCards = await db.query.cardMembers.findMany({
+          where: eq(schema.cardMembers.userId, user.id),
+          with: {
+            card: {
+              columns: {
+                id: true,
+                completed: true,
+                dueDate: true,
+                completionTimestamp: true,
+                createdAt: true
+              }
+            }
+          }
+        });
+
+        let completed = 0;
+        let overdue = 0;
+        let totalResolutionTime = 0;
+        let completedCount = 0;
+        const now = new Date();
+
+        for (const assignment of assignedCards) {
+          const card = assignment.card;
+          if (card.completed) {
+            completed++;
+            if (card.completionTimestamp) {
+              const resolutionTime = new Date(card.completionTimestamp).getTime() - new Date(card.createdAt).getTime();
+              totalResolutionTime += resolutionTime / (1000 * 60 * 60 * 24);
+              completedCount++;
+            }
+          } else if (card.dueDate && new Date(card.dueDate) < now) {
+            overdue++;
+          }
+        }
+
+        const avgResolutionDays = completedCount > 0 ? totalResolutionTime / completedCount : 0;
+
+        metrics.push({
+          userId: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          tasksAssigned: assignedCards.length,
+          tasksCompleted: completed,
+          tasksOverdue: overdue,
+          avgResolutionDays: parseFloat(avgResolutionDays.toFixed(2))
+        });
+      }
+
+      res.json(metrics);
+    } catch (error) {
+      console.error("Erro ao buscar métricas de produtividade:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  /**
    * Rotas para gerenciar Usuários
    */
   app.get("/api/users", async (req: Request, res: Response) => {
@@ -2655,6 +2902,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!item) {
         return res.status(404).json({ message: "Item não encontrado" });
+      }
+
+      // Verificar se todos os itens do checklist estão completos para marcar o card como completo
+      try {
+        const checklist = await appStorage.getChecklist(currentItem.checklistId);
+        if (checklist) {
+          const allItems = await db.query.checklistItems.findMany({
+            where: eq(schema.checklistItems.checklistId, checklist.id)
+          });
+
+          const allCompleted = allItems.length > 0 && allItems.every(item => item.completed);
+
+          // Buscar card e verificar se tem outros checklists
+          const card = await appStorage.getCard(checklist.cardId);
+          if (card) {
+            const allChecklists = await db.query.checklists.findMany({
+              where: eq(schema.checklists.cardId, card.id),
+              with: {
+                checklistItems: true
+              }
+            });
+
+            // Verificar se TODOS os itens de TODOS os checklists estão completos
+            const allChecklistsComplete = allChecklists.every(cl => 
+              cl.checklistItems.length > 0 && cl.checklistItems.every((item: any) => item.completed)
+            );
+
+            // Se todos os checklists estão completos e o card ainda não está marcado como completo
+            if (allChecklistsComplete && !card.completed) {
+              await db.update(schema.cards)
+                .set({ 
+                  completed: true,
+                  completionTimestamp: new Date()
+                })
+                .where(eq(schema.cards.id, card.id));
+            }
+            // Se não estão todos completos mas o card estava marcado como completo, desmarcar
+            else if (!allChecklistsComplete && card.completed) {
+              await db.update(schema.cards)
+                .set({ 
+                  completed: false,
+                  completionTimestamp: null
+                })
+                .where(eq(schema.cards.id, card.id));
+            }
+          }
+        }
+      } catch (completionError) {
+        console.error('Erro ao verificar conclusão automática do card:', completionError);
+        // Não falhar a requisição por causa disso
       }
 
       res.json(item);

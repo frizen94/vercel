@@ -223,6 +223,7 @@ export const cards = pgTable("cards", {
   startDate: date("start_date"), // DATE column for card start date
   endDate: date("end_date"), // DATE column for card end date
   completed: boolean("completed").notNull().default(false),
+  completionTimestamp: timestamp("completion_timestamp"), // Timestamp de conclusão automática
   archived: boolean("archived").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

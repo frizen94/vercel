@@ -288,13 +288,20 @@ export default function PortfolioDetail() {
             </Badge>
           </div>
           
-          <Dialog open={isCreateBoardModalOpen} onOpenChange={setIsCreateBoardModalOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Projeto
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => navigate(`/portfolios/${portfolioId}/dashboard`)}
+            >
+              Ver Dashboard
+            </Button>
+            <Dialog open={isCreateBoardModalOpen} onOpenChange={setIsCreateBoardModalOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Projeto
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Criar Novo Projeto</DialogTitle>
@@ -356,6 +363,7 @@ export default function PortfolioDetail() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
       </div>
 

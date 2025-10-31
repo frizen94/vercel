@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS cards (
     start_date DATE,
     end_date DATE,
     completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completion_timestamp TIMESTAMP,
     archived BOOLEAN NOT NULL DEFAULT FALSE,
     list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,

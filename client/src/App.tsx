@@ -23,6 +23,7 @@ import UserManagement from "@/pages/user-management";
 import AccountSettings from "@/pages/account-settings";
 import Portfolios from "@/pages/portfolios";
 import PortfolioDetail from "@/pages/portfolio-detail";
+import PortfolioMiniDashboard from "@/pages/portfolio-mini-dashboard";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import MyTasks from "@/pages/my-tasks";
@@ -211,6 +212,21 @@ function Router() {
                 <MinimalHeader />
                 <main className="flex-1 p-4 md:p-6">
                   <PortfolioDetail />
+                </main>
+              </SidebarInset>
+            </div>
+          </SidebarProvider>
+        )}
+      </ProtectedRoute>
+      <ProtectedRoute path="/portfolios/:id/dashboard">
+        {() => (
+          <SidebarProvider>
+            <div className="sidebar-layout">
+              <AppSidebar />
+              <SidebarInset className="sidebar-main-content">
+                <MinimalHeader />
+                <main className="flex-1 p-4 md:p-6">
+                  <PortfolioMiniDashboard />
                 </main>
               </SidebarInset>
             </div>

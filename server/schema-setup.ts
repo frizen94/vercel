@@ -388,6 +388,14 @@ export async function runMissingSqlMigrations() {
     await sql`CREATE INDEX IF NOT EXISTS idx_checklist_item_members_checklist_item_id ON checklist_item_members(checklist_item_id);`;
     
     // 6. Add completed column to cards table (from 20251007_add_completed_to_cards.sql)
+    // 6a. Add completion_timestamp to cards (new migration)
+    await sql`
+      ALTER TABLE cards
+      ADD COLUMN IF NOT EXISTS completion_timestamp TIMESTAMP;
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_cards_completion_timestamp ON cards(completion_timestamp) WHERE completion_timestamp IS NOT NULL;`;
+
+    // 6b. Ensure completed column exists
     await sql`
       ALTER TABLE cards 
       ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT false;
