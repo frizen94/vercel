@@ -378,7 +378,7 @@ const Dashboard = () => {
   const completionRate = stats?.completionRate || 0;
 
   // Componentes para gráficos
-  const TaskCompletionRadialChart = ({ completionRate }: { completionRate: number }) => {
+  const ProjectCompletionRadialChart = ({ completionRate }: { completionRate: number }) => {
     const data = [
       { name: 'Concluído', value: completionRate, fill: '#F59E0B' }
     ];
@@ -422,7 +422,7 @@ const Dashboard = () => {
     );
   };
 
-  const TaskOverdueRadialChart = ({ stats }: { stats: DashboardStats }) => {
+  const ProjectOverdueRadialChart = ({ stats }: { stats: DashboardStats }) => {
     const overduePercentage = stats?.totalCards > 0 
       ? Math.round((stats.overdueCards / stats.totalCards) * 100) 
       : 0;
@@ -434,7 +434,7 @@ const Dashboard = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Tarefas Atrasadas</CardTitle>
+          <CardTitle className="text-lg">Projetos Atrasados</CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center">
           <div style={{ width: '100%', height: 250 }}>
@@ -459,7 +459,7 @@ const Dashboard = () => {
                     {overduePercentage}%
                   </tspan>
                   <tspan x="50%" dy="1.5em" fontSize="12" fill="#666">
-                    Tarefas Atrasadas
+                    Projetos Atrasados
                   </tspan>
                 </text>
               </RadialBarChart>
@@ -504,7 +504,7 @@ const Dashboard = () => {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: any) => [`${value} tarefa(s)`, '']} 
+                  formatter={(value: any) => [`${value} projeto(s)`, '']} 
                   separator=" - " 
                 />
                 <Legend formatter={(value, entry, index) => <span style={{ color: COLORS[index % COLORS.length] }}>{value}</span>} />
@@ -540,7 +540,7 @@ const Dashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip formatter={(value: any) => [`${value} tarefa(s)`, '']} />
+                <Tooltip formatter={(value: any) => [`${value} projeto(s)`, '']} />
                 <Legend />
                 <Bar dataKey="valor" name="Quantidade">
                   {data.map((entry, index) => (
@@ -633,8 +633,26 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Métricas de Tarefas (Checklist Items) */}
-              <div>
+              {/* Projects list removed as requested (kept metrics and analysis only) */}
+
+              {/* Gráficos de Projetos */}
+              <div className="mt-8">
+                <h2 className="text-xl font-semibold mb-4">Análise de Projetos</h2>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <ProjectCompletionRadialChart completionRate={completionRate} />
+                  <ProjectOverdueRadialChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <TaskDistributionPieChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
+                  <TasksByStageChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
+                </div>
+              </div>
+
+              {/* Métricas de Tarefas (Checklist Items) movidas para depois dos gráficos de projetos */}
+              <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4">Métricas de Tarefas</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                   <StatCard 
@@ -671,22 +689,8 @@ const Dashboard = () => {
                     description="Total de quadros"
                   />
                 </div>
-              </div>
 
-              {/* Gráficos de Projetos */}
-              <div className="mt-8">
-                <h2 className="text-xl font-semibold mb-4">Análise de Projetos</h2>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <TaskCompletionRadialChart completionRate={completionRate} />
-                  <TaskOverdueRadialChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <TaskDistributionPieChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
-                  <TasksByStageChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
-                </div>
+                {/* Tarefas Recentes removed as requested (keeping only task metrics and analysis) */}
               </div>
 
               {/* Gráficos de Tarefas (Checklist Items) */}
