@@ -599,7 +599,7 @@ const Dashboard = () => {
             <>
               {/* Métricas de Projetos (Cards) */}
               <div>
-                <h2 className="text-2xl font-semibold mb-4">📊 Métricas de Projetos (Cards)</h2>
+                <h2 className="text-2xl font-semibold mb-4">Métricas de Projetos</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                   <StatCard 
                     title="Total de Projetos" 
@@ -635,7 +635,7 @@ const Dashboard = () => {
 
               {/* Métricas de Tarefas (Checklist Items) */}
               <div>
-                <h2 className="text-2xl font-semibold mb-4">✅ Métricas de Tarefas (Checklist Items)</h2>
+                <h2 className="text-2xl font-semibold mb-4">Métricas de Tarefas</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                   <StatCard 
                     title="Total de Tarefas" 
@@ -675,7 +675,7 @@ const Dashboard = () => {
 
               {/* Gráficos de Projetos */}
               <div className="mt-8">
-                <h2 className="text-xl font-semibold mb-4">📈 Análise de Projetos</h2>
+                <h2 className="text-xl font-semibold mb-4">Análise de Projetos</h2>
                 <div className="grid gap-6 md:grid-cols-2">
                   <TaskCompletionRadialChart completionRate={completionRate} />
                   <TaskOverdueRadialChart stats={stats || { totalCards: 0, overdueCards: 0, completedCards: 0, totalBoards: 0, completionRate: 0, totalUsers: 0 }} />
@@ -691,7 +691,7 @@ const Dashboard = () => {
 
               {/* Gráficos de Tarefas (Checklist Items) */}
               <div className="mt-8">
-                <h2 className="text-xl font-semibold mb-4">📋 Análise de Tarefas (Checklist Items)</h2>
+                <h2 className="text-xl font-semibold mb-4">Análise de Tarefas</h2>
                 <div className="grid gap-6 md:grid-cols-2">
                   <Card>
                     <CardHeader>
