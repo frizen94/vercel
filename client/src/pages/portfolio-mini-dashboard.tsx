@@ -450,85 +450,62 @@ const PortfolioMiniDashboard: React.FC = () => {
       </div>
 
       {/* Tabelas de projetos */}
-      <Tabs defaultValue="todo" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="todo">
-            A Fazer ({tasks?.todo.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Concluídos ({tasks?.completed.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="overdue">
-            Atrasados ({tasks?.overdue.length || 0})
-          </TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle>Projetos</CardTitle>
+          <CardDescription>
+            Projetos organizados por status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="todo" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="todo">
+                A Fazer ({tasks?.todo.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Concluídos ({tasks?.completed.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="overdue">
+                Atrasados ({tasks?.overdue.length || 0})
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="todo" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Projetos a Fazer</CardTitle>
-              <CardDescription>
-                Projetos pendentes que precisam ser executados
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+            <TabsContent value="todo">
               {renderTaskTable(
                 tasks?.todo || [],
                 "Não há projetos pendentes",
                 projectsTodoPage,
                 setProjectsTodoPage
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="completed" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Projetos Concluídos</CardTitle>
-              <CardDescription>
-                Projetos que já foram finalizados
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+            <TabsContent value="completed">
               {renderTaskTable(
                 tasks?.completed || [],
                 "Nenhum projeto concluído ainda",
                 projectsCompletedPage,
                 setProjectsCompletedPage
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="overdue" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Projetos Atrasados</CardTitle>
-              <CardDescription>
-                Projetos com prazo vencido que precisam de atenção
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+            <TabsContent value="overdue">
               {renderTaskTable(
                 tasks?.overdue || [],
                 "Não há projetos atrasados. Ótimo trabalho!",
                 projectsOverduePage,
                 setProjectsOverduePage
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
-      {/* Tarefas Atrasadas (Checklist Items) */}
+      {/* Tarefas (Checklist Items) */}
       {checklistItems && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-600" />
-              Tarefas (Checklist Items)
-            </CardTitle>
+            <CardTitle>Tarefas</CardTitle>
             <CardDescription>
               Subtarefas organizadas por status
             </CardDescription>
