@@ -366,8 +366,9 @@ const PortfolioMiniDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      {/* Header: Voltar acima do título e título alinhado mais à esquerda */}
+      <div className="flex flex-col">
+        <div className="mb-3">
           <Button
             variant="ghost"
             size="sm"
@@ -376,14 +377,15 @@ const PortfolioMiniDashboard: React.FC = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Dashboard do Portfólio
-            </h1>
-            <p className="text-muted-foreground">
-              Visão geral das tarefas e métricas
-            </p>
-          </div>
+        </div>
+
+        <div className="-ml-2">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Dashboard do Portfólio
+          </h1>
+          <p className="text-muted-foreground">
+            Visão geral das tarefas e métricas
+          </p>
         </div>
       </div>
 
