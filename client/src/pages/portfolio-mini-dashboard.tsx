@@ -77,6 +77,18 @@ const PortfolioMiniDashboard: React.FC = () => {
   const [, navigate] = useLocation();
   const portfolioId = parseInt(id || "0");
 
+  // Paginação para Projetos
+  const [projectsTodoPage, setProjectsTodoPage] = useState(1);
+  const [projectsCompletedPage, setProjectsCompletedPage] = useState(1);
+  const [projectsOverduePage, setProjectsOverduePage] = useState(1);
+
+  // Paginação para Tarefas (Checklist Items)
+  const [tasksTodoPage, setTasksTodoPage] = useState(1);
+  const [tasksCompletedPage, setTasksCompletedPage] = useState(1);
+  const [tasksOverduePage, setTasksOverduePage] = useState(1);
+
+  const ITEMS_PER_PAGE = 10;
+
   const { data: tasks, isLoading, error } = useQuery<PortfolioTasks>({
     queryKey: [`/api/portfolios/${portfolioId}/tasks`],
     enabled: !!portfolioId && portfolioId > 0,
@@ -101,11 +113,67 @@ const PortfolioMiniDashboard: React.FC = () => {
     }).format(new Date(dateString));
   };
 
+  // Componente de paginação
+  const Pagination = ({ 
+    currentPage, 
+    totalItems, 
+    itemsPerPage, 
+    onPageChange 
+  }: { 
+    currentPage: number; 
+    totalItems: number; 
+    itemsPerPage: number; 
+    onPageChange: (page: number) => void;
+  }) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (totalPages <= 1) return null;
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Anterior
+        </Button>
+        
+        {pages.map((page) => (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(page)}
+            className="min-w-[40px]"
+          >
+            {page}
+          </Button>
+        ))}
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Próxima
+        </Button>
+      </div>
+    );
+  };
+
   const handleTaskClick = (boardId: number) => {
     navigate(`/board/${boardId}`);
   };
 
-  const renderTaskTable = (taskList: Task[], emptyMessage: string) => {
+  const renderTaskTable = (taskList: Task[], emptyMessage: string, currentPage: number, onPageChange: (page: number) => void) => {
     if (!taskList || taskList.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
@@ -114,63 +182,75 @@ const PortfolioMiniDashboard: React.FC = () => {
       );
     }
 
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedTasks = taskList.slice(startIndex, endIndex);
+
     return (
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Projeto</TableHead>
-              <TableHead>Quadro</TableHead>
-              <TableHead>Lista</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead className="text-right">Ação</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {taskList.map((task) => (
-              <TableRow
-                key={task.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleTaskClick(task.boardId)}
-              >
-                <TableCell className="font-medium">{task.title}</TableCell>
-                <TableCell>{task.boardName}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{task.listName}</Badge>
-                </TableCell>
-                <TableCell>
-                  {task.assignees && task.assignees.length > 0 ? (
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span className="text-sm">
-                        {task.assignees.map((a) => a.name).join(", ")}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">Não atribuído</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(task.dueDate || task.completionTimestamp)}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    Ver
-                  </Button>
-                </TableCell>
+      <>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Projeto</TableHead>
+                <TableHead>Quadro</TableHead>
+                <TableHead>Lista</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead className="text-right">Ação</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {paginatedTasks.map((task) => (
+                <TableRow
+                  key={task.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleTaskClick(task.boardId)}
+                >
+                  <TableCell className="font-medium">{task.title}</TableCell>
+                  <TableCell>{task.boardName}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{task.listName}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {task.assignees && task.assignees.length > 0 ? (
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span className="text-sm">
+                          {task.assignees.map((a) => a.name).join(", ")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Não atribuído</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(task.dueDate || task.completionTimestamp)}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm">
+                      Ver
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={taskList.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={onPageChange}
+        />
+      </>
     );
   };
 
-  const renderChecklistItemsTable = (items: ChecklistItem[], emptyMessage: string) => {
+  const renderChecklistItemsTable = (items: ChecklistItem[], emptyMessage: string, currentPage: number, onPageChange: (page: number) => void) => {
     if (!items || items.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
@@ -179,71 +259,83 @@ const PortfolioMiniDashboard: React.FC = () => {
       );
     }
 
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedItems = items.slice(startIndex, endIndex);
+
     return (
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tarefa</TableHead>
-              <TableHead>Projeto</TableHead>
-              <TableHead>Checklist</TableHead>
-              <TableHead>Quadro</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead>Prazo</TableHead>
-              <TableHead className="text-right">Ação</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => {
-              const isOverdue = item.dueDate && new Date(item.dueDate) < new Date() && !item.completed;
-              
-              return (
-                <TableRow
-                  key={item.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                >
-                  <TableCell className="font-medium">{item.content}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{item.cardTitle}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-xs">{item.checklistTitle}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{item.boardName}</TableCell>
-                  <TableCell>
-                    {item.assignees && item.assignees.length > 0 ? (
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span className="text-sm">
-                          {item.assignees.map((a) => a.name).join(", ")}
-                        </span>
+      <>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tarefa</TableHead>
+                <TableHead>Projeto</TableHead>
+                <TableHead>Checklist</TableHead>
+                <TableHead>Quadro</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Prazo</TableHead>
+                <TableHead className="text-right">Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedItems.map((item) => {
+                const isOverdue = item.dueDate && new Date(item.dueDate) < new Date() && !item.completed;
+                
+                return (
+                  <TableRow
+                    key={item.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
+                    <TableCell className="font-medium">{item.content}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{item.cardTitle}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">{item.checklistTitle}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{item.boardName}</TableCell>
+                    <TableCell>
+                      {item.assignees && item.assignees.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          <span className="text-sm">
+                            {item.assignees.map((a) => a.name).join(", ")}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Não atribuído</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className={`flex items-center gap-1 ${isOverdue ? 'text-destructive' : ''}`}>
+                        <Calendar className="h-3 w-3" />
+                        <span className={isOverdue ? 'font-medium' : ''}>{formatDate(item.dueDate)}</span>
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Não atribuído</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className={`flex items-center gap-1 ${isOverdue ? 'text-destructive' : ''}`}>
-                      <Calendar className="h-3 w-3" />
-                      <span className={isOverdue ? 'font-medium' : ''}>{formatDate(item.dueDate)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/board/${item.boardId}?card=${item.cardId}`);
-                      }}
-                    >
-                      Ver
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/board/${item.boardId}?card=${item.cardId}`);
+                        }}
+                      >
+                        Ver
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={items.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={onPageChange}
+        />
+      </>
     );
   };
 
@@ -382,7 +474,9 @@ const PortfolioMiniDashboard: React.FC = () => {
             <CardContent>
               {renderTaskTable(
                 tasks?.todo || [],
-                "Não há projetos pendentes"
+                "Não há projetos pendentes",
+                projectsTodoPage,
+                setProjectsTodoPage
               )}
             </CardContent>
           </Card>
@@ -399,7 +493,9 @@ const PortfolioMiniDashboard: React.FC = () => {
             <CardContent>
               {renderTaskTable(
                 tasks?.completed || [],
-                "Nenhum projeto concluído ainda"
+                "Nenhum projeto concluído ainda",
+                projectsCompletedPage,
+                setProjectsCompletedPage
               )}
             </CardContent>
           </Card>
@@ -416,7 +512,9 @@ const PortfolioMiniDashboard: React.FC = () => {
             <CardContent>
               {renderTaskTable(
                 tasks?.overdue || [],
-                "Não há projetos atrasados. Ótimo trabalho!"
+                "Não há projetos atrasados. Ótimo trabalho!",
+                projectsOverduePage,
+                setProjectsOverduePage
               )}
             </CardContent>
           </Card>
@@ -452,21 +550,27 @@ const PortfolioMiniDashboard: React.FC = () => {
               <TabsContent value="todo">
                 {renderChecklistItemsTable(
                   checklistItems.todo,
-                  "Não há tarefas pendentes"
+                  "Não há tarefas pendentes",
+                  tasksTodoPage,
+                  setTasksTodoPage
                 )}
               </TabsContent>
 
               <TabsContent value="completed">
                 {renderChecklistItemsTable(
                   checklistItems.completed,
-                  "Nenhuma tarefa concluída ainda"
+                  "Nenhuma tarefa concluída ainda",
+                  tasksCompletedPage,
+                  setTasksCompletedPage
                 )}
               </TabsContent>
 
               <TabsContent value="overdue">
                 {renderChecklistItemsTable(
                   checklistItems.overdue,
-                  "Não há tarefas atrasadas. Ótimo trabalho!"
+                  "Não há tarefas atrasadas. Ótimo trabalho!",
+                  tasksOverduePage,
+                  setTasksOverduePage
                 )}
               </TabsContent>
             </Tabs>
