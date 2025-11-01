@@ -326,6 +326,18 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
+  // Paginação para Projetos
+  const [projectsTodoPage, setProjectsTodoPage] = useState(1);
+  const [projectsCompletedPage, setProjectsCompletedPage] = useState(1);
+  const [projectsOverduePage, setProjectsOverduePage] = useState(1);
+
+  // Paginação para Tarefas
+  const [tasksTodoPage, setTasksTodoPage] = useState(1);
+  const [tasksCompletedPage, setTasksCompletedPage] = useState(1);
+  const [tasksOverduePage, setTasksOverduePage] = useState(1);
+
+  const ITEMS_PER_PAGE = 10;
+
   // Buscar estatísticas do dashboard
   const { data: stats, isLoading: isLoadingStats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
@@ -563,6 +575,62 @@ const Dashboard = () => {
       </div>
     </div>
   );
+
+  // Componente de paginação
+  const Pagination = ({ 
+    currentPage, 
+    totalItems, 
+    itemsPerPage, 
+    onPageChange 
+  }: { 
+    currentPage: number; 
+    totalItems: number; 
+    itemsPerPage: number; 
+    onPageChange: (page: number) => void;
+  }) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (totalPages <= 1) return null;
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Anterior
+        </Button>
+        
+        {pages.map((page) => (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(page)}
+            className="min-w-[40px]"
+          >
+            {page}
+          </Button>
+        ))}
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Próxima
+        </Button>
+      </div>
+    );
+  };
 
   // Exibir carregamento
   if ((isLoadingBoards || isLoadingStats) && activeTab === "overview") {
@@ -906,86 +974,122 @@ const Dashboard = () => {
                       <TabsTrigger value="overdue">Atrasados ({dashboardCards.overdue.length})</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="todo" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                    <TabsContent value="todo" className="space-y-4 mt-4">
                       {dashboardCards.todo.length > 0 ? (
-                        dashboardCards.todo.map((card) => (
-                          <div 
-                            key={`card-todo-${card.id}`}
-                            className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                            onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
-                          >
-                            <div className="space-y-1 flex-1">
-                              <div className="font-medium">{card.title}</div>
-                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <span>{card.boardName}</span>
-                                <span>•</span>
-                                <span>{card.listName}</span>
-                              </div>
-                            </div>
-                            {card.dueDate && (
-                              <Badge variant="outline" className="flex items-center space-x-1 ml-2">
-                                <Clock className="h-3 w-3 mr-1" />
-                                <span>{new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
-                              </Badge>
-                            )}
+                        <>
+                          <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                            {dashboardCards.todo
+                              .slice((projectsTodoPage - 1) * ITEMS_PER_PAGE, projectsTodoPage * ITEMS_PER_PAGE)
+                              .map((card) => (
+                                <div 
+                                  key={`card-todo-${card.id}`}
+                                  className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                                  onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
+                                >
+                                  <div className="space-y-1 flex-1">
+                                    <div className="font-medium">{card.title}</div>
+                                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                      <span>{card.boardName}</span>
+                                      <span>•</span>
+                                      <span>{card.listName}</span>
+                                    </div>
+                                  </div>
+                                  {card.dueDate && (
+                                    <Badge variant="outline" className="flex items-center space-x-1 ml-2">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      <span>{new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
+                                    </Badge>
+                                  )}
+                                </div>
+                              ))}
                           </div>
-                        ))
+                          <Pagination
+                            currentPage={projectsTodoPage}
+                            totalItems={dashboardCards.todo.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setProjectsTodoPage}
+                          />
+                        </>
                       ) : (
                         renderEmptyState('Nenhum projeto pendente')
                       )}
                     </TabsContent>
 
-                    <TabsContent value="completed" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                    <TabsContent value="completed" className="space-y-4 mt-4">
                       {dashboardCards.completed.length > 0 ? (
-                        dashboardCards.completed.map((card) => (
-                          <div 
-                            key={`card-completed-${card.id}`}
-                            className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                            onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
-                          >
-                            <div className="space-y-1 flex-1">
-                              <div className="font-medium line-through text-muted-foreground">{card.title}</div>
-                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <span>{card.boardName}</span>
-                                <span>•</span>
-                                <span>{card.listName}</span>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
-                              <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                              <span>Concluído</span>
-                            </Badge>
+                        <>
+                          <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                            {dashboardCards.completed
+                              .slice((projectsCompletedPage - 1) * ITEMS_PER_PAGE, projectsCompletedPage * ITEMS_PER_PAGE)
+                              .map((card) => (
+                                <div 
+                                  key={`card-completed-${card.id}`}
+                                  className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                                  onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
+                                >
+                                  <div className="space-y-1 flex-1">
+                                    <div className="font-medium line-through text-muted-foreground">{card.title}</div>
+                                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                      <span>{card.boardName}</span>
+                                      <span>•</span>
+                                      <span>{card.listName}</span>
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
+                                    <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                                    <span>Concluído</span>
+                                  </Badge>
+                                </div>
+                              ))}
                           </div>
-                        ))
+                          <Pagination
+                            currentPage={projectsCompletedPage}
+                            totalItems={dashboardCards.completed.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setProjectsCompletedPage}
+                          />
+                        </>
                       ) : (
                         renderEmptyState('Nenhum projeto concluído')
                       )}
                     </TabsContent>
 
-                    <TabsContent value="overdue" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                    <TabsContent value="overdue" className="space-y-4 mt-4">
                       {dashboardCards.overdue.length > 0 ? (
-                        dashboardCards.overdue.map((card) => (
-                          <div 
-                            key={`card-overdue-${card.id}`}
-                            className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
-                            onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
-                          >
-                            <div className="space-y-1 flex-1">
-                              <div className="font-medium">{card.title}</div>
-                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <span>{card.boardName}</span>
-                                <span>•</span>
-                                <span>{card.listName}</span>
-                              </div>
-                            </div>
-                            {card.dueDate && (
-                              <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
-                                <Clock className="h-3 w-3 mr-1" />
-                                <span>Vencido em {new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
-                              </Badge>
-                            )}
+                        <>
+                          <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                            {dashboardCards.overdue
+                              .slice((projectsOverduePage - 1) * ITEMS_PER_PAGE, projectsOverduePage * ITEMS_PER_PAGE)
+                              .map((card) => (
+                                <div 
+                                  key={`card-overdue-${card.id}`}
+                                  className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
+                                  onClick={() => navigate(`/board/${card.boardId}?card=${card.id}`)}
+                                >
+                                  <div className="space-y-1 flex-1">
+                                    <div className="font-medium">{card.title}</div>
+                                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                      <span>{card.boardName}</span>
+                                      <span>•</span>
+                                      <span>{card.listName}</span>
+                                    </div>
+                                  </div>
+                                  {card.dueDate && (
+                                    <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      <span>Vencido em {new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
+                                    </Badge>
+                                  )}
+                                </div>
+                              ))}
                           </div>
-                        ))
+                          <Pagination
+                            currentPage={projectsOverduePage}
+                            totalItems={dashboardCards.overdue.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setProjectsOverduePage}
+                          />
+                        </>
                       ) : (
                         renderEmptyState('Nenhum projeto atrasado. Bom trabalho!')
                       )}
@@ -1027,92 +1131,128 @@ const Dashboard = () => {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="todo" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                  <TabsContent value="todo" className="space-y-4 mt-4">
                     {checklistItems && checklistItems.todo.length > 0 ? (
-                      checklistItems.todo.map((item) => (
-                        <div 
-                          key={item.id}
-                          className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                          onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
-                        >
-                          <div className="space-y-1 flex-1">
-                            <div className="font-medium">{item.content}</div>
-                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                              <span>{item.boardName}</span>
-                              <span>•</span>
-                              <span>{item.cardTitle}</span>
-                              <span>•</span>
-                              <span>{item.checklistTitle}</span>
-                            </div>
-                          </div>
-                          {item.dueDate && (
-                            <Badge variant="outline" className="flex items-center space-x-1 ml-2">
-                              <Clock className="h-3 w-3 mr-1" />
-                              <span>{new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
-                            </Badge>
-                          )}
+                      <>
+                        <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                          {checklistItems.todo
+                            .slice((tasksTodoPage - 1) * ITEMS_PER_PAGE, tasksTodoPage * ITEMS_PER_PAGE)
+                            .map((item) => (
+                              <div 
+                                key={item.id}
+                                className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                                onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
+                              >
+                                <div className="space-y-1 flex-1">
+                                  <div className="font-medium">{item.content}</div>
+                                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                    <span>{item.boardName}</span>
+                                    <span>•</span>
+                                    <span>{item.cardTitle}</span>
+                                    <span>•</span>
+                                    <span>{item.checklistTitle}</span>
+                                  </div>
+                                </div>
+                                {item.dueDate && (
+                                  <Badge variant="outline" className="flex items-center space-x-1 ml-2">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    <span>{new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
+                                  </Badge>
+                                )}
+                              </div>
+                            ))}
                         </div>
-                      ))
+                        <Pagination
+                          currentPage={tasksTodoPage}
+                          totalItems={checklistItems.todo.length}
+                          itemsPerPage={ITEMS_PER_PAGE}
+                          onPageChange={setTasksTodoPage}
+                        />
+                      </>
                     ) : (
                       renderEmptyState("Não há tarefas pendentes")
                     )}
                   </TabsContent>
 
-                  <TabsContent value="completed" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                  <TabsContent value="completed" className="space-y-4 mt-4">
                     {checklistItems && checklistItems.completed.length > 0 ? (
-                      checklistItems.completed.map((item) => (
-                        <div 
-                          key={item.id}
-                          className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                          onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
-                        >
-                          <div className="space-y-1 flex-1">
-                            <div className="font-medium line-through text-muted-foreground">{item.content}</div>
-                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                              <span>{item.boardName}</span>
-                              <span>•</span>
-                              <span>{item.cardTitle}</span>
-                              <span>•</span>
-                              <span>{item.checklistTitle}</span>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
-                            <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                            <span>Concluído</span>
-                          </Badge>
+                      <>
+                        <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                          {checklistItems.completed
+                            .slice((tasksCompletedPage - 1) * ITEMS_PER_PAGE, tasksCompletedPage * ITEMS_PER_PAGE)
+                            .map((item) => (
+                              <div 
+                                key={item.id}
+                                className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                                onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
+                              >
+                                <div className="space-y-1 flex-1">
+                                  <div className="font-medium line-through text-muted-foreground">{item.content}</div>
+                                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                    <span>{item.boardName}</span>
+                                    <span>•</span>
+                                    <span>{item.cardTitle}</span>
+                                    <span>•</span>
+                                    <span>{item.checklistTitle}</span>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
+                                  <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                                  <span>Concluído</span>
+                                </Badge>
+                              </div>
+                            ))}
                         </div>
-                      ))
+                        <Pagination
+                          currentPage={tasksCompletedPage}
+                          totalItems={checklistItems.completed.length}
+                          itemsPerPage={ITEMS_PER_PAGE}
+                          onPageChange={setTasksCompletedPage}
+                        />
+                      </>
                     ) : (
                       renderEmptyState("Nenhuma tarefa concluída ainda")
                     )}
                   </TabsContent>
 
-                  <TabsContent value="overdue" className="space-y-4 max-h-[500px] overflow-y-auto mt-4">
+                  <TabsContent value="overdue" className="space-y-4 mt-4">
                     {checklistItems && checklistItems.overdue.length > 0 ? (
-                      checklistItems.overdue.map((item) => (
-                        <div 
-                          key={item.id}
-                          className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
-                          onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
-                        >
-                          <div className="space-y-1 flex-1">
-                            <div className="font-medium">{item.content}</div>
-                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                              <span>{item.boardName}</span>
-                              <span>•</span>
-                              <span>{item.cardTitle}</span>
-                              <span>•</span>
-                              <span>{item.checklistTitle}</span>
-                            </div>
-                          </div>
-                          {item.dueDate && (
-                            <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
-                              <Clock className="h-3 w-3 mr-1" />
-                              <span>Vencido em {new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
-                            </Badge>
-                          )}
+                      <>
+                        <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                          {checklistItems.overdue
+                            .slice((tasksOverduePage - 1) * ITEMS_PER_PAGE, tasksOverduePage * ITEMS_PER_PAGE)
+                            .map((item) => (
+                              <div 
+                                key={item.id}
+                                className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
+                                onClick={() => navigate(`/board/${item.boardId}?card=${item.cardId}`)}
+                              >
+                                <div className="space-y-1 flex-1">
+                                  <div className="font-medium">{item.content}</div>
+                                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                    <span>{item.boardName}</span>
+                                    <span>•</span>
+                                    <span>{item.cardTitle}</span>
+                                    <span>•</span>
+                                    <span>{item.checklistTitle}</span>
+                                  </div>
+                                </div>
+                                {item.dueDate && (
+                                  <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    <span>Vencido em {new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
+                                  </Badge>
+                                )}
+                              </div>
+                            ))}
                         </div>
-                      ))
+                        <Pagination
+                          currentPage={tasksOverduePage}
+                          totalItems={checklistItems.overdue.length}
+                          itemsPerPage={ITEMS_PER_PAGE}
+                          onPageChange={setTasksOverduePage}
+                        />
+                      </>
                     ) : (
                       renderEmptyState("Não há tarefas atrasadas. Bom trabalho!")
                     )}
