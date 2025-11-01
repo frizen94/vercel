@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar, Clock, AlertCircle, Check, ListChecks } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -91,6 +91,14 @@ export default function UserDashboard() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
+  // Paginação
+  const [overdueCardsPage, setOverdueCardsPage] = useState(1);
+  const [checklistCardsPage, setChecklistCardsPage] = useState(1);
+  const [tasksTodoPage, setTasksTodoPage] = useState(1);
+  const [tasksCompletedPage, setTasksCompletedPage] = useState(1);
+  const [tasksOverduePage, setTasksOverduePage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
   // Função para formatar data
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -99,6 +107,62 @@ export default function UserDashboard() {
       month: '2-digit',
       year: 'numeric'
     }).format(date);
+  };
+
+  // Componente de paginação
+  const Pagination = ({ 
+    currentPage, 
+    totalItems, 
+    itemsPerPage, 
+    onPageChange 
+  }: { 
+    currentPage: number; 
+    totalItems: number; 
+    itemsPerPage: number; 
+    onPageChange: (page: number) => void;
+  }) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (totalPages <= 1) return null;
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Anterior
+        </Button>
+        
+        {pages.map((page) => (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(page)}
+            className="min-w-[40px]"
+          >
+            {page}
+          </Button>
+        ))}
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Próxima
+        </Button>
+      </div>
+    );
   };
 
   // Consultar estatísticas do usuário
@@ -268,30 +332,40 @@ export default function UserDashboard() {
         </CardHeader>
         <CardContent>
           {overdueCards && overdueCards.length > 0 ? (
-            <div className="space-y-4 max-h-[300px] overflow-y-auto">
-              {overdueCards.map((card: OverdueCard) => (
-                <div 
-                  key={card.id}
-                  className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                  onClick={() => goToCard(card.boardId, card.id)}
-                >
-                  <div className="space-y-1">
-                    <div className="font-medium">{card.title}</div>
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <span>{card.boardName}</span>
-                      <span>•</span>
-                      <span>{card.listName}</span>
+            <>
+              <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                {overdueCards
+                  .slice((overdueCardsPage - 1) * ITEMS_PER_PAGE, overdueCardsPage * ITEMS_PER_PAGE)
+                  .map((card: OverdueCard) => (
+                    <div 
+                      key={card.id}
+                      className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                      onClick={() => goToCard(card.boardId, card.id)}
+                    >
+                      <div className="space-y-1">
+                        <div className="font-medium">{card.title}</div>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <span>{card.boardName}</span>
+                          <span>•</span>
+                          <span>{card.listName}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <Badge variant="destructive" className="flex items-center space-x-1">
+                          <Clock className="h-3 w-3 mr-1" />
+                          <span>Vencido em {formatDate(card.dueDate)}</span>
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center">
-                    <Badge variant="destructive" className="flex items-center space-x-1">
-                      <Clock className="h-3 w-3 mr-1" />
-                      <span>Vencido em {formatDate(card.dueDate)}</span>
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  ))}
+              </div>
+              <Pagination
+                currentPage={overdueCardsPage}
+                totalItems={overdueCards.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setOverdueCardsPage}
+              />
+            </>
           ) : (
             <div className="text-center py-4 text-muted-foreground">
               Não há tarefas atrasadas. Parabéns!
@@ -307,8 +381,11 @@ export default function UserDashboard() {
         </CardHeader>
         <CardContent>
           {checklistCards && checklistCards.length > 0 ? (
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
-              {checklistCards.map((card: ChecklistCard) => (
+            <>
+              <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                {checklistCards
+                  .slice((checklistCardsPage - 1) * ITEMS_PER_PAGE, checklistCardsPage * ITEMS_PER_PAGE)
+                  .map((card: ChecklistCard) => (
                 <div 
                   key={`${card.id}-${card.checklistId}`}
                   className="flex flex-col p-3 border rounded-md hover:bg-muted cursor-pointer"
@@ -373,6 +450,13 @@ export default function UserDashboard() {
                 </div>
               ))}
             </div>
+            <Pagination
+              currentPage={checklistCardsPage}
+              totalItems={checklistCards.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setChecklistCardsPage}
+            />
+          </>
           ) : (
             <div className="text-center py-4 text-muted-foreground">
               Não há cartões com checklists ativos.
@@ -400,32 +484,44 @@ export default function UserDashboard() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="todo" className="space-y-4 max-h-[400px] overflow-y-auto">
+            <TabsContent value="todo" className="space-y-4">
               {checklistItems.todo.length > 0 ? (
-                checklistItems.todo.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                    onClick={() => goToCard(item.boardId, item.cardId)}
-                  >
-                    <div className="space-y-1 flex-1">
-                      <div className="font-medium">{item.content}</div>
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                        <span>{item.boardName}</span>
-                        <span>•</span>
-                        <span>{item.cardTitle}</span>
-                        <span>•</span>
-                        <span>{item.checklistTitle}</span>
-                      </div>
-                    </div>
-                    {item.dueDate && (
-                      <Badge variant="outline" className="flex items-center space-x-1 ml-2">
-                        <Clock className="h-3 w-3 mr-1" />
-                        <span>{formatDate(item.dueDate)}</span>
-                      </Badge>
-                    )}
+                <>
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                    {checklistItems.todo
+                      .slice((tasksTodoPage - 1) * ITEMS_PER_PAGE, tasksTodoPage * ITEMS_PER_PAGE)
+                      .map((item) => (
+                        <div 
+                          key={item.id}
+                          className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => goToCard(item.boardId, item.cardId)}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="font-medium">{item.content}</div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <span>{item.boardName}</span>
+                              <span>•</span>
+                              <span>{item.cardTitle}</span>
+                              <span>•</span>
+                              <span>{item.checklistTitle}</span>
+                            </div>
+                          </div>
+                          {item.dueDate && (
+                            <Badge variant="outline" className="flex items-center space-x-1 ml-2">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>{formatDate(item.dueDate)}</span>
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                ))
+                  <Pagination
+                    currentPage={tasksTodoPage}
+                    totalItems={checklistItems.todo.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setTasksTodoPage}
+                  />
+                </>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
                   Não há tarefas pendentes
@@ -433,30 +529,42 @@ export default function UserDashboard() {
               )}
             </TabsContent>
 
-            <TabsContent value="completed" className="space-y-4 max-h-[400px] overflow-y-auto">
+            <TabsContent value="completed" className="space-y-4">
               {checklistItems.completed.length > 0 ? (
-                checklistItems.completed.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
-                    onClick={() => goToCard(item.boardId, item.cardId)}
-                  >
-                    <div className="space-y-1 flex-1">
-                      <div className="font-medium line-through text-muted-foreground">{item.content}</div>
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                        <span>{item.boardName}</span>
-                        <span>•</span>
-                        <span>{item.cardTitle}</span>
-                        <span>•</span>
-                        <span>{item.checklistTitle}</span>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
-                      <Check className="h-3 w-3 mr-1 text-green-600" />
-                      <span>Concluído</span>
-                    </Badge>
+                <>
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                    {checklistItems.completed
+                      .slice((tasksCompletedPage - 1) * ITEMS_PER_PAGE, tasksCompletedPage * ITEMS_PER_PAGE)
+                      .map((item) => (
+                        <div 
+                          key={item.id}
+                          className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => goToCard(item.boardId, item.cardId)}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="font-medium line-through text-muted-foreground">{item.content}</div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <span>{item.boardName}</span>
+                              <span>•</span>
+                              <span>{item.cardTitle}</span>
+                              <span>•</span>
+                              <span>{item.checklistTitle}</span>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="flex items-center space-x-1 ml-2 bg-green-50">
+                            <Check className="h-3 w-3 mr-1 text-green-600" />
+                            <span>Concluído</span>
+                          </Badge>
+                        </div>
+                      ))}
                   </div>
-                ))
+                  <Pagination
+                    currentPage={tasksCompletedPage}
+                    totalItems={checklistItems.completed.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setTasksCompletedPage}
+                  />
+                </>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
                   Nenhuma tarefa concluída ainda
@@ -464,32 +572,44 @@ export default function UserDashboard() {
               )}
             </TabsContent>
 
-            <TabsContent value="overdue" className="space-y-4 max-h-[400px] overflow-y-auto">
+            <TabsContent value="overdue" className="space-y-4">
               {checklistItems.overdue.length > 0 ? (
-                checklistItems.overdue.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
-                    onClick={() => goToCard(item.boardId, item.cardId)}
-                  >
-                    <div className="space-y-1 flex-1">
-                      <div className="font-medium">{item.content}</div>
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                        <span>{item.boardName}</span>
-                        <span>•</span>
-                        <span>{item.cardTitle}</span>
-                        <span>•</span>
-                        <span>{item.checklistTitle}</span>
-                      </div>
-                    </div>
-                    {item.dueDate && (
-                      <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
-                        <Clock className="h-3 w-3 mr-1" />
-                        <span>Vencido em {formatDate(item.dueDate)}</span>
-                      </Badge>
-                    )}
+                <>
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                    {checklistItems.overdue
+                      .slice((tasksOverduePage - 1) * ITEMS_PER_PAGE, tasksOverduePage * ITEMS_PER_PAGE)
+                      .map((item) => (
+                        <div 
+                          key={item.id}
+                          className="flex items-center justify-between p-3 border border-destructive/50 rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => goToCard(item.boardId, item.cardId)}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="font-medium">{item.content}</div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <span>{item.boardName}</span>
+                              <span>•</span>
+                              <span>{item.cardTitle}</span>
+                              <span>•</span>
+                              <span>{item.checklistTitle}</span>
+                            </div>
+                          </div>
+                          {item.dueDate && (
+                            <Badge variant="destructive" className="flex items-center space-x-1 ml-2">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>Vencido em {formatDate(item.dueDate)}</span>
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                ))
+                  <Pagination
+                    currentPage={tasksOverduePage}
+                    totalItems={checklistItems.overdue.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setTasksOverduePage}
+                  />
+                </>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
                   Não há tarefas atrasadas. Parabéns!
