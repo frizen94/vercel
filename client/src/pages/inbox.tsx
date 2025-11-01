@@ -41,6 +41,10 @@ export default function Inbox() {
   const { user } = useAuth();
   const [filter, setFilter] = useState<string>("all");
   const [, setLocation] = useLocation();
+  
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
@@ -58,7 +62,74 @@ export default function Inbox() {
     return true;
   });
 
+  // Paginação das notificações filtradas
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex);
+
+  // Resetar página ao mudar filtro
+  const handleFilterChange = (newFilter: string) => {
+    setFilter(newFilter);
+    setCurrentPage(1);
+  };
+
   const unreadCount = (notifications as Notification[]).filter((n: Notification) => !n.read).length;
+
+  // Componente de paginação
+  const Pagination = ({ 
+    currentPage, 
+    totalItems, 
+    itemsPerPage, 
+    onPageChange 
+  }: { 
+    currentPage: number; 
+    totalItems: number; 
+    itemsPerPage: number; 
+    onPageChange: (page: number) => void;
+  }) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (totalPages <= 1) return null;
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Anterior
+        </Button>
+        
+        {pages.map((page) => (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(page)}
+            className="min-w-[40px]"
+          >
+            {page}
+          </Button>
+        ))}
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Próxima
+        </Button>
+      </div>
+    );
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -173,7 +244,7 @@ export default function Inbox() {
         </div>
       </div>
 
-      <Tabs value={filter} onValueChange={setFilter} className="w-full">
+      <Tabs value={filter} onValueChange={handleFilterChange} className="w-full">
         <TabsList>
           <TabsTrigger value="all">
             Todas ({(notifications as Notification[]).length})
@@ -202,8 +273,9 @@ export default function Inbox() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {filteredNotifications.map((notification: Notification) => (
+            <>
+              <div className="space-y-2">
+                {paginatedNotifications.map((notification: Notification) => (
                 <Card 
                   key={notification.id} 
                   className={`hover:shadow-md transition-shadow cursor-pointer ${
@@ -297,6 +369,13 @@ export default function Inbox() {
                 </Card>
               ))}
             </div>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredNotifications.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
+          </>
           )}
         </TabsContent>
       </Tabs>
