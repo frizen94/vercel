@@ -25,10 +25,14 @@ import {
 // Interfaces para os dados
 interface Task {
   id: number;
-  title: string;
+  content: string;
   dueDate?: string;
-  boardTitle?: string;
-  priority?: 'high' | 'medium' | 'low';
+  boardName?: string;
+  boardId: number;
+  cardId: number;
+  cardTitle: string;
+  checklistTitle: string;
+  listName: string;
   completed?: boolean;
 }
 
@@ -56,10 +60,15 @@ export default function Home() {
   const { toast } = useToast();
 
   // Parallel queries using react-query pattern
-  const { data: recentTasks = [], isLoading: isLoadingTasks, error: tasksError } = useQuery<Task[]>({
-    queryKey: ['/api/dashboard/recent-tasks'],
+  const { data: recentTasksData, isLoading: isLoadingTasks, error: tasksError } = useQuery<any>({
+    queryKey: ['/api/dashboard/checklist-items'],
     enabled: !!user,
   });
+
+  // Combinar todas as tarefas e pegar as 5 mais recentes
+  const recentTasks: Task[] = recentTasksData 
+    ? [...(recentTasksData.todo || []), ...(recentTasksData.overdue || [])].slice(0, 5)
+    : [];
 
   const { data: boards = [], isLoading: isLoadingBoards, error: boardsError } = useQuery<any[]>({
     queryKey: ['/api/boards'],
@@ -206,19 +215,26 @@ export default function Home() {
                 </div>
               ) : recentTasks.length > 0 ? (
                 <div data-testid="list-tasks">
-                  {recentTasks.slice(0, 5).map((task) => (
-                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" data-testid={`task-item-${task.id}`}>
+                  {recentTasks.map((task) => (
+                    <div 
+                      key={task.id} 
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" 
+                      data-testid={`task-item-${task.id}`}
+                      onClick={() => navigate(`/board/${task.boardId}?card=${task.cardId}`)}
+                    >
                       <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate" data-testid={`task-title-${task.id}`}>{task.title}</p>
-                        {task.boardTitle && (
-                          <p className="text-xs text-muted-foreground" data-testid={`task-board-${task.id}`}>{task.boardTitle}</p>
-                        )}
+                        <p className="font-medium text-sm truncate" data-testid={`task-title-${task.id}`}>{task.content}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span data-testid={`task-board-${task.id}`}>{task.boardName}</span>
+                          <span>•</span>
+                          <span>{task.cardTitle}</span>
+                        </div>
                       </div>
                       {task.dueDate && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground" data-testid={`task-due-date-${task.id}`}>
                           <Clock className="h-3 w-3" />
-                          {task.dueDate}
+                          {new Date(task.dueDate).toLocaleDateString('pt-BR')}
                         </div>
                       )}
                     </div>
