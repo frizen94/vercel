@@ -494,7 +494,7 @@ const Dashboard = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Projetos por Prioridade</CardTitle>
+          <CardTitle className="text-lg">Projetos por Status</CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center">
           <div style={{ width: '100%', height: 250 }}>
@@ -807,7 +807,7 @@ const Dashboard = () => {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Distribuição de Tarefas</CardTitle>
+                      <CardTitle className="text-lg">Tarefa por Status</CardTitle>
                     </CardHeader>
                     <CardContent className="flex justify-center">
                       <div style={{ width: '100%', height: 250 }}>
@@ -850,7 +850,7 @@ const Dashboard = () => {
                 <div className="grid gap-6 md:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Tarefas por Status</CardTitle>
+                      <CardTitle className="text-lg">Tarefas por Estágio</CardTitle>
                     </CardHeader>
                     <CardContent className="flex justify-center">
                       <div style={{ width: '100%', height: 250 }}>
