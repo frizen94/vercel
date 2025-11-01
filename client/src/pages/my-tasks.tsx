@@ -37,6 +37,8 @@ export default function MyTasks() {
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const { data: tasksData, isLoading, error } = useQuery<ChecklistItemsData>({
     queryKey: ['/api/dashboard/checklist-items'],
@@ -84,6 +86,90 @@ export default function MyTasks() {
     }
   };
 
+  // Resetar página quando filtro ou busca mudar
+  const handleFilterChange = (value: string) => {
+    setFilterStatus(value);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  // Paginação
+  const paginatedTasks = filteredTasks.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Componente de Paginação
+  const Pagination = ({ 
+    currentPage, 
+    totalItems, 
+    itemsPerPage, 
+    onPageChange 
+  }: { 
+    currentPage: number; 
+    totalItems: number; 
+    itemsPerPage: number; 
+    onPageChange: (page: number) => void;
+  }) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (totalPages <= 1) return null;
+
+    const getPageNumbers = () => {
+      const pages = [];
+      const showPages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(showPages / 2));
+      let endPage = Math.min(totalPages, startPage + showPages - 1);
+
+      if (endPage - startPage < showPages - 1) {
+        startPage = Math.max(1, endPage - showPages + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+
+      return pages;
+    };
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Anterior
+        </Button>
+        
+        {getPageNumbers().map((page) => (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </Button>
+        ))}
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Próxima
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -112,13 +198,13 @@ export default function MyTasks() {
           <Input
             placeholder="Pesquisar tarefas..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
       </div>
 
-      <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
+      <Tabs value={filterStatus} onValueChange={handleFilterChange} className="w-full">
         <TabsList>
           <TabsTrigger value="all">Todas ({filteredTasks.length})</TabsTrigger>
           <TabsTrigger value="todo">Pendentes ({tasksByStatus.todo.length})</TabsTrigger>
@@ -153,7 +239,7 @@ export default function MyTasks() {
             </Card>
           ) : (
             <div className="grid gap-4">
-              {filteredTasks.map((task) => (
+              {paginatedTasks.map((task) => (
                 <Card 
                   key={task.id} 
                   className="hover:shadow-md transition-shadow cursor-pointer"
@@ -202,6 +288,13 @@ export default function MyTasks() {
                   </CardContent>
                 </Card>
               ))}
+              
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredTasks.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </TabsContent>
