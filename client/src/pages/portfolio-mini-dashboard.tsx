@@ -364,6 +364,19 @@ const PortfolioMiniDashboard: React.FC = () => {
     ? ((tasks?.completed.length || 0) / totalTasks * 100).toFixed(1)
     : "0.0";
 
+  // Filtrar checklist items: só mostrar se tiver responsável OU prazo
+  const filterChecklistItems = (items: ChecklistItem[]) => {
+    return items.filter(item => 
+      (item.assignees && item.assignees.length > 0) || item.dueDate
+    );
+  };
+
+  const filteredChecklistItems = checklistItems ? {
+    todo: filterChecklistItems(checklistItems.todo),
+    completed: filterChecklistItems(checklistItems.completed),
+    overdue: filterChecklistItems(checklistItems.overdue)
+  } : null;
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header: Voltar acima do título e título alinhado mais à esquerda */}
@@ -430,7 +443,7 @@ const PortfolioMiniDashboard: React.FC = () => {
             <AlertCircle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{checklistItems?.overdue.length || 0}</div>
+            <div className="text-2xl font-bold">{filteredChecklistItems?.overdue.length || 0}</div>
             <p className="text-xs text-muted-foreground">
               checklist items
             </p>
@@ -504,7 +517,7 @@ const PortfolioMiniDashboard: React.FC = () => {
       </Card>
 
       {/* Tarefas (Checklist Items) */}
-      {checklistItems && (
+      {filteredChecklistItems && (
         <Card>
           <CardHeader>
             <CardTitle>Tarefas</CardTitle>
@@ -516,19 +529,19 @@ const PortfolioMiniDashboard: React.FC = () => {
             <Tabs defaultValue="todo" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="todo">
-                  A Fazer ({checklistItems.todo.length})
+                  A Fazer ({filteredChecklistItems.todo.length})
                 </TabsTrigger>
                 <TabsTrigger value="completed">
-                  Concluídos ({checklistItems.completed.length})
+                  Concluídos ({filteredChecklistItems.completed.length})
                 </TabsTrigger>
                 <TabsTrigger value="overdue">
-                  Atrasados ({checklistItems.overdue.length})
+                  Atrasados ({filteredChecklistItems.overdue.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="todo">
                 {renderChecklistItemsTable(
-                  checklistItems.todo,
+                  filteredChecklistItems.todo,
                   "Não há tarefas pendentes",
                   tasksTodoPage,
                   setTasksTodoPage
@@ -537,7 +550,7 @@ const PortfolioMiniDashboard: React.FC = () => {
 
               <TabsContent value="completed">
                 {renderChecklistItemsTable(
-                  checklistItems.completed,
+                  filteredChecklistItems.completed,
                   "Nenhuma tarefa concluída ainda",
                   tasksCompletedPage,
                   setTasksCompletedPage
@@ -546,7 +559,7 @@ const PortfolioMiniDashboard: React.FC = () => {
 
               <TabsContent value="overdue">
                 {renderChecklistItemsTable(
-                  checklistItems.overdue,
+                  filteredChecklistItems.overdue,
                   "Não há tarefas atrasadas. Ótimo trabalho!",
                   tasksOverduePage,
                   setTasksOverduePage
