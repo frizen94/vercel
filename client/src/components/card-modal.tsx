@@ -1197,11 +1197,12 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       )}
 
       {/* Member Manager */}
-      {card && (
+      {card && currentBoard && (
         <MemberManager
           isOpen={isMemberManagerOpen}
           onClose={() => setIsMemberManagerOpen(false)}
           cardId={card.id}
+          boardId={currentBoard.id}
         />
       )}
 

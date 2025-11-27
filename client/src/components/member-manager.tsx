@@ -5,16 +5,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, Check, UserPlus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface MemberManagerProps {
   isOpen: boolean;
   onClose: () => void;
   cardId?: number;
+  boardId?: number;
 }
 
-export function MemberManager({ isOpen, onClose, cardId }: MemberManagerProps) {
+export function MemberManager({ isOpen, onClose, cardId, boardId }: MemberManagerProps) {
   const { users, cardMembers, fetchUsers, fetchCardMembers, addMemberToCard, removeMemberFromCard } = useBoardContext();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Buscar membros do board
+  const { data: boardMembers = [] } = useQuery<User[]>({
+    queryKey: ["/api/boards", boardId, "members"],
+    queryFn: async () => {
+      if (!boardId) return [];
+      const response = await fetch(`/api/boards/${boardId}/members`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!boardId && isOpen
+  });
+  
+  // Filtrar usuários: apenas membros do board (excluir admins já está no board members)
+  const availableUsers = boardMembers;
   
   // Carregamos todos os usuários e membros do cartão quando o modal é aberto
   useEffect(() => {
@@ -81,13 +98,13 @@ export function MemberManager({ isOpen, onClose, cardId }: MemberManagerProps) {
           </div>
         ) : (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
-            {users.length === 0 ? (
+            {availableUsers.length === 0 ? (
               <div className="text-center py-4 text-muted-foreground">
-                Nenhum usuário encontrado
+                Nenhum membro do projeto disponível
               </div>
             ) : (
               <div className="space-y-2">
-                {users.map(user => (
+                {availableUsers.map(user => (
                   <div 
                     key={user.id} 
                     className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
