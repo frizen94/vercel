@@ -60,6 +60,22 @@ export async function runInitialMigrations() {
       );
     `;
 
+    // 2b. Portfolio members table (depends on portfolios and users)
+    await sql`
+      CREATE TABLE IF NOT EXISTS portfolio_members (
+        id SERIAL PRIMARY KEY,
+        portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE CASCADE NOT NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+        role TEXT DEFAULT 'member',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(portfolio_id, user_id)
+      );
+    `;
+
+    // Create index for portfolio_members
+    await sql`CREATE INDEX IF NOT EXISTS idx_portfolio_members_portfolio_id ON portfolio_members(portfolio_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_portfolio_members_user_id ON portfolio_members(user_id);`;
+
     // 3. Boards table (depends on users and portfolios)
     await sql`
       CREATE TABLE IF NOT EXISTS boards (
@@ -453,7 +469,7 @@ export async function runMissingSqlMigrations() {
     await sql`
       CREATE TABLE IF NOT EXISTS audit_logs (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         session_id TEXT,
         action TEXT NOT NULL,
         entity_type TEXT NOT NULL,
@@ -478,8 +494,8 @@ export async function runMissingSqlMigrations() {
     await sql`
       CREATE TABLE IF NOT EXISTS activities (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) NOT NULL,
-        board_id INTEGER REFERENCES boards(id),
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL NOT NULL,
+        board_id INTEGER REFERENCES boards(id) ON DELETE SET NULL,
         activity_type TEXT NOT NULL,
         entity_type TEXT NOT NULL,
         entity_id INTEGER,

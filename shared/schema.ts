@@ -6,7 +6,7 @@
  * correspondentes para manter a consistência dos dados entre frontend e backend.
  */
 
-import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, varchar, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, varchar, date, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -90,6 +90,34 @@ export const portfolios = pgTable("portfolios", {
   userId: integer("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+/**
+ * Tabela de Membros de Portfólios
+ * 
+ * Representa os membros que têm acesso a um portfólio:
+ * - Referência ao portfólio (portfolioId)
+ * - Referência ao usuário (userId)
+ * - Papel do membro (role: owner, admin, member)
+ * - Data de adição ao portfólio
+ * 
+ * Usa chave primária composta (portfolio_id, user_id) sem id serial
+ */
+export const portfolioMembers = pgTable("portfolio_members", {
+  portfolioId: integer("portfolio_id").notNull().references(() => portfolios.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("viewer"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.portfolioId, table.userId] }),
+  portfolioIdIdx: index("idx_portfolio_members_portfolio_id").on(table.portfolioId),
+  userIdIdx: index("idx_portfolio_members_user_id").on(table.userId),
+}));
+
+/**
+ * Tipo TypeScript para membros de portfólios
+ */
+export type PortfolioMember = typeof portfolioMembers.$inferSelect;
+export type InsertPortfolioMember = typeof portfolioMembers.$inferInsert;
 
 /**
  * Tabela de Quadros (Boards)
@@ -764,3 +792,20 @@ export type AuditLog = typeof auditLogs.$inferSelect;
  */
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activities.$inferSelect;
+
+/**
+ * Relações entre tabelas
+ * Define relacionamentos para uso com Drizzle ORM queries
+ */
+import { relations } from "drizzle-orm";
+
+export const portfolioMembersRelations = relations(portfolioMembers, ({ one }) => ({
+  portfolio: one(portfolios, {
+    fields: [portfolioMembers.portfolioId],
+    references: [portfolios.id],
+  }),
+  user: one(users, {
+    fields: [portfolioMembers.userId],
+    references: [users.id],
+  }),
+}));

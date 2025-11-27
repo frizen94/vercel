@@ -88,8 +88,24 @@ export function NotificationsBell() {
       markAsReadMutation.mutate(notification.id);
     }
     
+    // Navegar baseado em actionUrl ou construir URL a partir de relatedType/relatedId
     if (notification.actionUrl) {
       window.location.href = notification.actionUrl;
+    } else if (notification.relatedType && notification.relatedId) {
+      // Construir URL baseado no tipo de entidade
+      switch (notification.relatedType) {
+        case 'portfolio':
+          window.location.href = `/portfolios/${notification.relatedId}`;
+          break;
+        case 'board':
+          window.location.href = `/boards/${notification.relatedId}`;
+          break;
+        case 'card':
+          // Cards precisam do boardId, então usar actionUrl é preferível
+          break;
+        default:
+          break;
+      }
     }
     setIsOpen(false);
   };
@@ -102,6 +118,8 @@ export function NotificationsBell() {
       case 'comment': return 'bg-green-100 text-green-800';
       case 'mention': return 'bg-yellow-100 text-yellow-800';
       case 'invitation': return 'bg-purple-100 text-purple-800';
+      case 'portfolio_member_added': return 'bg-purple-100 text-purple-800';
+      case 'board_member_added': return 'bg-blue-100 text-blue-800';
       case 'deadline': return 'bg-red-100 text-red-800 font-semibold';
       default: return 'bg-gray-100 text-gray-800';
     }

@@ -35,6 +35,19 @@ CREATE TABLE IF NOT EXISTS portfolios (
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
+-- 2b. Tabela de membros de portfólios (depende de portfolios e users)
+CREATE TABLE IF NOT EXISTS portfolio_members (
+    id SERIAL PRIMARY KEY,
+    portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'member',
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+    UNIQUE(portfolio_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_members_portfolio_id ON portfolio_members(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_portfolio_members_user_id ON portfolio_members(user_id);
+
 -- 3. Tabela de quadros/boards (depende de users e portfolios)
 CREATE TABLE IF NOT EXISTS boards (
     id SERIAL PRIMARY KEY,
@@ -420,7 +433,7 @@ COMMENT ON COLUMN notifications.from_user_id IS 'Referência ao usuário que ger
 -- Captura todas as operações importantes do sistema para compliance e debugging
 CREATE TABLE IF NOT EXISTS audit_logs (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     session_id TEXT,
     action TEXT NOT NULL, -- "CREATE", "READ", "UPDATE", "DELETE", "LOGIN", "LOGOUT"
     entity_type TEXT NOT NULL, -- "user", "board", "card", "list", etc.
@@ -445,8 +458,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_session_id ON audit_logs(session_id);
 -- Registra atividades específicas para dashboard administrativo e métricas
 CREATE TABLE IF NOT EXISTS activities (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) NOT NULL,
-    board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    board_id INTEGER REFERENCES boards(id) ON DELETE SET NULL,
     activity_type TEXT NOT NULL, -- "board_created", "card_created", "task_completed", etc.
     entity_type TEXT NOT NULL, -- "board", "card", "checklist", "task", etc.
     entity_id INTEGER, -- ID da entidade relacionada

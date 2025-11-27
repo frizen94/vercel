@@ -33,7 +33,7 @@ import fs from "fs";
 import { storage as appStorage } from "./db-storage";
 import { db } from "./database";
 import { z } from "zod";
-import { eq, and, or, lt, desc, isNotNull } from "drizzle-orm";
+import { eq, and, or, lt, desc, isNotNull, ne } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { 
   insertPortfolioSchema,
@@ -354,6 +354,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (portfolio.userId === req.user.id) {
           return res.json(portfolio);
         }
+
+        // Verificar se é membro do portfólio
+        const isMember = await db.query.portfolioMembers.findFirst({
+          where: and(
+            eq(schema.portfolioMembers.portfolioId, id),
+            eq(schema.portfolioMembers.userId, req.user.id)
+          )
+        });
+
+        if (isMember) {
+          return res.json(portfolio);
+        }
       }
 
       return res.status(403).json({ message: "Acesso negado a este portfólio" });
@@ -370,8 +382,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID do portfólio inválido" });
       }
 
-      const boards = await appStorage.getBoardsByPortfolio(id);
-      res.json(boards);
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      // Buscar todos os boards do portfólio
+      const allBoards = await appStorage.getBoardsByPortfolio(id);
+
+      // Se for admin, retorna todos os boards
+      if (req.user.role && req.user.role.toLowerCase() === "admin") {
+        return res.json(allBoards);
+      }
+
+      // Filtrar boards: mostrar apenas os que o usuário criou OU é membro
+      const filteredBoards = [];
+      for (const board of allBoards) {
+        // Se o usuário criou o board
+        if (board.userId === req.user.id) {
+          filteredBoards.push(board);
+          continue;
+        }
+
+        // Verificar se é membro do board via board_members
+        const isBoardMember = await db.query.boardMembers.findFirst({
+          where: and(
+            eq(schema.boardMembers.boardId, board.id),
+            eq(schema.boardMembers.userId, req.user.id)
+          )
+        });
+
+        if (isBoardMember) {
+          filteredBoards.push(board);
+        }
+      }
+
+      res.json(filteredBoards);
     } catch (error) {
       console.error("Erro ao buscar quadros do portfólio:", error);
       res.status(500).json({ message: "Falha ao buscar quadros do portfólio" });
@@ -448,6 +493,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Falha ao excluir portfólio" });
     }
   });
+
+  /**
+   * Portfolio Members Routes
+   */
+
+  // GET /api/portfolios/:id/members - Listar membros do portfólio
+  app.get("/api/portfolios/:id/members", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const portfolioId = parseInt(req.params.id);
+      if (isNaN(portfolioId)) {
+        return res.status(400).json({ message: "ID do portfólio inválido" });
+      }
+
+      const members = await db
+        .select({
+          portfolioId: schema.portfolioMembers.portfolioId,
+          userId: schema.portfolioMembers.userId,
+          role: schema.portfolioMembers.role,
+          createdAt: schema.portfolioMembers.createdAt,
+          id: schema.users.id,
+          username: schema.users.username,
+          name: schema.users.name,
+          email: schema.users.email,
+          profilePicture: schema.users.profilePicture,
+        })
+        .from(schema.portfolioMembers)
+        .innerJoin(schema.users, eq(schema.portfolioMembers.userId, schema.users.id))
+        .where(eq(schema.portfolioMembers.portfolioId, portfolioId));
+
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching portfolio members:", error);
+      res.status(500).json({ message: "Falha ao buscar membros do portfólio" });
+    }
+  });
+
+  // POST /api/portfolios/:id/members - Adicionar membro ao portfólio
+  app.post("/api/portfolios/:id/members", csrfProtection, isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const portfolioId = parseInt(req.params.id);
+      const { username, role = "viewer" } = req.body;
+
+      console.log("📝 Add portfolio member request:", { portfolioId, username, role });
+
+      if (isNaN(portfolioId) || !username) {
+        return res.status(400).json({ message: "Dados inválidos" });
+      }
+
+      // Buscar usuário pelo username (excluir admins)
+      const user = await db.query.users.findFirst({
+        where: and(
+          eq(schema.users.username, username),
+          ne(schema.users.role, "admin")
+        )
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado ou não pode ser adicionado" });
+      }
+
+      console.log("✅ User found:", user.id, user.username);
+
+      // Verificar se já é membro
+      const existingMember = await db.query.portfolioMembers.findFirst({
+        where: and(
+          eq(schema.portfolioMembers.portfolioId, portfolioId),
+          eq(schema.portfolioMembers.userId, user.id)
+        )
+      });
+
+      if (existingMember) {
+        return res.status(400).json({ message: "Usuário já é membro deste portfólio" });
+      }
+
+      // Buscar informações do portfólio para a notificação
+      const portfolio = await db.query.portfolios.findFirst({
+        where: eq(schema.portfolios.id, portfolioId)
+      });
+
+      // Adicionar membro
+      const newMember = await db.insert(schema.portfolioMembers).values({
+        portfolioId,
+        userId: user.id,
+        role
+      }).returning();
+
+      console.log("✅ Member added:", newMember[0]);
+
+      // Criar notificação para o usuário adicionado
+      if (portfolio && req.user) {
+        await appStorage.createNotification({
+          userId: user.id,
+          type: "portfolio_member_added",
+          title: "Adicionado a um portfólio",
+          message: `Você foi adicionado ao portfólio "${portfolio.name}" por ${req.user.name || req.user.username}`,
+          relatedId: portfolioId,
+          relatedType: "portfolio",
+          read: false
+        });
+      }
+
+      // Retornar com informações do usuário
+      const result = {
+        ...user,
+        role: newMember[0].role,
+        password: undefined // Remover senha da resposta
+      };
+
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("❌ Error adding portfolio member:", error);
+      res.status(500).json({ message: "Falha ao adicionar membro ao portfólio" });
+    }
+  });
+
+  // DELETE /api/portfolios/:id/members/:userId - Remover membro do portfólio
+  app.delete("/api/portfolios/:id/members/:userId", csrfProtection, isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const portfolioId = parseInt(req.params.id);
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(portfolioId) || isNaN(userId)) {
+        return res.status(400).json({ message: "IDs inválidos" });
+      }
+
+      // Verificar se o membro existe
+      const member = await db.query.portfolioMembers.findFirst({
+        where: and(
+          eq(schema.portfolioMembers.portfolioId, portfolioId),
+          eq(schema.portfolioMembers.userId, userId)
+        )
+      });
+
+      if (!member) {
+        return res.status(404).json({ message: "Membro não encontrado" });
+      }
+
+      // Remover membro
+      await db.delete(schema.portfolioMembers).where(
+        and(
+          eq(schema.portfolioMembers.portfolioId, portfolioId),
+          eq(schema.portfolioMembers.userId, userId)
+        )
+      );
+
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error removing portfolio member:", error);
+      res.status(500).json({ message: "Falha ao remover membro do portfólio" });
+    }
+  });
+
+  // PUT /api/portfolios/:id/members/:userId - Atualizar papel do membro
+  app.put("/api/portfolios/:id/members/:userId", csrfProtection, isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const portfolioId = parseInt(req.params.id);
+      const userId = parseInt(req.params.userId);
+      const { role } = req.body;
+
+      if (isNaN(portfolioId) || isNaN(userId) || !role) {
+        return res.status(400).json({ message: "Dados inválidos" });
+      }
+
+      // Verificar se o membro existe
+      const member = await db.query.portfolioMembers.findFirst({
+        where: and(
+          eq(schema.portfolioMembers.portfolioId, portfolioId),
+          eq(schema.portfolioMembers.userId, userId)
+        )
+      });
+
+      if (!member) {
+        return res.status(404).json({ message: "Membro não encontrado" });
+      }
+
+      // Atualizar papel
+      await db.update(schema.portfolioMembers)
+        .set({ role })
+        .where(
+          and(
+            eq(schema.portfolioMembers.portfolioId, portfolioId),
+            eq(schema.portfolioMembers.userId, userId)
+          )
+        );
+
+      res.json({ success: true, role });
+    } catch (error) {
+      console.error("Error updating portfolio member role:", error);
+      res.status(500).json({ message: "Falha ao atualizar papel do membro" });
+    }
+  });
+
 
   /**
    * Rota para buscar quadros do usuário logado especificamente

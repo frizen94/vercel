@@ -171,7 +171,8 @@ export class DatabaseStorage implements IStorage {
 
   async getPortfoliosUserCanAccess(userId: number): Promise<Portfolio[]> {
     try {
-      const portfolios = await db
+      // Buscar portfólios onde o usuário é OWNER
+      const ownedPortfolios = await db
         .select({
           id: schema.portfolios.id,
           name: schema.portfolios.name,
@@ -186,7 +187,30 @@ export class DatabaseStorage implements IStorage {
         .where(eq(schema.portfolios.userId, userId))
         .orderBy(desc(schema.portfolios.createdAt));
 
-      return portfolios as Portfolio[];
+      // Buscar portfólios onde o usuário é MEMBRO (via portfolio_members)
+      const memberPortfolios = await db
+        .select({
+          id: schema.portfolios.id,
+          name: schema.portfolios.name,
+          description: schema.portfolios.description,
+          color: schema.portfolios.color,
+          userId: schema.portfolios.userId,
+          createdAt: schema.portfolios.createdAt,
+          username: schema.users.username
+        })
+        .from(schema.portfolioMembers)
+        .innerJoin(schema.portfolios, eq(schema.portfolioMembers.portfolioId, schema.portfolios.id))
+        .leftJoin(schema.users, eq(schema.portfolios.userId, schema.users.id))
+        .where(eq(schema.portfolioMembers.userId, userId))
+        .orderBy(desc(schema.portfolios.createdAt));
+
+      // Combinar ambos e remover duplicados (caso seja owner E membro)
+      const allPortfolios = [...ownedPortfolios, ...memberPortfolios];
+      const uniquePortfolios = allPortfolios.filter((portfolio, index, self) => 
+        index === self.findIndex((p) => p.id === portfolio.id)
+      );
+
+      return uniquePortfolios as Portfolio[];
     } catch (error) {
       console.error("Erro ao buscar portfólios do usuário:", error);
       return [];

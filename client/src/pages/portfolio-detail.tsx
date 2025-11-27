@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { PortfolioMemberManager } from "@/components/portfolio-member-manager";
 
 interface Portfolio {
   id: number;
@@ -289,6 +290,7 @@ export default function PortfolioDetail() {
           </div>
           
           <div className="flex gap-2">
+            <PortfolioMemberManager portfolioId={portfolioId} />
             <Button 
               variant="outline"
               onClick={() => navigate(`/portfolios/${portfolioId}/dashboard`)}
