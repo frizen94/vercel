@@ -63,12 +63,11 @@ export async function runInitialMigrations() {
     // 2b. Portfolio members table (depends on portfolios and users)
     await sql`
       CREATE TABLE IF NOT EXISTS portfolio_members (
-        id SERIAL PRIMARY KEY,
         portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE CASCADE NOT NULL,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-        role TEXT DEFAULT 'member',
+        role TEXT DEFAULT 'viewer' NOT NULL,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-        UNIQUE(portfolio_id, user_id)
+        PRIMARY KEY (portfolio_id, user_id)
       );
     `;
 

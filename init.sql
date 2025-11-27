@@ -37,12 +37,11 @@ CREATE TABLE IF NOT EXISTS portfolios (
 
 -- 2b. Tabela de membros de portfólios (depende de portfolios e users)
 CREATE TABLE IF NOT EXISTS portfolio_members (
-    id SERIAL PRIMARY KEY,
     portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role TEXT DEFAULT 'member',
+    role TEXT DEFAULT 'viewer' NOT NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    UNIQUE(portfolio_id, user_id)
+    PRIMARY KEY (portfolio_id, user_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_portfolio_members_portfolio_id ON portfolio_members(portfolio_id);
