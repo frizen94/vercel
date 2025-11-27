@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, UserX, Edit } from "lucide-react";
+import { UserPlus, UserX, Edit, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -18,11 +18,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 
 interface BoardMember extends User {
   boardRole: string;
@@ -34,6 +48,7 @@ interface BoardMemberManagerProps {
 
 export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
   const [open, setOpen] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const [memberUsername, setMemberUsername] = useState("");
   const [selectedRole, setSelectedRole] = useState("viewer");
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
@@ -61,23 +76,51 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
     enabled: !!boardId
   });
   
+  // Buscar membros do portfólio (se o board pertencer a um portfólio)
+  const { data: portfolioMembers = [] } = useQuery<User[]>({
+    queryKey: ["/api/portfolios", board?.portfolioId, "members"],
+    queryFn: async () => {
+      if (!board?.portfolioId) return [];
+      const response = await fetch(`/api/portfolios/${board.portfolioId}/members`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!board?.portfolioId && open
+  });
+  
   const { data: allUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
       if (!response.ok) throw new Error("Falha ao carregar usuários");
       return response.json();
-    }
+    },
+    enabled: open
   });
   
   const isCreator = board && user && board.userId === user.id;
   const isAdmin = user && user.role === "admin";
   const hasEditRights = isCreator || isAdmin;
   
-  // Retorna os usuários que ainda não são membros
-  const nonMembers = allUsers.filter(
-    u => !members.some(m => m.id === u.id) && u.id !== board?.userId
-  );
+  // Filtrar usuários disponíveis:
+  // 1. Excluir admins
+  // 2. Se o board tem portfólio, mostrar apenas membros do portfólio
+  // 3. Excluir quem já é membro do board
+  const availableUsers = allUsers.filter(u => {
+    // Excluir admins
+    if (u.role === "admin") return false;
+    
+    // Excluir quem já é membro do board
+    if (members.some(m => m.id === u.id)) return false;
+    
+    // Se o board pertence a um portfólio, mostrar apenas membros do portfólio
+    if (board?.portfolioId) {
+      return portfolioMembers.some(pm => pm.id === u.id);
+    }
+    
+    // Se não tem portfólio, mostrar todos os não-admins
+    return true;
+  });
   
   const addMemberMutation = useMutation({
     mutationFn: async (data: { boardId: number, userId: number, role: string }) => {
@@ -152,7 +195,7 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
   // Manipulador para adicionar membro
   const handleAddMember = () => {
     // Encontrar o usuário pelo nome de usuário
-    const userToAdd = nonMembers.find(u => u.username === memberUsername);
+    const userToAdd = availableUsers.find(u => u.username === memberUsername);
     
     if (!userToAdd) {
       toast({
@@ -249,18 +292,50 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <label htmlFor="username">Nome de usuário</label>
-                    <Input
-                      id="username"
-                      value={memberUsername}
-                      onChange={(e) => setMemberUsername(e.target.value)}
-                      placeholder="Digite o nome de usuário"
-                      list="users-list"
-                    />
-                    <datalist id="users-list">
-                      {nonMembers.map((user) => (
-                        <option key={user.id} value={user.username} />
-                      ))}
-                    </datalist>
+                    <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={comboboxOpen}
+                          className="w-full justify-between"
+                        >
+                          {memberUsername || "Selecione um usuário..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Digite o nome ou usuário..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {availableUsers.map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  value={u.username}
+                                  onSelect={(currentValue) => {
+                                    setMemberUsername(currentValue === memberUsername ? "" : currentValue);
+                                    setComboboxOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      memberUsername === u.username ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{u.name || u.username}</span>
+                                    <span className="text-xs text-muted-foreground">@{u.username}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   
                   <div className="grid gap-2">
