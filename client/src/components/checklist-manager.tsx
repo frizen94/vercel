@@ -58,7 +58,6 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
   const [editingItemContent, setEditingItemContent] = useState("");
   const [itemAssignees, setItemAssignees] = useState<{ [itemId: number]: User | null }>({});
   const [itemDueDates, setItemDueDates] = useState<{ [itemId: number]: Date | null }>({});
-  const [users, setUsers] = useState<User[]>([]);
 
   // Estado para controlar popups de atribuição e data
   const [openDatePickerId, setOpenDatePickerId] = useState<number | null>(null);
@@ -80,20 +79,25 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
   const [newComment, setNewComment] = useState<string>("");
   const [subtaskMembers, setSubtaskMembers] = useState<User[]>([]);
   const [subtaskComments, setSubtaskComments] = useState<any[]>([]);
+  const [cardMembers, setCardMembers] = useState<User[]>([]);
 
 
 
-  // Função para buscar usuários do sistema
-  const fetchUsers = async () => {
+  // Função para buscar membros do card (ao invés de todos os usuários)
+  const fetchCardMembersData = async () => {
     try {
-      const response = await fetch('/api/users');
-      if (!response.ok) throw new Error('Falha ao buscar usuários');
+      const response = await fetch(`/api/cards/${cardId}/members`);
+      if (!response.ok) throw new Error('Falha ao buscar membros do card');
       const data = await response.json();
-      setUsers(data);
+      setCardMembers(data);
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+      console.error('Erro ao buscar membros do card:', error);
+      setCardMembers([]);
     }
   };
+
+  // Usar cardMembers ao invés de users
+  const users = cardMembers;
 
   useEffect(() => {
     // Initialize modal editing fields when subtask changes
@@ -117,8 +121,8 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
         });
       });
 
-      // Buscar usuários para a atribuição de tarefas
-      fetchUsers();
+      // Buscar membros do card para atribuição de tarefas
+      fetchCardMembersData();
     }
   }, [cardId]);
 
