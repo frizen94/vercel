@@ -7,7 +7,7 @@ import type {
   InsertComment, InsertCardMember, InsertChecklist, InsertChecklistItem, InsertBoardMember,
   Notification, InsertNotification, AuditLog, InsertAuditLog, Activity, InsertActivity,
 } from '@shared/schema';
-import { eq, and, asc, inArray, sql, desc, isNull, lt, gte, or, not, lte, ilike, count } from 'drizzle-orm';
+import { eq, and, asc, inArray, sql, desc, isNull, lt, gte, or, not, lte, ilike, count, ne } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
@@ -293,9 +293,12 @@ export class DatabaseStorage implements IStorage {
           id: schema.boards.id,
           title: schema.boards.title,
           description: schema.boards.description,
+          color: schema.boards.color,
+          archived: schema.boards.archived,
           userId: schema.boards.userId,
           portfolioId: schema.boards.portfolioId,
           createdAt: schema.boards.createdAt,
+          updatedAt: schema.boards.updatedAt,
           username: schema.users.username
         })
         .from(schema.boards)
@@ -951,12 +954,21 @@ export class DatabaseStorage implements IStorage {
 
   // Comment methods
   async getComments(cardId: number, checklistItemId?: number): Promise<Comment[]> {
-    const query = db.select().from(schema.comments).where(eq(schema.comments.cardId, cardId));
     if (typeof checklistItemId === 'number') {
-      return query.where(eq(schema.comments.checklistItemId, checklistItemId)).orderBy(asc(schema.comments.createdAt));
+      return db.select().from(schema.comments)
+        .where(and(
+          eq(schema.comments.cardId, cardId),
+          eq(schema.comments.checklistItemId, checklistItemId)
+        ))
+        .orderBy(asc(schema.comments.createdAt));
     }
     // default: return only comments not tied to a checklist item (card-level comments)
-    return query.where(isNull(schema.comments.checklistItemId)).orderBy(asc(schema.comments.createdAt));
+    return db.select().from(schema.comments)
+      .where(and(
+        eq(schema.comments.cardId, cardId),
+        isNull(schema.comments.checklistItemId)
+      ))
+      .orderBy(asc(schema.comments.createdAt));
   }
 
   async createComment(commentData: InsertComment): Promise<Comment> {
@@ -1150,30 +1162,52 @@ export class DatabaseStorage implements IStorage {
 
   // Board Member methods
   async getBoardMembers(boardId: number): Promise<UserWithBoardRole[]> {
-    // Primeiro obtemos os membros do quadro
+    // Primeiro obtemos o board para pegar o userId do criador
+    const board = await db
+      .select()
+      .from(schema.boards)
+      .where(eq(schema.boards.id, boardId))
+      .limit(1);
+
+    const boardOwnerId = board[0]?.userId;
+
+    // Obtemos os membros explícitos do quadro
     const boardMembers = await db
       .select()
       .from(schema.boardMembers)
       .where(eq(schema.boardMembers.boardId, boardId));
 
-    if (boardMembers.length === 0) {
+    // Coletar todos os IDs de usuários (membros + criador)
+    const memberUserIds = boardMembers.map(bm => bm.userId);
+    const allUserIds = boardOwnerId ? [...new Set([...memberUserIds, boardOwnerId])] : memberUserIds;
+
+    if (allUserIds.length === 0) {
       return [];
     }
 
-    // Depois buscamos os dados completos dos usuários
-    const userIds = boardMembers.map(bm => bm.userId);
+    // Buscar dados completos dos usuários, EXCLUINDO administradores do sistema
     const users = await db
       .select()
       .from(schema.users)
-      .where(inArray(schema.users.id, userIds));
+      .where(
+        and(
+          inArray(schema.users.id, allUserIds),
+          ne(schema.users.role, 'admin') // Excluir apenas admins do SISTEMA
+        )
+      );
 
-    // Agora adicionamos a função (role) de cada usuário
+    // Adicionar a função (role) de cada usuário no board
     return users.map(user => {
-      // Encontrar o board member correspondente ao usuário
       const boardMember = boardMembers.find(bm => bm.userId === user.id);
       const userWithRole = user as UserWithBoardRole;
-      // Adicionar a função do boardMember ao objeto do usuário
-      userWithRole.boardRole = boardMember ? boardMember.role : "viewer";
+      
+      // Se é o criador do board e não tem role explícito, define como "owner"
+      if (user.id === boardOwnerId && !boardMember) {
+        userWithRole.boardRole = "owner";
+      } else {
+        userWithRole.boardRole = boardMember ? boardMember.role : "viewer";
+      }
+      
       return userWithRole;
     });
   }
@@ -1618,13 +1652,15 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Query para contar o total de registros
-    let countQuery = db.select({ count: count() }).from(schema.auditLogs);
-    if (conditions.length > 0) {
-      countQuery = countQuery.where(and(...conditions));
-    }
+    const countResult = await db
+      .select({ count: count() })
+      .from(schema.auditLogs)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    
+    const total = countResult[0]?.count || 0;
 
     // Query principal com JOIN para incluir dados do usuário
-    let logsQuery = db
+    const logs = await db
       .select({
         id: schema.auditLogs.id,
         userId: schema.auditLogs.userId,
@@ -1644,24 +1680,14 @@ export class DatabaseStorage implements IStorage {
         userIdFromJoin: schema.users.id,
       })
       .from(schema.auditLogs)
-      .leftJoin(schema.users, eq(schema.auditLogs.userId, schema.users.id));
-
-    if (conditions.length > 0) {
-      logsQuery = logsQuery.where(and(...conditions));
-    }
-
-    const [totalResult, logs] = await Promise.all([
-      countQuery,
-      logsQuery
-        .orderBy(desc(schema.auditLogs.timestamp))
-        .limit(limit)
-        .offset(offset)
-    ]);
-
-    const total = totalResult[0]?.count || 0;
+      .leftJoin(schema.users, eq(schema.auditLogs.userId, schema.users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(schema.auditLogs.timestamp))
+      .limit(limit)
+      .offset(offset);
 
     // Formatar os dados retornados
-    const formattedLogs = logs.map(log => ({
+    const formattedLogs = logs.map((log: any) => ({
       id: log.id,
       userId: log.userId,
       sessionId: log.sessionId,
@@ -1728,13 +1754,8 @@ export class DatabaseStorage implements IStorage {
     if (startDate) conditions.push(gte(schema.activities.timestamp, startDate));
     if (endDate) conditions.push(lte(schema.activities.timestamp, endDate));
 
-    let query = db.select().from(schema.activities);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    return query
+    return db.select().from(schema.activities)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(schema.activities.timestamp))
       .limit(limit)
       .offset(offset);
@@ -1787,13 +1808,8 @@ export class DatabaseStorage implements IStorage {
       })
       .from(schema.activities)
       .leftJoin(schema.users, eq(schema.activities.userId, schema.users.id))
-      .leftJoin(schema.boards, eq(schema.activities.boardId, schema.boards.id));
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    return query
+      .leftJoin(schema.boards, eq(schema.activities.boardId, schema.boards.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(schema.activities.timestamp))
       .limit(limit)
       .offset(offset);
@@ -1812,18 +1828,14 @@ export class DatabaseStorage implements IStorage {
     if (endDate) conditions.push(lte(schema.activities.timestamp, endDate));
     if (boardId) conditions.push(eq(schema.activities.boardId, boardId));
 
-    let query = db
+    return db
       .select({
         activityType: schema.activities.activityType,
         count: sql<number>`count(*)::int`
       })
-      .from(schema.activities);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    return query.groupBy(schema.activities.activityType);
+      .from(schema.activities)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .groupBy(schema.activities.activityType);
   }
 }
 

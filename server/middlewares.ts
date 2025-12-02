@@ -158,7 +158,6 @@ export const globalApiRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: true,
   skip: (req: Request) => {
     // Em desenvolvimento, ser mais permissivo com localhost
     if (process.env.NODE_ENV === 'development' && 
@@ -191,7 +190,6 @@ export const loginRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   // Configuração específica para proxies (Railway, Vercel, etc.)
-  trustProxy: true,
   keyGenerator: (req: Request) => {
     // Priorizar X-Forwarded-For se disponível, senão usar req.ip
     const forwarded = req.headers['x-forwarded-for'];
@@ -214,7 +212,6 @@ export const changePasswordRateLimit = rateLimit({
   message: {
     error: "Muitas tentativas de mudança de senha. Tente novamente em 1 hora."
   },
-  trustProxy: true,
   keyGenerator: (req: Request) => {
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {
@@ -236,7 +233,6 @@ export const registerRateLimit = rateLimit({
   message: {
     error: "Muitas tentativas de registro. Tente novamente em 1 hora."
   },
-  trustProxy: true,
   keyGenerator: (req: Request) => {
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {

@@ -404,6 +404,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     action_url TEXT,
     related_card_id INTEGER REFERENCES cards(id) ON DELETE CASCADE,
     related_checklist_item_id INTEGER REFERENCES checklist_items(id) ON DELETE CASCADE,
+    related_type TEXT,
+    related_id INTEGER,
     from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
@@ -417,6 +419,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 CREATE INDEX IF NOT EXISTS idx_notifications_related_card ON notifications(related_card_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_related_checklist_item ON notifications(related_checklist_item_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_related ON notifications(related_type, related_id);
 
 COMMENT ON TABLE notifications IS 'Tabela para armazenar notificações do sistema para usuários';
 COMMENT ON COLUMN notifications.type IS 'Tipo da notificação (task_assigned, comment, mention, invitation, deadline)';

@@ -664,6 +664,8 @@ export const notifications = pgTable("notifications", {
   actionUrl: text("action_url"), // URL para redirecionar ao clicar
   relatedCardId: integer("related_card_id").references(() => cards.id),
   relatedChecklistItemId: integer("related_checklist_item_id").references(() => checklistItems.id),
+  relatedType: text("related_type"), // "portfolio", "board", "card", "checklist_item"
+  relatedId: integer("related_id"), // ID genérico para portfolio ou board
   fromUserId: integer("from_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -679,15 +681,21 @@ export const insertNotificationSchema = createInsertSchema(notifications, {
   title: true,
   message: true,
   read: true,
+  deleted: true,
   actionUrl: true,
   relatedCardId: true,
   relatedChecklistItemId: true,
+  relatedType: true,
+  relatedId: true,
   fromUserId: true,
 }).partial({
   read: true,
+  deleted: true,
   actionUrl: true,
   relatedCardId: true,
   relatedChecklistItemId: true,
+  relatedType: true,
+  relatedId: true,
   fromUserId: true
 });
 

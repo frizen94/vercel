@@ -231,6 +231,7 @@ export class MemStorage implements IStorage {
       name: insertUser.name || insertUser.username,
       profilePicture: insertUser.profilePicture || null,
       role: insertUser.role || "user",
+      requirePasswordReset: insertUser.requirePasswordReset || false,
       createdAt: new Date()
     };
     this.users.set(id, user);
@@ -313,7 +314,12 @@ export class MemStorage implements IStorage {
       ...insertBoard, 
       id, 
       userId: insertBoard.userId ?? null,
-      createdAt: new Date()
+      description: insertBoard.description ?? null,
+      color: insertBoard.color ?? null,
+      portfolioId: insertBoard.portfolioId ?? null,
+      archived: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.boards.set(id, board);
     return board;
@@ -504,6 +510,11 @@ export class MemStorage implements IStorage {
       order: insertCard.order ?? 0,
       description: insertCard.description ?? null,
       dueDate: insertCard.dueDate ?? null,
+      startDate: insertCard.startDate ?? null,
+      endDate: insertCard.endDate ?? null,
+      completed: insertCard.completed ?? false,
+      completionTimestamp: null,
+      archived: false,
       createdAt: new Date()
     };
     this.cards.set(id, card);
@@ -775,11 +786,13 @@ export class MemStorage implements IStorage {
     const item: ChecklistItem = { 
       id,
       content: insertItem.content,
+      description: insertItem.description ?? null,
       checklistId: insertItem.checklistId,
       order: insertItem.order ?? 0,
       completed: insertItem.completed ?? false,
       assignedToUserId: insertItem.assignedToUserId !== undefined ? insertItem.assignedToUserId : null,
-      dueDate: insertItem.dueDate !== undefined ? insertItem.dueDate : null
+      dueDate: insertItem.dueDate !== undefined ? insertItem.dueDate : null,
+      parentItemId: insertItem.parentItemId ?? null
     };
 
     this.checklistItems.set(id, item);
@@ -808,7 +821,19 @@ export class MemStorage implements IStorage {
   async createNotification(notification: InsertNotification): Promise<Notification> {
     // Placeholder implementation
     const id = 0; // Placeholder ID
-    return { ...notification, id, createdAt: new Date() };
+    return { 
+      ...notification, 
+      id, 
+      read: notification.read ?? false,
+      deleted: notification.deleted ?? false,
+      actionUrl: notification.actionUrl ?? null,
+      relatedCardId: notification.relatedCardId ?? null,
+      relatedChecklistItemId: notification.relatedChecklistItemId ?? null,
+      relatedType: notification.relatedType ?? null,
+      relatedId: notification.relatedId ?? null,
+      fromUserId: notification.fromUserId ?? null,
+      createdAt: new Date() 
+    };
   }
 
   async markAsRead(id: number, userId: number): Promise<boolean> {

@@ -1313,7 +1313,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (cardData.startDate === '') cardData.startDate = null;
       if (cardData.endDate === '') cardData.endDate = null;
 
-      const validatedData = updateCardSchema.parse(cardData);
+      const validatedData = updateCardSchema.parse(cardData) as Partial<{
+        title: string;
+        listId: number;
+        order?: number;
+        description?: string;
+        dueDate?: Date | null;
+        startDate?: string | null;
+        endDate?: string | null;
+        completed?: boolean;
+      }>;
       const updatedCard = await appStorage.updateCard(id, validatedData);
       res.json(updatedCard);
     } catch (error) {
@@ -2488,8 +2497,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       for (const board of boards) {
-        for (const list of board.lists || []) {
-          for (const card of list.cards || []) {
+        for (const list of (board as any).lists || []) {
+          for (const card of (list as any).cards || []) {
             const taskData = {
               id: card.id,
               title: card.title,
@@ -2734,7 +2743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const now = new Date();
 
         for (const assignment of assignedCards) {
-          const card = assignment.card;
+          const card = assignment.card as { id: number; completed: boolean; dueDate: Date | null; completionTimestamp: Date | null; createdAt: Date };
           if (card.completed) {
             completed++;
             if (card.completionTimestamp) {
@@ -3572,7 +3581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             // Verificar se TODOS os itens de TODOS os checklists estão completos
-            const allChecklistsComplete = allChecklists.every(cl => 
+            const allChecklistsComplete = allChecklists.every((cl: any) => 
               cl.checklistItems.length > 0 && cl.checklistItems.every((item: any) => item.completed)
             );
 

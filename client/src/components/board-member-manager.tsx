@@ -402,23 +402,12 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
       </div>
       
       <div className="border rounded-md divide-y">
-        {board && (
-          <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                {board.username?.charAt(0) || "?"}
-              </div>
-              <div>
-                <p className="font-medium">{board.username || "Usuário desconhecido"}</p>
-                <p className="text-sm text-muted-foreground">Criador do Quadro</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
         {members.map((member) => {
           // Obter o perfil completo do membro se possível
           const memberProfile = allUsers.find(u => u.id === member.id);
+          
+          // Verificar se é o criador do board
+          const isCreator = board?.userId === member.id;
           
           return (
             <div key={member.id} className="flex items-center justify-between p-3">
@@ -429,12 +418,12 @@ export function BoardMemberManager({ boardId }: BoardMemberManagerProps) {
                 <div>
                   <p className="font-medium">{member.username || memberProfile?.username || "Usuário desconhecido"}</p>
                   <p className="text-sm text-muted-foreground">
-                    {translateRole(member.boardRole || "viewer")}
+                    {isCreator ? "Criador do Quadro" : translateRole(member.boardRole || "viewer")}
                   </p>
                 </div>
               </div>
               
-              {hasEditRights && (
+              {hasEditRights && !isCreator && (
                 <div className="flex items-center gap-2">
                   <Button
                     size="icon"

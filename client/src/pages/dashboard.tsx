@@ -114,7 +114,7 @@ const StatCard = ({ title, value, icon, description }: {
 };
 
 // Componente de item atrasado
-const OverdueItem = ({ title, dueDate, listName, boardName, boardId }: {
+const OverdueItem = ({ title, dueDate, listName, boardName, boardId, cardId }: {
   title: string;
   dueDate: string;
   listName: string;

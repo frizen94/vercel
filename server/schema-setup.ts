@@ -289,6 +289,8 @@ export async function runMissingSqlMigrations() {
         action_url TEXT,
         related_card_id INTEGER REFERENCES cards(id),
         related_checklist_item_id INTEGER REFERENCES checklist_items(id),
+        related_type TEXT,
+        related_id INTEGER,
         from_user_id INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT NOW()
       );
@@ -300,12 +302,20 @@ export async function runMissingSqlMigrations() {
       ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;
     `;
     
+    // Add related_type and related_id columns if they don't exist
+    await sql`
+      ALTER TABLE notifications 
+      ADD COLUMN IF NOT EXISTS related_type TEXT,
+      ADD COLUMN IF NOT EXISTS related_id INTEGER;
+    `;
+    
     // Create indices for notifications
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_deleted ON notifications(deleted);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_deleted ON notifications(user_id, deleted);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_related ON notifications(related_type, related_id);`;
     
     // Fix CASCADE foreign key constraints for card deletion
     // Fix card_members constraint
