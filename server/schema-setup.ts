@@ -514,6 +514,12 @@ export async function runMissingSqlMigrations() {
     await sql`CREATE INDEX IF NOT EXISTS idx_activities_dashboard ON activities(user_id, board_id, timestamp DESC);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_activities_board_timeline ON activities(board_id, timestamp DESC);`;
     
+    // Add require_password_reset column to users (from 20251202_add_require_password_reset.sql)
+    await sql`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS require_password_reset BOOLEAN NOT NULL DEFAULT false;
+    `;
+    
     console.log('✅ Missing SQL migrations completed successfully!');
     return true;
     
