@@ -134,7 +134,8 @@ export function setupAuth(app: Express) {
       const user = await appStorage.createUser({
         ...req.body,
         password: hashedPassword,
-        role
+        role,
+        requirePasswordReset: true, // Forçar reset de senha no primeiro login
       });
 
       // Remove a senha antes de enviar a resposta
@@ -182,6 +183,16 @@ export function setupAuth(app: Express) {
           
           // Remove a senha antes de enviar a resposta
           const { password, ...userWithoutPassword } = user;
+          
+          // Verificar se o usuário precisa resetar a senha
+          if (user.requirePasswordReset) {
+            return res.json({ 
+              ...userWithoutPassword,
+              requirePasswordReset: true,
+              message: "Você precisa alterar sua senha antes de continuar"
+            });
+          }
+          
           return res.json(userWithoutPassword);
         });
       });

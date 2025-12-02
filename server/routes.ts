@@ -2924,6 +2924,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Rota para admin resetar senha do usuário (gera senha temporária)
+   * 
+   * Apenas administradores podem usar esta rota
+   * - Gera senha aleatória segura
+   * - Marca usuário para reset obrigatório no próximo login
+   * - Retorna senha temporária para o admin enviar ao usuário
+   */
+  app.post("/api/users/:id/reset-password", changePasswordRateLimit, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do usuário inválido" });
+      }
+
+      // Verificar se o usuário está autenticado e é admin
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      if (req.user.role.toLowerCase() !== "admin") {
+        return res.status(403).json({ message: "Apenas administradores podem resetar senhas" });
+      }
+
+      // Obter usuário
+      const user = await appStorage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      // Gerar senha temporária aleatória (12 caracteres com letras, números e símbolos)
+      const generateRandomPassword = (): string => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$%&*';
+        const length = 12;
+        let password = '';
+        
+        // Garantir pelo menos 1 maiúscula, 1 minúscula, 1 número e 1 símbolo
+        password += 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 23)];
+        password += 'abcdefghijkmnopqrstuvwxyz'[Math.floor(Math.random() * 23)];
+        password += '23456789'[Math.floor(Math.random() * 8)];
+        password += '@#$%&*'[Math.floor(Math.random() * 6)];
+        
+        // Preencher o restante aleatoriamente
+        for (let i = password.length; i < length; i++) {
+          password += chars[Math.floor(Math.random() * chars.length)];
+        }
+        
+        // Embaralhar a senha
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+      };
+
+      const temporaryPassword = generateRandomPassword();
+      const hashedPassword = await hashPassword(temporaryPassword);
+
+      // Atualizar senha e marcar para reset obrigatório
+      const updatedUser = await appStorage.updateUser(id, { 
+        password: hashedPassword,
+        requirePasswordReset: true 
+      });
+
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Erro ao resetar senha" });
+      }
+
+      // Registrar ação de auditoria
+      await AuditService.log({
+        action: AuditAction.UPDATE,
+        entityType: EntityType.USER,
+        entityId: id,
+        userId: req.user.id,
+        metadata: { adminId: req.user.id, targetUserId: id, action: 'password_reset' },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('user-agent') || 'unknown'
+      });
+
+      res.status(200).json({ 
+        message: "Senha resetada com sucesso",
+        temporaryPassword: temporaryPassword,
+        username: user.username,
+        requirePasswordReset: true
+      });
+    } catch (error) {
+      console.error("Erro ao resetar senha:", error);
+      res.status(500).json({ message: "Falha ao resetar senha" });
+    }
+  });
+
+  /**
+   * Rota para usuário alterar senha obrigatória (primeiro login/reset)
+   * 
+   * Permite que o usuário altere sua senha quando marcado para reset
+   * - Não requer senha antiga
+   * - Remove a marca de reset obrigatório
+   * - Valida a nova senha
+   */
+  app.post("/api/users/:id/required-password-change", changePasswordRateLimit, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do usuário inválido" });
+      }
+
+      // Verificar se o usuário está autenticado
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      // Usuário só pode alterar sua própria senha
+      if (req.user.id !== id) {
+        return res.status(403).json({ message: "Você só pode alterar sua própria senha" });
+      }
+
+      // Obter usuário
+      const user = await appStorage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      // Verificar se usuário realmente precisa resetar senha
+      if (!user.requirePasswordReset) {
+        return res.status(400).json({ message: "Você não precisa resetar sua senha. Use a rota normal de alteração." });
+      }
+
+      const { newPassword } = req.body;
+
+      // Validar nova senha
+      if (!newPassword || newPassword.length < 8) {
+        return res.status(400).json({ message: "A nova senha deve ter pelo menos 8 caracteres" });
+      }
+
+      if (newPassword.length > 128) {
+        return res.status(400).json({ message: "A senha não pode ter mais de 128 caracteres" });
+      }
+
+      // Validação de complexidade de senha
+      const hasUpperCase = /[A-Z]/.test(newPassword);
+      const hasLowerCase = /[a-z]/.test(newPassword);
+      const hasNumber = /[0-9]/.test(newPassword);
+      const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+
+      if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+        return res.status(400).json({ 
+          message: "A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número" 
+        });
+      }
+
+      // Prevenir uso de senhas comuns
+      const commonPasswords = ['12345678', 'password', 'admin123', 'qwerty123'];
+      if (commonPasswords.includes(newPassword.toLowerCase())) {
+        return res.status(400).json({ message: "Escolha uma senha mais segura" });
+      }
+
+      // Gerar hash da nova senha
+      const hashedNewPassword = await hashPassword(newPassword);
+
+      // Atualizar senha e remover marca de reset obrigatório
+      const updatedUser = await appStorage.updateUser(id, { 
+        password: hashedNewPassword,
+        requirePasswordReset: false 
+      });
+
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Erro ao atualizar senha" });
+      }
+
+      // Registrar ação de auditoria
+      await AuditService.log({
+        action: AuditAction.UPDATE,
+        entityType: EntityType.USER,
+        entityId: id,
+        userId: id,
+        metadata: { action: 'required_password_changed' },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('user-agent') || 'unknown'
+      });
+
+      res.status(200).json({ 
+        message: "Senha alterada com sucesso",
+        requirePasswordReset: false
+      });
+    } catch (error) {
+      console.error("Erro ao alterar senha obrigatória:", error);
+      res.status(500).json({ message: "Falha ao alterar senha" });
+    }
+  });
+
+  /**
    * Rota para upload de imagem de perfil
    * 
    * Utiliza multer para processamento de arquivos multipart/form-data:

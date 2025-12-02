@@ -13,10 +13,11 @@ import type { InsertUser } from "@shared/schema";
 import { runInitialMigrations, addDescriptionColumn, runPortfolioMigrations, runMissingSqlMigrations } from "./schema-setup";
 
 // Credenciais do administrador padrão
+// IMPORTANTE: Estas credenciais devem ser alteradas no primeiro login
 const DEFAULT_ADMIN = {
-  username: "admin",
-  password: "admin123",
-  email: "admin@kanban.local",
+  username: "sysadmin",
+  password: "ChangeMe@2025!",
+  email: "admin@sistema.local",
   name: "Administrador do Sistema",
   role: "admin",
 };
@@ -57,12 +58,14 @@ export async function runSeeder() {
         email: DEFAULT_ADMIN.email,
         name: DEFAULT_ADMIN.name,
         role: "admin",
+        requirePasswordReset: true, // Forçar reset de senha no primeiro login
       });
 
       console.log(`✅ Administrador criado com sucesso! ID: ${adminUser.id}`);
       console.log(`👤 Username: ${DEFAULT_ADMIN.username}`);
       console.log(`🔑 Password: ${DEFAULT_ADMIN.password}`);
-      console.log("📋 Credenciais salvas no arquivo admin-credentials.md");
+      console.log(`⚠️  ATENÇÃO: Altere a senha no primeiro login!`);
+      console.log("📋 Credenciais temporárias - devem ser alteradas imediatamente");
 
       return true;
     } else {

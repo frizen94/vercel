@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   profilePicture: text("profile_picture"),
   role: text("role").notNull().default("user"), // "admin" ou "user"
+  requirePasswordReset: boolean("require_password_reset").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -49,11 +50,13 @@ export const insertUserSchema = createInsertSchema(users, {
     name: true,
     profilePicture: true,
     role: true,
+    requirePasswordReset: true,
   })
   .partial({
     email: true,
     profilePicture: true,
     role: true,
+    requirePasswordReset: true,
   });
 
 /**

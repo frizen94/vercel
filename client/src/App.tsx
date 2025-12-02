@@ -28,6 +28,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import MyTasks from "@/pages/my-tasks";
 import Inbox from "@/pages/inbox";
+import RequiredPasswordReset from "@/pages/required-password-reset";
 import { AuditLogs } from "@/components/AuditLogs";
 
 function Router() {
@@ -53,6 +54,9 @@ function Router() {
           </>
         )}
       </Route>
+      <ProtectedRoute path="/required-password-reset">
+        {() => <RequiredPasswordReset />}
+      </ProtectedRoute>
       <ProtectedRoute path="/">
         {() => (
           <SidebarProvider>

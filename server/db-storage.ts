@@ -75,6 +75,7 @@ export class DatabaseStorage implements IStorage {
       name: userData.name || userData.username,
       role: userData.role || 'user',
       profilePicture: userData.profilePicture || null,
+      requirePasswordReset: userData.requirePasswordReset || false,
       createdAt: new Date()
     };
 

@@ -3,8 +3,42 @@ import { csrfFetch } from "./csrf";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok && res.status !== 409) { // Don't throw for 409 Conflict (duplicate)
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // Tentar extrair mensagem de erro do corpo da resposta
+    let errorMessage = '';
+    try {
+      const errorData = await res.json();
+      errorMessage = errorData.message || errorData.error || '';
+    } catch (e) {
+      // Se não conseguir fazer parse do JSON, usar statusText
+    }
+
+    // Mensagens amigáveis baseadas no status HTTP
+    if (!errorMessage) {
+      switch (res.status) {
+        case 400:
+          errorMessage = 'Dados inválidos. Verifique as informações e tente novamente.';
+          break;
+        case 401:
+          errorMessage = 'Credenciais inválidas ou sessão expirada.';
+          break;
+        case 403:
+          errorMessage = 'Você não tem permissão para realizar esta ação.';
+          break;
+        case 404:
+          errorMessage = 'Recurso não encontrado.';
+          break;
+        case 429:
+          errorMessage = 'Muitas tentativas. Por favor, aguarde alguns minutos.';
+          break;
+        case 500:
+          errorMessage = 'Erro interno do servidor. Tente novamente mais tarde.';
+          break;
+        default:
+          errorMessage = 'Erro ao processar sua solicitação.';
+      }
+    }
+
+    throw new Error(errorMessage);
   }
 }
 
@@ -39,7 +73,45 @@ export async function apiRequest(
   const response = await csrfFetch(url, config);
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    // Tentar extrair mensagem de erro do corpo da resposta
+    let errorMessage = '';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || '';
+    } catch (e) {
+      // Se não conseguir fazer parse do JSON, ignorar
+    }
+
+    // Mensagens amigáveis baseadas no status HTTP
+    if (!errorMessage) {
+      switch (response.status) {
+        case 400:
+          errorMessage = 'Dados inválidos. Verifique as informações e tente novamente.';
+          break;
+        case 401:
+          errorMessage = 'Credenciais inválidas. Verifique seu usuário e senha.';
+          break;
+        case 403:
+          errorMessage = 'Você não tem permissão para realizar esta ação.';
+          break;
+        case 404:
+          errorMessage = 'Recurso não encontrado.';
+          break;
+        case 409:
+          errorMessage = 'Este registro já existe no sistema.';
+          break;
+        case 429:
+          errorMessage = 'Muitas tentativas. Por favor, aguarde alguns minutos e tente novamente.';
+          break;
+        case 500:
+          errorMessage = 'Erro interno do servidor. Tente novamente mais tarde.';
+          break;
+        default:
+          errorMessage = 'Erro ao processar sua solicitação. Tente novamente.';
+      }
+    }
+
+    throw new Error(errorMessage);
   }
 
   // Handle responses with no content (204 No Content)

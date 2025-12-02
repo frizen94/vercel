@@ -6,10 +6,11 @@ import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Loader2, Edit, Trash2, UserPlus, Check, X, AlertTriangle, Key } from 'lucide-react';
+import { Loader2, Edit, Trash2, UserPlus, Check, X, AlertTriangle, Key, Copy, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +103,7 @@ export default function UserManagement() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<string>("");
 
   // Carregar lista de usuários
   const { data: users, isLoading, error } = useQuery<User[]>({
@@ -244,39 +246,41 @@ export default function UserManagement() {
     }
   };
   
-  // Mutação para alterar senha
-  const changePasswordMutation = useMutation({
-    mutationFn: async ({ id, passwordData }: { id: number, passwordData: ChangePasswordFormValues }) => {
-      const res = await apiRequest('POST', `/api/users/${id}/change-password`, passwordData);
-      return res; // apiRequest já retorna JSON parseado
+  // Mutação para resetar senha (gera senha aleatória)
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest('POST', `/api/users/${userId}/reset-password`, {});
+      return res;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Definir senha temporária ANTES de fechar o modal
+      setTemporaryPassword(data.temporaryPassword);
       toast({
-        title: "Senha alterada com sucesso",
+        title: "Senha resetada com sucesso",
+        description: "Copie a senha temporária e envie ao usuário",
+        duration: 5000,
       });
-      setShowPasswordDialog(false);
-      passwordForm.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao alterar senha",
-        description: error.message || "Verifique os dados e tente novamente",
+        title: "Erro ao resetar senha",
+        description: error.message || "Tente novamente",
         variant: "destructive",
       });
     },
   });
   
-  // Função para abrir o diálogo de alteração de senha
-  const handleChangePassword = (user: User) => {
+  // Função para abrir o diálogo de reset de senha
+  const handleResetPassword = (user: User) => {
     setCurrentUser(user);
-    passwordForm.reset();
+    setTemporaryPassword("");
     setShowPasswordDialog(true);
   };
   
-  // Função para submeter alteração de senha
-  const onSubmitChangePassword = (data: ChangePasswordFormValues) => {
+  // Função para confirmar reset de senha
+  const confirmResetPassword = () => {
     if (currentUser) {
-      changePasswordMutation.mutate({ id: currentUser.id, passwordData: data });
+      resetPasswordMutation.mutate(currentUser.id);
     }
   };
 
@@ -366,8 +370,8 @@ export default function UserManagement() {
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            onClick={() => handleChangePassword(user)}
-                            title="Alterar Senha"
+                            onClick={() => handleResetPassword(user)}
+                            title="Resetar Senha"
                           >
                             <Key className="h-4 w-4" />
                           </Button>
@@ -670,81 +674,100 @@ export default function UserManagement() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Diálogo para alterar senha */}
+      {/* Diálogo para resetar senha */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Alterar Senha</DialogTitle>
+            <DialogTitle>Resetar Senha</DialogTitle>
             <DialogDescription>
-              {user?.role === 'admin' && user.id !== currentUser?.id 
-              ? `Defina uma nova senha para o usuário ${currentUser?.name}.` 
-              : "Digite sua senha atual e escolha uma nova senha."}
+              {temporaryPassword
+                ? `Senha temporária gerada com sucesso! Copie e envie para o usuário.`
+                : `Gerar uma senha temporária aleatória para o usuário ${currentUser?.name}?`}
             </DialogDescription>
           </DialogHeader>
 
-          <Form {...passwordForm}>
-            <form onSubmit={passwordForm.handleSubmit(onSubmitChangePassword)} className="space-y-4">
-              {/* Campo de senha atual - mostrado apenas quando não é administrador ou quando o admin está alterando sua própria senha */}
-              {(user?.role !== 'admin' || user.id === currentUser?.id) && (
-                <FormField
-                  control={passwordForm.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha Atual</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="******" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+          {temporaryPassword ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <Label className="text-sm font-medium mb-2 block">Senha Temporária</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-background border rounded text-lg font-mono select-all">
+                    {temporaryPassword}
+                  </code>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(temporaryPassword);
+                      toast({
+                        title: "Senha copiada!",
+                        description: "A senha foi copiada para a área de transferência.",
+                      });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                  <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <p className="font-medium mb-1">Importante:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>O usuário será forçado a alterar a senha no próximo login</li>
+                      <li>Copie esta senha agora - ela não será mostrada novamente</li>
+                      <li>Envie a senha de forma segura ao usuário</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Uma senha forte será gerada automaticamente contendo:
+              </p>
+              <ul className="list-disc list-inside text-sm text-muted-foreground mt-2 space-y-1">
+                <li>12 caracteres</li>
+                <li>Letras maiúsculas e minúsculas</li>
+                <li>Números e símbolos</li>
+              </ul>
+            </div>
+          )}
 
-              <FormField
-                control={passwordForm.control}
-                name="newPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nova Senha</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      A nova senha deve ter pelo menos 6 caracteres.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setShowPasswordDialog(false);
+                setTemporaryPassword("");
+              }}
+            >
+              {temporaryPassword ? "Fechar" : "Cancelar"}
+            </Button>
+            {!temporaryPassword && (
+              <Button 
+                type="button"
+                onClick={confirmResetPassword}
+                disabled={resetPasswordMutation.isPending}
+              >
+                {resetPasswordMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Key className="mr-2 h-4 w-4" />
+                    Gerar Senha
+                  </>
                 )}
-              />
-
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setShowPasswordDialog(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={changePasswordMutation.isPending}
-                >
-                  {changePasswordMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Alterando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Alterar Senha
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

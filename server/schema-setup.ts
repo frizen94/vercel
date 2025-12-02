@@ -43,6 +43,7 @@ export async function runInitialMigrations() {
         name TEXT NOT NULL,
         profile_picture TEXT,
         role TEXT NOT NULL DEFAULT 'user',
+        require_password_reset BOOLEAN NOT NULL DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );

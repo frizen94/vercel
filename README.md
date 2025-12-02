@@ -393,6 +393,12 @@ docker-compose exec app bash
 ### Autenticação
 - **Sessões seguras**: Implementação de sessões com cookie signing para proteção contra roubo de sessão
 - **Hashing de senha**: Utilização de bcrypt para armazenamento seguro de senhas
+- **Reset de senha obrigatório**: Sistema que força usuários a alterarem senhas temporárias no primeiro login
+  - Administrador padrão criado com credenciais temporárias (`sysadmin / ChangeMe@2025!`)
+  - Usuários criados por administradores recebem senhas temporárias que devem ser alteradas
+  - Redirecionamento automático para página de alteração de senha
+  - Validação de força de senha (mínimo 8 caracteres, maiúsculas, minúsculas e números)
+  - Geração de senhas aleatórias seguras (12 caracteres com símbolos) para reset por administrador
 - **Proteção CSRF**: Implementação de tokens CSRF para todas as rotas mutantes (POST, PUT, PATCH, DELETE)
 - **Rate limiting**: Limitação de requisições para proteção contra brute force e ataques de força bruta
 - **Validação de credenciais**: Validação rigorosa de credenciais no login com tempo de espera exponencial
@@ -1159,7 +1165,29 @@ npx drizzle-kit push:pg
 npm run migrate
 ```
 
-#### 6. Executar a aplicação
+#### 6. Primeiro Acesso - Credenciais Padrão
+
+No primeiro acesso ao sistema, um usuário administrador é criado automaticamente com as seguintes credenciais temporárias:
+
+- **Usuário**: `sysadmin`
+- **Senha**: `ChangeMe@2025!`
+
+> ⚠️ **IMPORTANTE - Segurança**:
+> - Por segurança, você será **obrigado a alterar esta senha** no primeiro login
+> - O sistema redirecionará automaticamente para a página de alteração de senha
+> - A nova senha deve ter no mínimo 8 caracteres, incluindo:
+>   - Pelo menos uma letra maiúscula
+>   - Pelo menos uma letra minúscula  
+>   - Pelo menos um número
+>   - Caractere especial (recomendado)
+> - Após alterar a senha, você terá acesso total ao sistema
+
+**Criação de novos usuários:**
+- Quando você criar novos usuários como administrador, eles também receberão senhas temporárias
+- Esses usuários serão forçados a alterar suas senhas no primeiro login
+- Use o recurso "Resetar Senha" para gerar senhas temporárias seguras automaticamente
+
+#### 7. Executar a aplicação
 
 **Modo desenvolvimento (separado):**
 ```bash
