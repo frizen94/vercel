@@ -58,7 +58,7 @@ SESSION_SECRET=gere-uma-chave-aleatoria-de-32-caracteres-ou-mais
 
 **Exemplo de SESSION_SECRET segura:**
 ```bash
-SESSION_SECRET=minha-super-chave-secreta-kanban-2024-railway-deploy-123456789abc
+SESSION_SECRET=minha-super-chave-secreta-nexustasks-2024-railway-deploy-123456789abc
 ```
 
 ### Passo 2: Adicionar PostgreSQL

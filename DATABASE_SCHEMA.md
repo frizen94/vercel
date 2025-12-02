@@ -1,11 +1,11 @@
 
 # Schema do Banco de Dados
 
-Este documento descreve a estrutura completa do banco de dados PostgreSQL utilizado pelo Sistema Kanban.
+Este documento descreve a estrutura completa do banco de dados PostgreSQL utilizado pelo NexusTasks.
 
 ## 📊 Visão Geral
 
-O banco de dados é estruturado em 11 tabelas principais que implementam a funcionalidade completa de um sistema Kanban colaborativo:
+O banco de dados é estruturado em 11 tabelas principais que implementam a funcionalidade completa de um sistema de gerenciamento de tarefas colaborativo:
 
 - **Gestão de Usuários**: `users`
 - **Gestão de Quadros**: `boards`, `board_members`
@@ -48,7 +48,7 @@ CREATE TABLE users (
 
 ---
 
-### 2. boards - Quadros Kanban
+### 2. boards - Quadros de Tarefas
 
 Representa os quadros/projetos principais do sistema.
 

@@ -113,7 +113,7 @@ export default function Login() {
         </div>
         <div className="hidden md:block md:w-1/2 bg-gradient-to-br from-primary to-primary/40 p-12 text-white">
           <div className="h-full flex flex-col justify-center space-y-6">
-            <h2 className="text-4xl font-bold">Kanban Board</h2>
+            <h2 className="text-4xl font-bold">NexusTasks</h2>
             <p className="text-xl">
               Organize suas tarefas, acompanhe prazos e gerencie projetos com facilidade.
             </p>

@@ -6,7 +6,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Mensagem de inicialização
-SELECT 'Iniciando configuração do banco de dados...' as status;
+SELECT 'Iniciando configuração do banco de dados NexusTasks...' as status;
 
 -- ============================================================================
 -- CRIAÇÃO DAS TABELAS PRINCIPAIS (na ordem de dependências)

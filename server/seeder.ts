@@ -141,7 +141,7 @@ export async function createSampleData() {
 
     await storage.createCard({
       title: "Desenvolver interface do quadro",
-      description: "Criar componentes do Kanban board",
+      description: "Criar componentes do sistema de tarefas",
       listId: doingList.id,
       order: 0,
     });

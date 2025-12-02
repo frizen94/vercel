@@ -186,7 +186,7 @@ export default function Register() {
         </div>
         <div className="hidden md:block md:w-1/2 bg-gradient-to-br from-primary to-primary/40 p-12 text-white">
           <div className="h-full flex flex-col justify-center space-y-6">
-            <h2 className="text-4xl font-bold">Kanban Board</h2>
+            <h2 className="text-4xl font-bold">NexusTasks</h2>
             <p className="text-xl">
               Registre-se para organizar tarefas, acompanhar prazos e colaborar com sua equipe.
             </p>

@@ -30,10 +30,10 @@ export function Header() {
         <div className="flex items-center">
           <Link href="/" className="flex items-center space-x-3 transition-smooth hover:scale-105">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-600 text-primary-foreground font-bold text-sm shadow-soft">
-              K
+              N
             </div>
             <span className="text-xl font-bold text-gradient hidden sm:block">
-              Kanban Board
+              NexusTasks
             </span>
           </Link>
         </div>

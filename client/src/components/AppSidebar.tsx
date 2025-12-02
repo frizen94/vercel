@@ -173,7 +173,7 @@ function ArchivedBoardsList() {
               variant="ghost"
               size="sm"
               onClick={(e) => handleUnarchiveBoard(board.id, e)}
-              className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-blue-500/20"
+              className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-primary/20"
               title="Desarquivar"
             >
               <Archive className="h-3 w-3" />
@@ -442,10 +442,10 @@ export function AppSidebar() {
         {/* Logo and Brand */}
         <div className="flex items-center gap-3 mb-4 group-data-[collapsible=icon]:justify-center">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 text-primary-foreground font-bold text-lg shadow-soft shrink-0">
-            K
+            N
           </div>
           <span className="text-lg font-bold text-gradient group-data-[collapsible=icon]:hidden">
-            Kanban Board
+            NexusTasks
           </span>
         </div>
 

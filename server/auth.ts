@@ -35,8 +35,8 @@ export function setupAuth(app: Express) {
   const isProduction = process.env.NODE_ENV === "production";
   
   // Validar SESSION_SECRET em produção
-  const sessionSecret = process.env.SESSION_SECRET || "kanban-board-secret-key";
-  if (isProduction && sessionSecret === "kanban-board-secret-key") {
+  const sessionSecret = process.env.SESSION_SECRET || "nexustasks-secret-key";
+  if (isProduction && sessionSecret === "nexustasks-secret-key") {
     console.error("❌ ERRO DE SEGURANÇA: SESSION_SECRET deve ser configurada em produção!");
     console.error("💡 Configure uma chave secreta forte nas variáveis de ambiente do Railway");
     throw new Error("SESSION_SECRET não configurada para produção");
@@ -57,7 +57,7 @@ export function setupAuth(app: Express) {
     },
     // Configurações específicas para produção em proxies
     proxy: isProduction,
-    name: 'kanban.sid' // Nome customizado para o cookie de sessão
+    name: 'nexustasks.sid' // Nome customizado para o cookie de sessão
   };
 
   app.use(session(sessionSettings));

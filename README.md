@@ -1,4 +1,4 @@
-# Sistema de Gerenciamento de Projetos Kanban
+# NexusTasks - Sistema de Gerenciamento de Projetos
 
 ## Índice
 - [Sobre o Projeto](#sobre-o-projeto)
@@ -16,7 +16,7 @@
 
 ## Sobre o Projeto
 
-O Sistema de Gerenciamento de Projetos Kanban é uma aplicação web completa desenvolvida para facilitar o gerenciamento de tarefas e colaboração em equipes. Inspirado em metodologias ágeis como Kanban, o sistema permite criar quadros de projeto, organizar tarefas em listas, atribuir membros, definir prazos e rastrear o progresso de forma visual e eficiente.
+O NexusTasks é uma aplicação web completa desenvolvida para facilitar o gerenciamento de tarefas e colaboração em equipes. Inspirado em metodologias ágeis, o sistema permite criar quadros de projeto, organizar tarefas em listas, atribuir membros, definir prazos e rastrear o progresso de forma visual e eficiente.
 
 O sistema foi estruturado com uma arquitetura de código limpo e modular, seguindo as melhores práticas de desenvolvimento moderno com TypeScript, Node.js, React e PostgreSQL. A aplicação inclui recursos avançados como sistema de notificações em tempo real, controles de acesso detalhados, auditoria de ações, upload de arquivos, dashboards com métricas e muito mais.
 
@@ -33,7 +33,7 @@ O sistema foi estruturado com uma arquitetura de código limpo e modular, seguin
 ## Mapa da Estrutura de Diretórios
 
 ```
-vercel/
+NexusTasks/
 ├── .dockerignore              # Arquivos/pastas ignorados pelo Docker
 ├── .env.example              # Exemplo de variáveis de ambiente
 ├── .gitignore                # Arquivos/pastas ignorados pelo Git
@@ -152,7 +152,7 @@ vercel/
 - Proprietários de quadros têm controle total sobre seus recursos
 
 ### 3. Quadros e Listas
-- Cada quadro contém múltiplas listas (colunas Kanban)
+- Cada quadro contém múltiplas listas (colunas de tarefas)
 - Listas representam estágios do fluxo de trabalho
 - Cartões representam tarefas individuais
 - Ordem dos cartões pode ser personalizada
@@ -207,7 +207,7 @@ vercel/
 
 ### Gerenciamento de Projetos
 - Criação e organização de portfólios
-- Criação de quadros (boards) Kanban
+- Criação de quadros (boards) de tarefas
 - Organização de tarefas em listas (colunas)
 - Atribuição de membros a quadros e cartões
 - Configuração de cores e temas para portfólios e quadros
@@ -1110,8 +1110,8 @@ docker-compose exec app bash
 
 #### 1. Clonar o repositório
 ```bash
-git clone https://github.com/frizen94/vercel.git
-cd vercel
+git clone https://github.com/synapcepcce/NexusTasks.git
+cd NexusTasks
 ```
 
 #### 2. Configurar variáveis de ambiente
@@ -1148,7 +1148,7 @@ O sistema utiliza PostgreSQL como banco de dados principal com Drizzle ORM para 
 
 **Opção A: Utilizar PostgreSQL local**
 - Instalar PostgreSQL na máquina
-- Criar banco de dados: `CREATE DATABASE kanban_dev;`
+- Criar banco de dados: `CREATE DATABASE nexustasks_dev;`
 - Configurar `DATABASE_URL` no arquivo `.env`
 
 **Opção B: Utilizar container Docker (recomendado para desenvolvimento)**
@@ -1338,10 +1338,10 @@ Adicione as seguintes variáveis:
 NODE_ENV=production
 
 # Banco de Dados
-DATABASE_URL=postgresql://kanban_user:senha_segura_aqui@postgres:5432/kanban_db
-POSTGRES_USER=kanban_user
+DATABASE_URL=postgresql://nexustasks_user:senha_segura_aqui@postgres:5432/nexustasks_db
+POSTGRES_USER=nexustasks_user
 POSTGRES_PASSWORD=senha_segura_aqui
-POSTGRES_DB=kanban_db
+POSTGRES_DB=nexustasks_db
 
 # Sessão (IMPORTANTE: Gerar chave segura)
 SESSION_SECRET=sua_chave_secreta_muito_forte_aqui_min_32_caracteres
@@ -1368,7 +1368,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: kanban_postgres
+    container_name: nexustasks_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -1377,7 +1377,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - kanban_network
+      - nexustasks_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
@@ -1389,7 +1389,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: kanban_app
+    container_name: nexustasks_app
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -1401,7 +1401,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - kanban_network
+      - nexustasks_network
     restart: unless-stopped
     volumes:
       - ./public/uploads:/app/public/uploads
@@ -1410,7 +1410,7 @@ volumes:
   postgres_data:
 
 networks:
-  kanban_network:
+  nexustasks_network:
     driver: bridge
 ```
 
@@ -1439,7 +1439,7 @@ Instale e configure o Nginx para servir a aplicação com SSL:
 sudo apt install -y nginx
 
 # Criar configuração
-sudo nano /etc/nginx/sites-available/kanban
+sudo nano /etc/nginx/sites-available/nexustasks
 ```
 
 Adicione a configuração:
@@ -1486,7 +1486,7 @@ server {
 
 ```bash
 # Ativar site
-sudo ln -s /etc/nginx/sites-available/kanban /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/nexustasks /etc/nginx/sites-enabled/
 
 # Testar configuração
 sudo nginx -t
@@ -1537,10 +1537,10 @@ docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml up -d
 
 # Backup do banco de dados
-docker exec kanban_postgres pg_dump -U kanban_user kanban_db > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec nexustasks_postgres pg_dump -U nexustasks_user nexustasks_db > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Restaurar backup
-docker exec -i kanban_postgres psql -U kanban_user kanban_db < backup.sql
+docker exec -i nexustasks_postgres psql -U nexustasks_user nexustasks_db < backup.sql
 ```
 
 ---

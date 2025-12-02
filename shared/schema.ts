@@ -89,7 +89,7 @@ export const portfolios = pgTable("portfolios", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
-  color: text("color").default('#3B82F6'),
+  color: text("color").default('#C5A572'),
   userId: integer("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -150,7 +150,7 @@ export const boards = pgTable("boards", {
 export const insertPortfolioSchema = createInsertSchema(portfolios, {
   name: z.string().min(1, "Nome é obrigatório").max(200, "Nome não pode exceder 200 caracteres"),
   description: z.string().max(2000, "Descrição não pode exceder 2000 caracteres").nullable().optional(),
-  color: z.string().min(1, "Cor é obrigatória").max(20, "Cor não pode exceder 20 caracteres").default("#3B82F6"),
+  color: z.string().min(1, "Cor é obrigatória").max(20, "Cor não pode exceder 20 caracteres").default("#C5A572"),
 }).pick({
   name: true,
   description: true,
