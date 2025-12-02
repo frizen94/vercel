@@ -1300,6 +1300,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Converter strings vazias e null para undefined para campos de data
+      if (cardData.startDate === '' || cardData.startDate === null) cardData.startDate = undefined;
+      if (cardData.endDate === '' || cardData.endDate === null) cardData.endDate = undefined;
+
       // Validar se startDate <= endDate quando ambas estão definidas
       if (cardData.startDate && cardData.endDate) {
         const startDate = new Date(cardData.startDate + 'T00:00:00.000Z');
@@ -1309,20 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Converter strings vazias para null para campos de data
-      if (cardData.startDate === '') cardData.startDate = null;
-      if (cardData.endDate === '') cardData.endDate = null;
-
-      const validatedData = updateCardSchema.parse(cardData) as Partial<{
-        title: string;
-        listId: number;
-        order?: number;
-        description?: string;
-        dueDate?: Date | null;
-        startDate?: string | null;
-        endDate?: string | null;
-        completed?: boolean;
-      }>;
+      const validatedData = updateCardSchema.parse(cardData);
       const updatedCard = await appStorage.updateCard(id, validatedData);
       res.json(updatedCard);
     } catch (error) {

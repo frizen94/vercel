@@ -16,6 +16,8 @@ interface Notification {
   message: string;
   read: boolean;
   actionUrl?: string;
+  relatedType?: string;
+  relatedId?: number;
   createdAt: string;
   fromUser?: {
     id: number;

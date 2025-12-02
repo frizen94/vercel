@@ -1179,7 +1179,7 @@ export class DatabaseStorage implements IStorage {
 
     // Coletar todos os IDs de usuários (membros + criador)
     const memberUserIds = boardMembers.map(bm => bm.userId);
-    const allUserIds = boardOwnerId ? [...new Set([...memberUserIds, boardOwnerId])] : memberUserIds;
+    const allUserIds = boardOwnerId ? Array.from(new Set([...memberUserIds, boardOwnerId])) : memberUserIds;
 
     if (allUserIds.length === 0) {
       return [];
@@ -1788,7 +1788,7 @@ export class DatabaseStorage implements IStorage {
     if (startDate) conditions.push(gte(schema.activities.timestamp, startDate));
     if (endDate) conditions.push(lte(schema.activities.timestamp, endDate));
 
-    let query = db
+    return db
       .select({
         id: schema.activities.id,
         userId: schema.activities.userId,

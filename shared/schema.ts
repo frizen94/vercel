@@ -344,8 +344,8 @@ export const insertCardSchema = createInsertSchema(cards, {
 export const updateCardSchema = createInsertSchema(cards, {
   title: z.string().min(1, "Título é obrigatório").max(300, "Título não pode exceder 300 caracteres").optional(),
   description: z.string().max(5000, "Descrição não pode exceder 5000 caracteres").optional(),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").nullable().optional(),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").nullable().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").nullable().optional().transform(val => val === null ? undefined : val),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").nullable().optional().transform(val => val === null ? undefined : val),
 }).pick({
   title: true,
   description: true,
