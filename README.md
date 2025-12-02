@@ -18,7 +18,17 @@
 
 O Sistema de Gerenciamento de Projetos Kanban é uma aplicação web completa desenvolvida para facilitar o gerenciamento de tarefas e colaboração em equipes. Inspirado em metodologias ágeis como Kanban, o sistema permite criar quadros de projeto, organizar tarefas em listas, atribuir membros, definir prazos e rastrear o progresso de forma visual e eficiente.
 
-O sistema foi estruturado com uma arquitetura de código limpo e modular, seguindo as melhores práticas de desenvolvimento moderno com TypeScript, Node.js, React e PostgreSQL. A aplicação inclui recursos avançados como sistema de notificações, controles de acesso detalhados, auditoria de ações, upload de arquivos, e muito mais.
+O sistema foi estruturado com uma arquitetura de código limpo e modular, seguindo as melhores práticas de desenvolvimento moderno com TypeScript, Node.js, React e PostgreSQL. A aplicação inclui recursos avançados como sistema de notificações em tempo real, controles de acesso detalhados, auditoria de ações, upload de arquivos, dashboards com métricas e muito mais.
+
+### 🚀 Destaques das Funcionalidades Recentes
+
+- **Sistema de Portfólios**: Organize múltiplos quadros em portfólios com membros e permissões dedicadas
+- **Mini-Dashboards**: Visualize estatísticas e métricas específicas de cada portfólio
+- **Notificações em Tempo Real**: Sistema completo de notificações para atribuições, comentários e prazos
+- **Gerenciamento de Membros**: Controle de acesso em três níveis (portfólios, quadros e cards)
+- **Cores Personalizáveis**: Personalize a aparência de portfólios e quadros
+- **Deploy no Railway**: Configuração simplificada para deploy em produção com SSL automático
+- **Segurança Aprimorada**: Proteção CSRF, sanitização de entrada, auditoria completa
 
 ## Mapa da Estrutura de Diretórios
 
@@ -27,25 +37,20 @@ vercel/
 ├── .dockerignore              # Arquivos/pastas ignorados pelo Docker
 ├── .env.example              # Exemplo de variáveis de ambiente
 ├── .gitignore                # Arquivos/pastas ignorados pelo Git
-├── admin-credentials.md      # Credenciais do administrador (documentação)
-├── AUDIT_SYSTEM_COMPREHENSIVE.md  # Documentação do sistema de auditoria
-├── AUDIT_SYSTEM_TEST_REPORT.md    # Relatório de testes do sistema de auditoria
 ├── BUSINESS_RULES.md         # Regras de negócio detalhadas
-├── CSRF_PROBLEM_RESOLUTION.md      # Documentação sobre resolução de problemas CSRF
-├── csrf.txt                  # Informações sobre CSRF (deprecated)
-├── DATABASE_INTEGRATION.md   # Documentação sobre integração com banco de dados
+├── DASHBOARD_ENHANCEMENT_PRD.md    # PRD do Dashboard aprimorado
 ├── DATABASE_SCHEMA.md        # Esquema do banco de dados
-├── debug-cards.md            # Documentação de debug de cartões
-├── DEPENDENCIES.md           # Documentação sobre dependências
-├── DEV_NOTES_LABELS.md       # Anotações de desenvolvimento sobre etiquetas
 ├── docker-compose.yml        # Configuração do Docker Compose
 ├── Dockerfile                # Arquivo Docker para build da aplicação
 ├── drizzle.config.ts         # Configuração do Drizzle ORM
 ├── init.sql                  # Script de inicialização do banco de dados
-├── LABEL_OPTIMIZATION_SUMMARY.md   # Sumário de otimização de etiquetas
-├── migrate-missing-tables.js # Script para migrar tabelas faltantes
 ├── PROJECT_STRUCTURE_AND_API.md    # Documentação da estrutura e API
+├── RAILWAY_GUIDE.md          # Guia completo de deploy no Railway
 ├── README.md                 # Documentação principal (este arquivo)
+├── SECURITY_IMPLEMENTATION_REPORT.md  # Relatório de implementação de segurança
+├── security-rules-ptbr.md    # Regras de segurança (PT-BR)
+├── SECURITY_IMPLEMENTATION_REPORT.md  # Relatório de implementação de segurança
+├── security-rules-ptbr.md    # Regras de segurança (PT-BR)
 ├── __tests__/                # Testes automatizados
 ├── client/                   # Frontend (React + TypeScript)
 │   ├── package.json          # Dependências do frontend
@@ -59,35 +64,46 @@ vercel/
 │   │   ├── types/           # Tipos TypeScript
 │   │   └── assets/          # Recursos estáticos (imagens, estilos)
 │   ├── tsconfig.json        # Configuração do TypeScript
-│   └── vite.config.ts       # Configuração do Vite (se aplicável)
+│   └── vite.config.ts       # Configuração do Vite
+├── public/                   # Diretório público para arquivos estáticos
+│   └── uploads/             # Diretório para arquivos de upload
+│       └── profile_pictures/ # Imagens de perfil dos usuários
+│   └── vite.config.ts       # Configuração do Vite
+├── public/                   # Diretório público para arquivos estáticos
+│   └── uploads/             # Diretório para arquivos de upload
+│       └── profile_pictures/ # Imagens de perfil dos usuários
 ├── scripts/                  # Scripts utilitários
-│   ├── setup-test-db.js     # Script de setup para testes
-│   └── migrate.js           # Script de migração de banco de dados
+│   ├── run-security-tests.sh # Script de testes de segurança
+│   └── validate-environment.js # Script de validação de ambiente
 ├── server/                   # Backend (Node.js + Express)
-│   ├── app.ts               # Configuração principal do servidor
+│   ├── index.ts             # Ponto de entrada do servidor
 │   ├── routes.ts            # Definição de rotas da API
 │   ├── auth.ts              # Sistema de autenticação
 │   ├── database.ts          # Configuração do banco de dados
 │   ├── db-storage.ts        # Camada de armazenamento
-│   ├── middlewares/         # Middleware Express
-│   │   ├── auth.ts          # Middleware de autenticação
-│   │   ├── validation.ts    # Middleware de validação
-│   │   └── error-handler.ts # Middleware de tratamento de erros
-│   ├── types/               # Tipos do servidor
-│   ├── @shared/            # Código compartilhado
-│   │   └── schema.ts        # Esquemas de validação (Zod)
+│   ├── db.ts                # Instância do banco de dados
+│   ├── middlewares.ts       # Middlewares Express
+│   ├── activity-service.ts  # Serviço de registro de atividades
 │   ├── audit-service.ts     # Serviço de auditoria
 │   ├── audit-middleware.ts  # Middleware de auditoria
 │   ├── notification-service.ts # Serviço de notificações
 │   ├── overdue-tasks.ts     # Sistema de verificação de tarefas atrasadas
-│   └── types.d.ts           # Tipos globais
+│   ├── schema-setup.ts      # Setup e migrações do schema
+│   ├── seeder.ts            # Dados iniciais do banco
+│   ├── storage.ts           # Interface de armazenamento
+│   ├── vite.ts              # Configuração Vite para produção
+│   ├── migrations/          # Migrações SQL do banco de dados
+│   │   ├── 20250131_add_notifications_table.sql
+│   │   ├── 20250131_add_portfolios.sql
+│   │   ├── 20250201_add_archived_to_cards.sql
+│   │   ├── 20250917_add_board_color.sql
+│   │   └── ... (outras migrações)
+│   ├── scripts/             # Scripts auxiliares do servidor
+│   │   └── fix-label-duplicates.ts
+│   └── utils/               # Utilitários do servidor
 ├── shared/                  # Código compartilhado entre cliente e servidor
-│   └── schema.ts            # Esquemas de validação compartilhados
-├── uploads/                 # Arquivos de upload (imagens de perfil)
-│   └── profile_pictures/    # Imagens de perfil dos usuários
-└── docs/                    # Documentação adicional
-    ├── API.md              # Documentação detalhada da API
-    └── SECURITY.md         # Políticas de segurança
+│   └── schema.ts            # Esquemas de validação compartilhados (Zod)
+└── docs/                    # Documentação adicional (se existir)
 ```
 
 ### Descrição dos Diretórios e Arquivos
@@ -108,10 +124,13 @@ vercel/
 - **`init.sql`**: Script de inicialização do banco de dados
 
 #### Documentos Importantes
-- **`AUDIT_SYSTEM_COMPREHENSIVE.md`**: Documentação detalhada do sistema de auditoria
 - **`BUSINESS_RULES.md`**: Regras de negócio detalhadas do sistema
 - **`DATABASE_SCHEMA.md`**: Esquema completo do banco de dados
-- **`CSRF_PROBLEM_RESOLUTION.md`**: Documentação sobre resolução de problemas CSRF
+- **`DASHBOARD_ENHANCEMENT_PRD.md`**: PRD (Product Requirements Document) do Dashboard aprimorado
+- **`PROJECT_STRUCTURE_AND_API.md`**: Documentação da estrutura do projeto e API
+- **`RAILWAY_GUIDE.md`**: Guia completo de deploy e configuração no Railway
+- **`SECURITY_IMPLEMENTATION_REPORT.md`**: Relatório de implementação de segurança
+- **`security-rules-ptbr.md`**: Regras e diretrizes de segurança em português
 
 ## Regras de Negócio
 
@@ -167,12 +186,15 @@ vercel/
 ### 7. Funcionalidades Avançadas
 - Sistema de etiquetas para categorização visual
 - Prioridades para classificação de importância
-- Prazos e datas de vencimento
+- Prazos e datas de vencimento com rastreamento
 - Arquivamento de cartões e quadros
 - Upload e armazenamento de imagens de perfil
-- Sistema de notificações personalizadas
-- Dashboard com estatísticas e insights
+- Sistema de notificações personalizadas e em tempo real
+- Dashboard com estatísticas e insights detalhados
+- Mini-dashboards de portfólio com métricas específicas
 - Verificação automática de tarefas atrasadas
+- Sistema de cores personalizáveis para portfólios e quadros
+- Gerenciamento de membros de portfólio com controle de acesso
 
 ### 8. Controle de Acesso
 - Permissões niveladas por nível de usuário
@@ -209,12 +231,15 @@ vercel/
 - Integração com upload de arquivos para contexto
 
 ### Visualização
-- Dashboard com estatísticas
-- Visualização de tarefas atrasadas
+- Dashboard com estatísticas e métricas de produtividade
+- Mini-dashboards de portfólio com visão geral de projetos
+- Visualização de tarefas atrasadas com alertas
 - Etiquetas para categorização visual
-- Histórico de atividades
-- Gráficos de progresso e produtividade
+- Histórico de atividades e auditoria
+- Gráficos de progresso e produtividade por período
 - Filtros avançados para busca de tarefas
+- Visualização de status de conclusão de tarefas
+- Cards compactos e expandidos para melhor navegação
 
 ### Segurança
 - Autenticação segura com tokens
@@ -224,12 +249,24 @@ vercel/
 - Validação de entrada rigorosa
 - Proteção contra injeção de dados
 
+### Sistema de Auditoria e Atividades
+- **Registro automático de ações**: Todas as operações importantes são registradas
+- **Logs de auditoria**: Histórico completo de quem fez o quê e quando
+- **Rastreamento de alterações**: Acompanhe mudanças em cards, listas e quadros
+- **Dashboard administrativo**: Visualização de logs para administradores
+- **Filtros avançados**: Busque logs por ação, entidade, usuário ou período
+- **Registro de atividades**: Feed de atividades recentes em quadros
+
 ### Notificações
 - Sistema de notificações em tempo real
-- Notificações por e-mail para ações importantes
-- Central de notificações no dashboard
-- Personalização de preferências de notificação
-- Alertas para tarefas atrasadas
+- Central de notificações integrada ao dashboard
+- Notificações de atribuição de tarefas
+- Notificações de comentários e menções
+- Notificações de alterações em cards e checklists
+- Alertas para tarefas atrasadas e prazos próximos
+- Contador de notificações não lidas
+- Marcação de notificações como lidas individualmente ou em lote
+- Sistema de limpeza de notificações antigas
 
 ### Upload e Arquivos
 - Upload de imagens de perfil
@@ -246,20 +283,31 @@ vercel/
 - **TypeScript** - Superset de JavaScript com tipagem estática
 - **PostgreSQL** - Banco de dados relacional
 - **Drizzle ORM** - Mapeamento objeto-relacional
-- **Zod** - Validação de esquemas
-- **Passport.js** - Autenticação
+- **Zod** - Validação de esquemas e tipos
+- **Passport.js** - Autenticação e estratégias de login
+- **bcrypt** - Hashing seguro de senhas
+- **express-session** - Gerenciamento de sessões
+- **csurf** - Proteção CSRF
+- **Helmet** - Headers de segurança HTTP
+- **sanitize-html** - Sanitização de entrada para prevenir XSS
 - **Multer** - Upload de arquivos
 
 ### Frontend
 - **React** - Biblioteca JavaScript para interfaces
 - **TypeScript** - Tipagem estática
-- **React Router** - Roteamento
+- **React Router** - Roteamento de páginas
+- **TanStack Query (React Query)** - Gerenciamento de estado e cache
 - **Axios** - Chamadas HTTP
+- **Tailwind CSS** - Framework CSS utilitário
+- **Lucide React** - Ícones modernos
+- **DOMPurify** - Sanitização de HTML no cliente
+- **Vite** - Build tool e dev server
 
 ### DevOps & Containers
 - **Docker** - Contêinerização
 - **Docker Compose** - Orquestração de containers
-- **Vercel** - Plataforma de deploy (nome do projeto)
+- **Railway** - Plataforma de deploy em produção
+- **PostgreSQL** - Banco de dados em produção
 
 ### Outras Ferramentas
 - **ESLint** - Linting de código
@@ -317,10 +365,11 @@ docker-compose exec app bash
 ```
 
 ### Estratégia de Deploy
-- **Vercel**: Deployment contínuo para frontend com integração Git
-- **Docker**: Containerização para backend com builds otimizados
+- **Railway**: Deployment contínuo com integração Git automática
+- **Docker**: Containerização para consistência entre ambientes
 - **CI/CD**: Integração contínua com testes automatizados antes de deploy
-- **Git Hooks**: Validações automatizadas antes de commits e pushes
+- **PostgreSQL**: Banco de dados gerenciado no Railway com SSL
+- **Migrações Automáticas**: Execução automática de migrações SQL no deploy
 
 ### Pipeline de CI/CD
 1. **Teste**: Execução de testes unitários e de integração
@@ -441,6 +490,42 @@ docker-compose exec app bash
   - **Autenticação**: Necessária
   - **Parâmetros**: `id` (número) - ID do portfólio
   - **Resposta**: Status 204 (No Content)
+
+- `GET /api/portfolios/:id/members` - Obter membros do portfólio
+  - **Descrição**: Retorna todos os membros de um portfólio específico
+  - **Autenticação**: Necessária
+  - **Parâmetros**: `id` (número) - ID do portfólio
+  - **Exemplo de Resposta**: `[{ userId: 1, name: "João Silva", username: "joao", role: "ADMIN" }]`
+
+- `POST /api/portfolios/:id/members` - Adicionar membro ao portfólio
+  - **Descrição**: Adiciona um novo membro ao portfólio
+  - **Autenticação**: Necessária (apenas proprietário)
+  - **Parâmetros**: `id` (número) - ID do portfólio
+  - **Corpo da Requisição**: `{ userId: number }`
+  - **Exemplo de Resposta**: `{ portfolioId: 1, userId: 2 }`
+
+- `DELETE /api/portfolios/:id/members/:userId` - Remover membro do portfólio
+  - **Descrição**: Remove um membro do portfólio
+  - **Autenticação**: Necessária (apenas proprietário)
+  - **Parâmetros**: `id` (número) - ID do portfólio, `userId` (número) - ID do usuário
+  - **Resposta**: Status 204 (No Content)
+
+- `GET /api/portfolios/:id/mini-dashboard` - Mini-dashboard do portfólio
+  - **Descrição**: Retorna estatísticas e métricas resumidas do portfólio
+  - **Autenticação**: Necessária
+  - **Parâmetros**: `id` (número) - ID do portfólio
+  - **Exemplo de Resposta**: 
+  ```json
+  {
+    "totalBoards": 5,
+    "totalCards": 42,
+    "completedCards": 18,
+    "overdueCards": 3,
+    "totalMembers": 8,
+    "recentActivity": [...],
+    "cardsByStatus": { "todo": 15, "doing": 9, "done": 18 }
+  }
+  ```
 
 ### Quadros
 - `GET /api/user-boards` - Quadros do usuário logado
@@ -742,6 +827,67 @@ docker-compose exec app bash
   - **Corpo da Requisição**: `multipart/form-data` com campo `profile_image`
   - **Exemplo de Resposta**: `{ id: 1, name: "Usuário", profilePicture: "/uploads/profile_pictures/filename.jpg" }`
 
+### Notificações
+- `GET /api/notifications` - Listar notificações
+  - **Descrição**: Retorna todas as notificações do usuário logado
+  - **Autenticação**: Necessária
+  - **Parâmetros da Query**: `limit?: number` (padrão: 50), `offset?: number` (padrão: 0), `unreadOnly?: boolean`
+  - **Exemplo de Resposta**: 
+  ```json
+  [
+    {
+      "id": 1,
+      "userId": 2,
+      "type": "task_assigned",
+      "title": "Nova tarefa atribuída",
+      "message": "João atribuiu a tarefa 'Implementar login' para você",
+      "read": false,
+      "actionUrl": "/board/1/card/5",
+      "relatedCardId": 5,
+      "fromUserId": 1,
+      "createdAt": "2025-09-18T10:30:00Z",
+      "fromUser": {
+        "id": 1,
+        "name": "João Silva",
+        "username": "joao"
+      }
+    }
+  ]
+  ```
+
+- `GET /api/notifications/unread-count` - Contador de notificações não lidas
+  - **Descrição**: Retorna o número de notificações não lidas do usuário
+  - **Autenticação**: Necessária
+  - **Exemplo de Resposta**: `{ count: 5 }`
+
+- `POST /api/notifications/:id/read` - Marcar notificação como lida
+  - **Descrição**: Marca uma notificação específica como lida
+  - **Autenticação**: Necessária
+  - **Parâmetros**: `id` (número) - ID da notificação
+  - **Exemplo de Resposta**: `{ success: true, notification: { ...notificação atualizada } }`
+
+- `POST /api/notifications/mark-all-read` - Marcar todas como lidas
+  - **Descrição**: Marca todas as notificações do usuário como lidas
+  - **Autenticação**: Necessária
+  - **Exemplo de Resposta**: `{ success: true, count: 5 }`
+
+- `POST /api/notifications/:id/clear` - Limpar notificação
+  - **Descrição**: Marca uma notificação como deletada (soft delete)
+  - **Autenticação**: Necessária
+  - **Parâmetros**: `id` (número) - ID da notificação
+  - **Exemplo de Resposta**: `{ success: true }`
+
+- `POST /api/notifications/clear-all` - Limpar todas as notificações
+  - **Descrição**: Marca todas as notificações do usuário como deletadas
+  - **Autenticação**: Necessária
+  - **Exemplo de Resposta**: `{ success: true, count: 10 }`
+
+- `DELETE /api/notifications/:id` - Excluir notificação permanentemente
+  - **Descrição**: Remove permanentemente uma notificação do banco de dados
+  - **Autenticação**: Necessária
+  - **Parâmetros**: `id` (número) - ID da notificação
+  - **Resposta**: Status 204 (No Content)
+
 ### Membros
 - `GET /api/cards/:cardId/members` - Membros de um cartão
   - **Descrição**: Retorna todos os membros associados a um cartão específico
@@ -958,7 +1104,7 @@ docker-compose exec app bash
 
 #### 1. Clonar o repositório
 ```bash
-git clone https://github.com/seu-usuario/vercel.git
+git clone https://github.com/frizen94/vercel.git
 cd vercel
 ```
 
@@ -1091,6 +1237,26 @@ O projeto utiliza Prettier para formatação automática de código com as segui
 
 ## Deployment
 
+### Deploy em Produção (Railway)
+
+Este projeto está configurado para deploy no Railway. Para fazer o deploy:
+
+1. **Pré-requisitos:**
+   - Conta no [Railway](https://railway.app)
+   - Repositório Git conectado
+
+2. **Passos básicos:**
+   - Conecte seu repositório GitHub ao Railway
+   - Adicione um serviço PostgreSQL no Railway
+   - Configure a variável `SESSION_SECRET` manualmente
+   - O Railway configura automaticamente `DATABASE_URL`, `PORT` e `NODE_ENV`
+
+3. **Documentação completa:**
+   - Veja o guia completo de deploy em [RAILWAY_GUIDE.md](./RAILWAY_GUIDE.md)
+   - Inclui troubleshooting, configuração de SSL, e verificação de migrações
+
+---
+
 ### Ambientes Suportados
 
 #### Desenvolvimento
@@ -1107,29 +1273,32 @@ O projeto utiliza Prettier para formatação automática de código com as segui
 - Relatórios de testes em formato JUnit
 
 #### Produção
-- Deploy em Vercel para frontend com otimização
-- Backend como container Docker com zero-downtime
-- Banco de dados PostgreSQL externo ou containerizado
+- Deploy no Railway com integração Git automática
+- Backend e frontend unificados em um único serviço
+- Banco de dados PostgreSQL gerenciado no Railway
 - Integração contínua com testes automatizados
-- Monitoramento e alertas configurados
+- Migrações automáticas de banco de dados no deploy
+- SSL/TLS configurado automaticamente
+- Monitoramento e logs em tempo real via Railway Dashboard
 
 ### Estratégia de Deploy
 
-#### Frontend (Vercel)
-- Integração direta com repositório Git
-- Deploy automático em pull requests
-- Pré-visualização de alterações
-- Otimização de assets e cache
-- SSL automático
-- Global CDN
+#### Railway (Produção)
+- Integração direta com repositório Git (GitHub)
+- Deploy automático em cada push para a branch principal
+- Preview deployments para pull requests
+- PostgreSQL gerenciado com backups automáticos
+- Variáveis de ambiente seguras
+- SSL/TLS automático
+- Logs e monitoramento integrados
+- Escalabilidade automática
 
-#### Backend (Docker)
-- Imagem Docker multi-stage para otimização
-- Build em pipeline CI/CD
-- Deploy com rolling updates
-- Configuração de health checks
-- Auto-scaling baseado em métricas
-- Backup automático de dados
+**Configuração necessária:**
+1. Adicionar serviço PostgreSQL no Railway
+2. Configurar variável `SESSION_SECRET` manualmente
+3. Deploy automático após push
+
+Consulte o [RAILWAY_GUIDE.md](./RAILWAY_GUIDE.md) para instruções detalhadas.
 
 ### Processo de Release
 
@@ -1164,12 +1333,14 @@ O projeto utiliza Prettier para formatação automática de código com as segui
 
 #### Variáveis de Ambiente de Produção
 - `NODE_ENV=production`
-- `PORT=3000`
-- `DATABASE_URL=` (URL do banco de dados PostgreSQL em produção)
-- `SESSION_SECRET=` (chave segura para sessões)
-- `CSRF_SECRET=` (chave segura para proteção CSRF)
-- `UPLOAD_PATH=/uploads`
-- `LOG_LEVEL=info`
+- `PORT=` (definida automaticamente pelo Railway)
+- `DATABASE_URL=` (URL do banco PostgreSQL - automática no Railway)
+- `SESSION_SECRET=` (⚠️ **Configuração manual obrigatória** - mínimo 32 caracteres)
+- `FORCE_DB_SSL=true` (detectado automaticamente no Railway)
+
+**Importante:** A única variável que precisa ser configurada manualmente no Railway é a `SESSION_SECRET`. Todas as outras são gerenciadas automaticamente pela plataforma.
+
+Veja mais detalhes em [RAILWAY_GUIDE.md](./RAILWAY_GUIDE.md).
 
 #### Configurações de Segurança em Produção
 - HTTPS obrigatório com HSTS
