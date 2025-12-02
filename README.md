@@ -1265,6 +1265,286 @@ O projeto utiliza Prettier para formatação automática de código com as segui
 
 ## Deployment
 
+### Arquitetura Agnóstica de Deploy
+
+Este projeto foi desenvolvido com uma arquitetura **agnóstica de plataforma**, o que significa que pode ser implantado em qualquer ambiente que suporte:
+- **Docker** e **Docker Compose**
+- **Node.js 20+**
+- **PostgreSQL 15+**
+
+Você pode fazer deploy em:
+- ☁️ **Plataformas Cloud**: Railway, Heroku, Render, DigitalOcean App Platform, AWS, Google Cloud, Azure
+- 🖥️ **Servidores VPS**: DigitalOcean Droplets, Linode, Vultr, AWS EC2, Hetzner
+- 🏢 **Servidores On-Premise**: Infraestrutura própria com Docker
+- 🐳 **Kubernetes**: Orquestração de containers em cluster
+
+### Deploy com Docker Compose (Servidor Tradicional/VPS)
+
+Esta é a forma mais simples e recomendada para deploy em servidores próprios ou VPS. O Docker Compose gerencia todos os serviços necessários (aplicação + banco de dados).
+
+#### Pré-requisitos
+- Servidor Linux (Ubuntu 20.04+, Debian 11+, ou similar)
+- Docker e Docker Compose instalados
+- Acesso SSH ao servidor
+- Domínio configurado (opcional, mas recomendado)
+- Certificado SSL (Let's Encrypt recomendado)
+
+#### Passo 1: Instalar Docker e Docker Compose no Servidor
+
+```bash
+# Atualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar dependências
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Adicionar repositório Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Instalar Docker
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Verificar instalação
+docker --version
+docker compose version
+
+# Adicionar usuário ao grupo docker (opcional)
+sudo usermod -aG docker $USER
+```
+
+#### Passo 2: Clonar o Repositório no Servidor
+
+```bash
+# Clonar repositório
+git clone https://github.com/seu-usuario/seu-repositorio.git
+cd seu-repositorio
+
+# Ou fazer upload via SCP/SFTP
+```
+
+#### Passo 3: Configurar Variáveis de Ambiente
+
+```bash
+# Criar arquivo .env na raiz do projeto
+nano .env
+```
+
+Adicione as seguintes variáveis:
+
+```env
+# Ambiente
+NODE_ENV=production
+
+# Banco de Dados
+DATABASE_URL=postgresql://kanban_user:senha_segura_aqui@postgres:5432/kanban_db
+POSTGRES_USER=kanban_user
+POSTGRES_PASSWORD=senha_segura_aqui
+POSTGRES_DB=kanban_db
+
+# Sessão (IMPORTANTE: Gerar chave segura)
+SESSION_SECRET=sua_chave_secreta_muito_forte_aqui_min_32_caracteres
+
+# Porta da aplicação
+PORT=5000
+
+# CSRF (Opcional - domínio do seu site)
+CSRF_COOKIE_DOMAIN=seu-dominio.com
+```
+
+> 💡 **Dica**: Gere uma `SESSION_SECRET` segura com:
+> ```bash
+> openssl rand -base64 32
+> ```
+
+#### Passo 4: Ajustar docker-compose.yml para Produção
+
+Crie ou ajuste o arquivo `docker-compose.prod.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: kanban_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - kanban_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kanban_app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kanban_network
+    restart: unless-stopped
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
+volumes:
+  postgres_data:
+
+networks:
+  kanban_network:
+    driver: bridge
+```
+
+#### Passo 5: Build e Deploy
+
+```bash
+# Build das imagens
+docker compose -f docker-compose.prod.yml build
+
+# Subir os serviços
+docker compose -f docker-compose.prod.yml up -d
+
+# Verificar status
+docker compose -f docker-compose.prod.yml ps
+
+# Ver logs
+docker compose -f docker-compose.prod.yml logs -f app
+```
+
+#### Passo 6: Configurar Nginx como Reverse Proxy (Recomendado)
+
+Instale e configure o Nginx para servir a aplicação com SSL:
+
+```bash
+# Instalar Nginx
+sudo apt install -y nginx
+
+# Criar configuração
+sudo nano /etc/nginx/sites-available/kanban
+```
+
+Adicione a configuração:
+
+```nginx
+server {
+    listen 80;
+    server_name seu-dominio.com www.seu-dominio.com;
+
+    # Redirecionar HTTP para HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name seu-dominio.com www.seu-dominio.com;
+
+    # Certificados SSL (Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
+
+    # Configurações SSL recomendadas
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Tamanho máximo de upload
+    client_max_body_size 10M;
+
+    # Proxy para aplicação
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+```bash
+# Ativar site
+sudo ln -s /etc/nginx/sites-available/kanban /etc/nginx/sites-enabled/
+
+# Testar configuração
+sudo nginx -t
+
+# Recarregar Nginx
+sudo systemctl reload nginx
+```
+
+#### Passo 7: Configurar SSL com Let's Encrypt (Certbot)
+
+```bash
+# Instalar Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Obter certificado SSL
+sudo certbot --nginx -d seu-dominio.com -d www.seu-dominio.com
+
+# Renovação automática já está configurada
+sudo certbot renew --dry-run
+```
+
+#### Passo 8: Primeiro Acesso
+
+Acesse `https://seu-dominio.com` e faça login com as credenciais padrão:
+- **Usuário**: `sysadmin`
+- **Senha**: `ChangeMe@2025!`
+
+> ⚠️ Você será obrigado a alterar a senha no primeiro login por segurança.
+
+#### Comandos Úteis para Manutenção
+
+```bash
+# Ver logs da aplicação
+docker compose -f docker-compose.prod.yml logs -f app
+
+# Ver logs do banco de dados
+docker compose -f docker-compose.prod.yml logs -f postgres
+
+# Reiniciar aplicação
+docker compose -f docker-compose.prod.yml restart app
+
+# Parar todos os serviços
+docker compose -f docker-compose.prod.yml down
+
+# Atualizar aplicação (após git pull)
+docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+
+# Backup do banco de dados
+docker exec kanban_postgres pg_dump -U kanban_user kanban_db > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restaurar backup
+docker exec -i kanban_postgres psql -U kanban_user kanban_db < backup.sql
+```
+
+---
+
 ### Deploy em Produção (Railway)
 
 Este projeto está configurado para deploy no Railway. Para fazer o deploy:
