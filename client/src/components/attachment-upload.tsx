@@ -116,7 +116,7 @@ export function AttachmentUpload({
           className={`
             border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
             transition-colors
-            ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
+            ${isDragging ? 'border-primary bg-primary/10' : 'border-gray-300 hover:border-gray-400'}
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
           `}
           onClick={() => !disabled && fileInputRef.current?.click()}
@@ -142,7 +142,7 @@ export function AttachmentUpload({
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-3 flex-1">
               {isImage ? (
-                <Image className="h-10 w-10 text-blue-500" />
+                <Image className="h-10 w-10 text-primary" />
               ) : (
                 <File className="h-10 w-10 text-gray-500" />
               )}

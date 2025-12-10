@@ -842,7 +842,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   <div className="flex flex-wrap gap-2">
                     {calculateDuration() ? (
                       <button 
-                        className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-center gap-1"
+                        className="px-3 py-1 rounded bg-primary/10 border border-primary/30 text-primary-foreground text-xs flex items-center gap-1"
                         onClick={() => setShowDurationDialog(true)}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1004,7 +1004,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                 <a
                                   href={`/api/attachments/${attachment.id}/download`}
                                   download
-                                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                                 >
                                   <Download className="h-3 w-3" />
                                   Baixar
@@ -1057,7 +1057,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                 {/* Comment input form */}
                 <div className="flex mb-4">
                   <div className="flex-shrink-0 mr-3">
-                    <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
                       {commentUserName.charAt(0).toUpperCase()}
                     </div>
                   </div>
@@ -1093,7 +1093,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                           <div className="mt-2 space-y-2">
                             <p className="text-xs text-gray-600 font-medium">Anexos a serem enviados:</p>
                             {pendingCommentAttachments.map((file, index) => (
-                              <div key={index} className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200">
+                              <div key={index} className="flex items-center gap-2 p-2 bg-primary/5 rounded border border-primary/20">
                                 {file.type.startsWith('image/') ? (
                                   <img
                                     src={URL.createObjectURL(file)}
@@ -1222,7 +1222,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                       <div className="flex gap-1">
                                         <button
                                           onClick={() => window.open(`/api/attachments/${attachment.id}/download`, '_blank')}
-                                          className="p-1 text-blue-600 hover:text-blue-800"
+                                          className="p-1 text-primary hover:text-primary/80"
                                           title="Baixar"
                                         >
                                           <Download className="w-4 h-4" />
@@ -1326,10 +1326,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   );
                 })()}
                 <button 
-                  className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${card.dueDate ? 'bg-blue-50 text-blue-600' : 'text-[#172B4D] hover:bg-[#091E420A]'}`}
+                  className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${card.dueDate ? 'bg-primary/10 text-primary' : 'text-[#172B4D] hover:bg-[#091E420A]'}`}
                   onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 ${card.dueDate ? 'text-blue-600' : 'text-[#5E6C84]'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 ${card.dueDate ? 'text-primary' : 'text-[#5E6C84]'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                     <line x1="16" y1="2" x2="16" y2="6" />
                     <line x1="8" y1="2" x2="8" y2="6" />
@@ -1405,7 +1405,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                 {isArchivedView ? (
                   /* Botão para desarquivar - apenas para cards arquivados */
                   <button 
-                    className="w-full text-left py-1.5 px-3 text-blue-600 text-sm rounded hover:bg-blue-50 flex items-center"
+                    className="w-full text-left py-1.5 px-3 text-primary text-sm rounded hover:bg-primary/10 flex items-center"
                     onClick={async () => {
                       try {
                         await apiRequest("POST", `/api/cards/${card.id}/unarchive`);
@@ -1695,18 +1695,18 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
             {/* Prévia da Duração */}
             {calculateDuration() && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                 <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12,6 12,12 16,14" />
                   </svg>
-                  <span className="text-sm font-medium text-blue-800">
+                  <span className="text-sm font-medium text-primary-foreground">
                     Duração: {calculateDuration()}
                   </span>
                 </div>
                 {startDate && !endDate && (
-                  <div className="text-xs text-blue-600 mt-1">
+                  <div className="text-xs text-primary mt-1">
                     ⏱️ Contagem ativa desde {formatDateForDisplay(startDate)}
                   </div>
                 )}

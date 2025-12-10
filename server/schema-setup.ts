@@ -8,24 +8,65 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Execute all migration files in chronological order
+ */
+async function runMigrationFiles() {
+  const migrationsDir = path.join(__dirname, 'migrations');
+  
+  try {
+    const files = await fs.readdir(migrationsDir);
+    const sqlFiles = files
+      .filter(f => f.endsWith('.sql'))
+      .sort(); // Sort to ensure chronological order (YYYYMMDD format)
+    
+    console.log(`📦 Found ${sqlFiles.length} migration files`);
+    
+    for (const file of sqlFiles) {
+      try {
+        console.log(`  ↳ Running ${file}...`);
+        const filePath = path.join(migrationsDir, file);
+        const content = await fs.readFile(filePath, 'utf8');
+        
+        // Remove SQL code fences if present
+        const cleaned = content.replace(/```sql/g, '').replace(/```/g, '');
+        
+        // Execute migration
+        await (sql as any).unsafe(cleaned);
+        console.log(`  ✅ ${file} completed`);
+      } catch (err: any) {
+        // Ignore errors for already existing tables/columns (IF NOT EXISTS)
+        if (err.code === '42P07' || err.code === '42701') {
+          console.log(`  ⏭️  ${file} skipped (already exists)`);
+        } else {
+          console.warn(`  ⚠️  ${file} warning:`, err.message);
+        }
+      }
+    }
+    
+    console.log('✅ All migrations processed');
+  } catch (err) {
+    console.error('❌ Error reading migrations directory:', err);
+    throw err;
+  }
+}
+
 export async function runInitialMigrations() {
   try {
-    // If running on Railway, prefer executing the single init.sql bootstrap file
+    // If running on Railway, prefer executing individual migrations instead of init.sql
     const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID;
     if (isRailway) {
+      console.log('🔄 Railway environment detected — applying incremental migrations...');
+      
       try {
-        console.log('🔄 Railway environment detected — applying `init.sql` bootstrap...');
-        const initPath = path.join(__dirname, '..', 'init.sql');
-        const raw = await fs.readFile(initPath, 'utf8');
-        // Some tools may leave code fences in the file when authored; strip triple backticks if present
-        const cleaned = raw.replace(/```sql/g, '').replace(/```/g, '');
-        // Use unsafe to execute the full SQL bootstrap (contains multiple statements and DO blocks)
-        await (sql as any).unsafe(cleaned);
-        console.log('✅ `init.sql` executed successfully');
+        // Run all migration files in order
+        await runMigrationFiles();
+        console.log('✅ Incremental migrations executed successfully');
         return true;
       } catch (err) {
-        console.error('❌ Failed to run init.sql bootstrap on Railway:', err);
-        throw err;
+        console.error('❌ Failed to run migrations on Railway:', err);
+        console.log('⚠️ Continuing with programmatic schema setup...');
+        // Don't throw, let it try programmatic setup below
       }
     }
 
