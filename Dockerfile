@@ -1,8 +1,14 @@
 # Dockerfile para desenvolvimento local
 FROM node:20-alpine
 
-# Instalar dependências do sistema
-RUN apk add --no-cache git
+# Instalar dependências do sistema (incluindo para sharp)
+RUN apk add --no-cache \
+    git \
+    vips-dev \
+    fftw-dev \
+    build-base \
+    python3 \
+    pkgconfig
 
 # Configurar diretório de trabalho
 WORKDIR /app
@@ -15,7 +21,10 @@ COPY tailwind.config.ts ./
 COPY postcss.config.js ./
 COPY drizzle.config.ts ./
 
-# Instalar dependências apenas
+# Configurar variáveis de ambiente para sharp
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+# Instalar dependências (inclui node-addon-api e sharp)
 RUN npm install
 
 # Copiar código fonte

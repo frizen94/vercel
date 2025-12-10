@@ -54,18 +54,24 @@ export async function apiRequest(
     credentials: 'include',
   };
 
-  // Configurar headers
-  if (!isFormData) {
+  // Configurar headers - NÃO definir Content-Type para FormData (browser faz automaticamente)
+  if (!isFormData && headers) {
     config.headers = {
       'Content-Type': 'application/json',
       ...headers,
     };
+  } else if (!isFormData) {
+    config.headers = {
+      'Content-Type': 'application/json',
+    };
   } else if (headers) {
+    // Para FormData, só adicionar headers extras se fornecidos (NÃO Content-Type)
     config.headers = headers;
   }
+  // Se isFormData e não tem headers extras, deixar undefined para browser definir automaticamente
 
   // Configurar body
-  if (body && Object.keys(body).length > 0) {
+  if (body && (isFormData || Object.keys(body).length > 0)) {
     config.body = isFormData ? body : JSON.stringify(body);
   }
 

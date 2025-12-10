@@ -976,6 +976,14 @@ export class DatabaseStorage implements IStorage {
     return inserted[0];
   }
 
+  async getComment(id: number): Promise<Comment | undefined> {
+    const [comment] = await db
+      .select()
+      .from(schema.comments)
+      .where(eq(schema.comments.id, id));
+    return comment;
+  }
+
   async deleteComment(id: number): Promise<boolean> {
     const deleted = await db
       .delete(schema.comments)
@@ -1836,6 +1844,51 @@ export class DatabaseStorage implements IStorage {
       .from(schema.activities)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .groupBy(schema.activities.activityType);
+  }
+
+  // ==================== MÉTODOS DE ANEXOS ====================
+
+  async createAttachment(data: schema.InsertAttachment): Promise<schema.Attachment> {
+    const [attachment] = await db.insert(schema.attachments).values(data).returning();
+    return attachment;
+  }
+
+  async getAttachment(id: number): Promise<schema.Attachment | undefined> {
+    const [attachment] = await db
+      .select()
+      .from(schema.attachments)
+      .where(eq(schema.attachments.id, id));
+    return attachment;
+  }
+
+  async getAttachmentsByCard(cardId: number): Promise<schema.Attachment[]> {
+    return db
+      .select()
+      .from(schema.attachments)
+      .where(eq(schema.attachments.cardId, cardId))
+      .orderBy(desc(schema.attachments.createdAt));
+  }
+
+  async getAttachmentsByComment(commentId: number): Promise<schema.Attachment[]> {
+    return db
+      .select()
+      .from(schema.attachments)
+      .where(eq(schema.attachments.commentId, commentId))
+      .orderBy(desc(schema.attachments.createdAt));
+  }
+
+  async deleteAttachment(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(schema.attachments)
+        .where(eq(schema.attachments.id, id));
+      
+      // Se chegou aqui sem erro, assume sucesso
+      return true;
+    } catch (error) {
+      console.error('❌ Error deleting attachment from database:', error);
+      return false;
+    }
   }
 }
 

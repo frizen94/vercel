@@ -524,6 +524,30 @@ export async function runMissingSqlMigrations() {
     await sql`CREATE INDEX IF NOT EXISTS idx_activities_dashboard ON activities(user_id, board_id, timestamp DESC);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_activities_board_timeline ON activities(board_id, timestamp DESC);`;
     
+    // Create attachments table
+    await sql`
+      CREATE TABLE IF NOT EXISTS attachments (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        path TEXT NOT NULL,
+        thumbnail_path TEXT,
+        url TEXT,
+        card_id INTEGER REFERENCES cards(id) ON DELETE CASCADE,
+        comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+        uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `;
+    
+    // Índices para attachments
+    await sql`CREATE INDEX IF NOT EXISTS idx_attachments_card_id ON attachments(card_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_attachments_uploaded_by ON attachments(uploaded_by);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_attachments_mime_type ON attachments(mime_type);`;
+    
     // Add require_password_reset column to users (from 20251202_add_require_password_reset.sql)
     await sql`
       ALTER TABLE users

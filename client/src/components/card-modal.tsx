@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
-import { Card as CardType, List as ListType, Comment as CommentType, User } from "@shared/schema";
+import { Card as CardType, List as ListType, Comment as CommentType, User, Attachment } from "@shared/schema";
 import { useBoardContext } from "@/lib/board-context";
 import { useAuth } from "@/hooks/use-auth";
 import { 
@@ -34,10 +34,12 @@ import { LabelManager } from "@/components/label-manager";
 import { PriorityManager } from "@/components/priority-manager";
 import { MemberManager } from "@/components/member-manager";
 import { ChecklistManager } from "@/components/checklist-manager";
+import { AttachmentUpload } from "@/components/attachment-upload";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download, Trash2, FileText, File } from "lucide-react";
 
 interface CardModalProps {
   cardId: number | null;
@@ -85,6 +87,8 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const [commentText, setCommentText] = useState("");
   const [commentUserName, setCommentUserName] = useState("");
   const [cardComments, setCardComments] = useState<CommentType[]>([]);
+  const [pendingCommentAttachments, setPendingCommentAttachments] = useState<File[]>([]);
+  const [isPastingImage, setIsPastingImage] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -101,6 +105,14 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const [endDate, setEndDate] = useState<string>(''); // String no formato YYYY-MM-DD
   const [showDurationDialog, setShowDurationDialog] = useState(false);
   const { checklists, checklistItems } = useBoardContext();
+  
+  // Attachment state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [commentAttachments, setCommentAttachments] = useState<Record<number, Attachment[]>>({});
+  const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   // Set initial username from auth context
   useEffect(() => {
@@ -132,6 +144,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
             // Load comments for this card
             loadComments(cardId);
+            
+            // Load attachments for this card
+            loadAttachments(cardId);
 
             // lazy-load priority mapping for this card (so the badge shows in the Priority section)
             if (fetchCardPriority) {
@@ -162,8 +177,34 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       // Filter out comments that belong to subtasks
       const cardOnlyComments = loadedComments.filter(comment => !comment.checklistItemId);
       setCardComments(cardOnlyComments);
+      
+      // Load attachments for each comment
+      const attachmentsMap: Record<number, Attachment[]> = {};
+      await Promise.all(
+        cardOnlyComments.map(async (comment) => {
+          try {
+            const commentAttachmentsData = await apiRequest("GET", `/api/comments/${comment.id}/attachments`);
+            if (commentAttachmentsData.length > 0) {
+              attachmentsMap[comment.id] = commentAttachmentsData;
+            }
+          } catch (error) {
+            console.error(`Error loading attachments for comment ${comment.id}:`, error);
+          }
+        })
+      );
+      setCommentAttachments(attachmentsMap);
     } catch (error) {
       console.error("Error loading comments:", error);
+    }
+  };
+
+  // Load attachments for a card
+  const loadAttachments = async (cardId: number) => {
+    try {
+      const data = await apiRequest("GET", `/api/cards/${cardId}/attachments`);
+      setAttachments(data);
+    } catch (error) {
+      console.error("Error loading attachments:", error);
     }
   };
 
@@ -183,6 +224,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
       // Load comments for this card
       loadComments(cardId);
+      
+      // Load attachments for this card
+      loadAttachments(cardId);
     } catch (error) {
       console.error("Error loading archived card:", error);
     }
@@ -267,16 +311,71 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const handleSubmitComment = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!card || !commentText.trim()) return;
+    if (!card || (!commentText.trim() && pendingCommentAttachments.length === 0)) return;
 
     setIsSubmittingComment(true);
     try {
-      await createComment(commentText.trim(), card.id, commentUserName);
+      // 1. Criar comentário (com texto ou placeholder se só tiver imagem)
+      const commentContent = commentText.trim() || `📎 ${pendingCommentAttachments.length} anexo(s)`;
+      const newComment = await createComment(commentContent, card.id, commentUserName);
+      
+      // 2. Upload de todos os anexos pendentes
+      if (pendingCommentAttachments.length > 0) {
+        await Promise.all(
+          pendingCommentAttachments.map(async (file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            await apiRequest("POST", `/api/comments/${newComment.id}/attachments`, formData, {}, true);
+          })
+        );
+      }
+
+      // 3. Limpar estados
       setCommentText("");
+      setPendingCommentAttachments([]);
+      
+      // 4. Recarregar comentários
+      await loadComments(card.id);
+
+      toast({
+        title: "Comentário enviado",
+        description: pendingCommentAttachments.length > 0 
+          ? `Comentário com ${pendingCommentAttachments.length} anexo(s) enviado com sucesso.`
+          : "Comentário enviado com sucesso.",
+      });
     } catch (error) {
       console.error("Error creating comment:", error);
+      toast({
+        title: "Erro ao enviar comentário",
+        description: "Não foi possível enviar o comentário.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmittingComment(false);
+    }
+  };
+
+  const handlePasteImage = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault(); // Prevent default paste behavior
+        
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        // Adicionar ao estado de anexos pendentes
+        setPendingCommentAttachments(prev => [...prev, file]);
+        
+        toast({
+          title: "Imagem adicionada",
+          description: "Imagem pronta para ser enviada. Clique em 'Enviar' para publicar o comentário.",
+        });
+        
+        break; // Only handle first image
+      }
     }
   };
 
@@ -810,6 +909,130 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
               {/* Checklists section */}
               {cardId && <ChecklistManager cardId={cardId} />}
 
+              {/* Attachments section */}
+              {cardId && (
+                <div className="mb-6">
+                  <div className="flex items-center text-sm text-[#5E6C84] mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                    <h3>Anexos {attachments.length > 0 && `(${attachments.length})`}</h3>
+                  </div>
+
+                  {/* Upload area - shown when button clicked */}
+                  {showAttachmentUpload && (
+                    <div className="mb-4">
+                      <AttachmentUpload
+                        onUpload={async (file) => {
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          
+                          try {
+                            await apiRequest("POST", `/api/cards/${cardId}/attachments`, formData, {}, true);
+                            toast({
+                              title: "Anexo adicionado",
+                              description: "O arquivo foi anexado com sucesso.",
+                            });
+                            loadAttachments(cardId);
+                            setShowAttachmentUpload(false);
+                          } catch (error: any) {
+                            toast({
+                              title: "Erro ao adicionar anexo",
+                              description: error.message || "Não foi possível adicionar o anexo.",
+                              variant: "destructive",
+                            });
+                            throw error;
+                          }
+                        }}
+                        maxSize={10}
+                      />
+                    </div>
+                  )}
+
+                  {/* Attachments list */}
+                  {attachments.length > 0 && (
+                    <div className="space-y-2">
+                      {attachments.map((attachment) => {
+                        const isImage = attachment.mimeType?.startsWith('image/');
+                        const fileIcon = isImage ? null : <FileText className="h-8 w-8 text-gray-400" />;
+                        
+                        return (
+                          <div key={attachment.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            {/* Thumbnail or icon */}
+                            <div className="flex-shrink-0 w-20 h-20 bg-white rounded overflow-hidden flex items-center justify-center border">
+                              {isImage ? (
+                                <img
+                                  src={(attachment.thumbnailPath || attachment.path)?.startsWith('/') ? (attachment.thumbnailPath || attachment.path) : `/${attachment.thumbnailPath || attachment.path}`}
+                                  alt={attachment.originalName}
+                                  className="w-full h-full object-cover cursor-pointer"
+                                  onClick={() => {
+                                    if (isImage) {
+                                      const imageAttachments = attachments.filter(a => a.mimeType?.startsWith('image/'));
+                                      const imageIndex = imageAttachments.findIndex(a => a.id === attachment.id);
+                                      setLightboxImages(imageAttachments.map(a => a.path?.startsWith('/') ? a.path : `/${a.path}` || ''));
+                                      setLightboxIndex(imageIndex);
+                                      setShowLightbox(true);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                fileIcon
+                              )}
+                            </div>
+
+                            {/* File info */}
+                            <div className="flex-grow min-w-0">
+                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                                {attachment.originalName}
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {(attachment.size / 1024).toFixed(0)} KB
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <a
+                                  href={`/api/attachments/${attachment.id}/download`}
+                                  download
+                                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                >
+                                  <Download className="h-3 w-3" />
+                                  Baixar
+                                </a>
+                                {user && (user.id === attachment.uploadedBy || user.isAdmin) && (
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm('Deseja realmente excluir este anexo?')) {
+                                        try {
+                                          await apiRequest("DELETE", `/api/attachments/${attachment.id}`);
+                                          toast({
+                                            title: "Anexo removido",
+                                            description: "O arquivo foi removido com sucesso.",
+                                          });
+                                          loadAttachments(cardId);
+                                        } catch (error: any) {
+                                          toast({
+                                            title: "Erro ao remover anexo",
+                                            description: error.message || "Não foi possível remover o anexo.",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }
+                                    }}
+                                    className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    Excluir
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Comments section */}
               <div className="mb-6">
                 <div className="flex items-center text-sm text-[#5E6C84] mb-4">
@@ -845,16 +1068,58 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                           />
                         )}
                         <Textarea
-                          placeholder="Escreva um comentário..."
+                          placeholder="Escreva um comentário... (Ctrl+V para colar imagens)"
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
+                          onPaste={handlePasteImage}
                           className="min-h-[80px]"
+                          disabled={isSubmittingComment}
                         />
+                        
+                        {/* Preview de anexos pendentes */}
+                        {pendingCommentAttachments.length > 0 && (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-xs text-gray-600 font-medium">Anexos a serem enviados:</p>
+                            {pendingCommentAttachments.map((file, index) => (
+                              <div key={index} className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200">
+                                {file.type.startsWith('image/') ? (
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={file.name}
+                                    className="w-16 h-16 object-cover rounded"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 flex items-center justify-center bg-gray-200 rounded">
+                                    <File className="w-8 h-8 text-gray-500" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {(file.size / 1024).toFixed(1)} KB
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPendingCommentAttachments(prev => 
+                                      prev.filter((_, i) => i !== index)
+                                    );
+                                  }}
+                                  className="p-1 text-red-600 hover:text-red-800"
+                                  title="Remover"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <Button 
                         type="submit" 
                         className="bg-[#0079BF] hover:bg-[#026AA7]"
-                        disabled={isSubmittingComment || !commentText.trim()}
+                        disabled={isSubmittingComment || (!commentText.trim() && pendingCommentAttachments.length === 0)}
                       >
                         {isSubmittingComment ? "Enviando..." : "Enviar"}
                       </Button>
@@ -865,37 +1130,116 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                 {/* Comments list */}
                 <div className="space-y-4">
                   {cardComments.length > 0 ? (
-                    cardComments.map((comment) => (
-                      <div key={comment.id} className="flex">
-                        <div className="flex-shrink-0 mr-3">
-                          <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-semibold">
-                            {comment.userName ? comment.userName.charAt(0).toUpperCase() : "U"}
-                          </div>
-                        </div>
-                        <div className="flex-grow bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium text-sm">
-                                {comment.userName || "Usuário"}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {new Date(comment.createdAt).toLocaleString('pt-BR')}
-                              </p>
+                    cardComments.map((comment) => {
+                      const commentAttachs = commentAttachments[comment.id] || [];
+                      return (
+                        <div key={comment.id} className="flex">
+                          <div className="flex-shrink-0 mr-3">
+                            <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-semibold">
+                              {comment.userName ? comment.userName.charAt(0).toUpperCase() : "U"}
                             </div>
-                            <button
-                              onClick={() => handleDeleteComment(comment.id)}
-                              className="text-gray-400 hover:text-red-500"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                              </svg>
-                            </button>
                           </div>
-                          <p className="mt-2 text-sm whitespace-pre-wrap">{comment.content}</p>
+                          <div className="flex-grow bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {comment.userName || "Usuário"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(comment.createdAt).toLocaleString('pt-BR')}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="text-gray-400 hover:text-red-500"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                              </button>
+                            </div>
+                            <p className="mt-2 text-sm whitespace-pre-wrap">{comment.content}</p>
+                            
+                            {/* Comment attachments */}
+                            {commentAttachs.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {commentAttachs.map((attachment) => {
+                                  const isImage = attachment.mimeType.startsWith('image/');
+                                  const imgPath = attachment.thumbnailPath || attachment.path;
+                                  const imgSrc = imgPath?.startsWith('/') ? imgPath : `/${imgPath}`;
+                                  return (
+                                    <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200">
+                                      {isImage ? (
+                                        <img
+                                          src={imgSrc}
+                                          alt={attachment.originalName}
+                                          className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80"
+                                          onClick={() => {
+                                            const images = commentAttachs
+                                              .filter(a => a.mimeType.startsWith('image/'))
+                                              .map(a => a.path?.startsWith('/') ? a.path : `/${a.path}`);
+                                            const imgPath = attachment.path?.startsWith('/') ? attachment.path : `/${attachment.path}`;
+                                            const index = images.indexOf(imgPath);
+                                            setLightboxImages(images);
+                                            setLightboxIndex(index);
+                                            setShowLightbox(true);
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-16 h-16 flex items-center justify-center bg-gray-200 rounded">
+                                          {attachment.mimeType.includes('pdf') ? (
+                                            <FileText className="w-8 h-8 text-red-500" />
+                                          ) : (
+                                            <File className="w-8 h-8 text-gray-500" />
+                                          )}
+                                        </div>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{attachment.originalName}</p>
+                                        <p className="text-xs text-gray-500">
+                                          {(attachment.size / 1024).toFixed(1)} KB
+                                        </p>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <button
+                                          onClick={() => window.open(`/api/attachments/${attachment.id}/download`, '_blank')}
+                                          className="p-1 text-blue-600 hover:text-blue-800"
+                                          title="Baixar"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm('Tem certeza que deseja excluir este anexo?')) {
+                                              try {
+                                                await apiRequest("DELETE", `/api/attachments/${attachment.id}`);
+                                                toast({ title: "Anexo excluído" });
+                                                await loadComments(card!.id);
+                                              } catch (error: any) {
+                                                toast({
+                                                  title: "Erro ao excluir anexo",
+                                                  description: error.message,
+                                                  variant: "destructive",
+                                                });
+                                              }
+                                            }
+                                          }}
+                                          className="p-1 text-red-600 hover:text-red-800"
+                                          title="Excluir"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="text-center py-4 text-gray-500 text-sm">
                       Nenhum comentário ainda. Seja o primeiro a comentar!
@@ -1028,10 +1372,8 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
 
                 <button
-                  className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded opacity-50 cursor-not-allowed pointer-events-none flex items-center"
-                  aria-disabled="true"
-                  title="Recurso em implementação — desabilitado por enquanto"
-                  tabIndex={-1}
+                  className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-gray-100 flex items-center"
+                  onClick={() => setShowAttachmentUpload(!showAttachmentUpload)}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#9AA6B2]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -1375,6 +1717,15 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Lightbox */}
+      {showLightbox && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setShowLightbox(false)}
+        />
+      )}
     </Dialog>
   );
 }

@@ -278,6 +278,21 @@ export class AuditService {
     });
   }
 
+  static async logAttachmentUpload(req: Request, attachmentId: number, parentId: number, fileName: string, fileSize: number): Promise<void> {
+    return this.log({
+      req,
+      action: AuditAction.UPLOAD,
+      entityType: EntityType.CARD,
+      entityId: parentId,
+      newData: { attachmentId, fileName, fileSize },
+      metadata: {
+        uploadTime: new Date().toISOString(),
+        fileType: fileName.split('.').pop(),
+        uploadBy: req.user?.id
+      }
+    });
+  }
+
   static async logSystemOperation(req: Request, operation: string, metadata?: AuditMetadata): Promise<void> {
     return this.log({
       req,

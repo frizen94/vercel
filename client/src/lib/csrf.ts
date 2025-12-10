@@ -37,17 +37,28 @@ export function getCsrfToken(): string | null {
  * Fetch customizado que inclui automaticamente o token CSRF
  */
 export async function csrfFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(options.headers);
-  
   // Adicionar token CSRF para métodos mutantes
   const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
   const method = options.method?.toUpperCase() || 'GET';
+  
+  let headers = options.headers;
   
   if (mutatingMethods.includes(method)) {
     try {
       // Tentar obter token CSRF apenas para métodos mutantes
       const token = csrfToken || await fetchCsrfToken();
-      headers.set('X-CSRF-Token', token);
+      
+      // Se já temos headers como Headers object, clonar; senão, criar novo
+      if (headers instanceof Headers) {
+        headers = new Headers(headers);
+        headers.set('X-CSRF-Token', token);
+      } else {
+        // Para plain objects ou undefined, adicionar o CSRF token
+        headers = {
+          ...headers,
+          'X-CSRF-Token': token
+        };
+      }
     } catch (error) {
       console.warn('⚠️ CSRF token indisponível, continuando sem proteção CSRF:', error);
       // Continuar sem token CSRF - o servidor decidirá se aceita ou não
@@ -70,12 +81,20 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
         await fetchCsrfToken();
         
         // Tentar novamente com novo token
-        const newHeaders = new Headers(options.headers);
-        newHeaders.set('X-CSRF-Token', csrfToken!);
+        let retryHeaders = options.headers;
+        if (retryHeaders instanceof Headers) {
+          retryHeaders = new Headers(retryHeaders);
+          retryHeaders.set('X-CSRF-Token', csrfToken!);
+        } else {
+          retryHeaders = {
+            ...retryHeaders,
+            'X-CSRF-Token': csrfToken!
+          };
+        }
         
         const retryResponse = await fetch(url, {
           ...options,
-          headers: newHeaders,
+          headers: retryHeaders,
           credentials: 'include'
         });
         

@@ -22,7 +22,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"], // Adiciona blob: para preview de imagens
       // Em produção: bloqueia unsafe-inline e unsafe-eval para máxima segurança contra XSS
       // Em desenvolvimento: permite para compatibilidade com Vite HMR
       scriptSrc: isProduction 

@@ -805,6 +805,61 @@ export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activities.$inferSelect;
 
 /**
+ * Tabela de anexos
+ * Armazena arquivos anexados a cards e comentários
+ */
+export const attachments = pgTable("attachments", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  path: text("path").notNull(),
+  thumbnailPath: text("thumbnail_path"),
+  url: text("url"),
+  
+  // Relacionamentos (apenas um deve ser preenchido)
+  cardId: integer("card_id").references(() => cards.id, { onDelete: "cascade" }),
+  commentId: integer("comment_id").references(() => comments.id, { onDelete: "cascade" }),
+  
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  cardIdIdx: index("idx_attachments_card_id").on(table.cardId),
+  commentIdIdx: index("idx_attachments_comment_id").on(table.commentId),
+  uploadedByIdx: index("idx_attachments_uploaded_by").on(table.uploadedBy),
+  mimeTypeIdx: index("idx_attachments_mime_type").on(table.mimeType),
+}));
+
+/**
+ * Schema para inserção de anexos
+ */
+export const insertAttachmentSchema = createInsertSchema(attachments, {
+  filename: z.string().min(1, "Nome do arquivo é obrigatório"),
+  originalName: z.string().min(1, "Nome original é obrigatório"),
+  mimeType: z.string().min(1, "Tipo MIME é obrigatório"),
+  size: z.number().min(1, "Tamanho deve ser maior que 0").max(10485760, "Arquivo muito grande (máx 10MB)"),
+  path: z.string().min(1, "Caminho é obrigatório"),
+}).pick({
+  filename: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  path: true,
+  thumbnailPath: true,
+  url: true,
+  cardId: true,
+  commentId: true,
+  uploadedBy: true,
+});
+
+/**
+ * Tipos para anexos
+ */
+export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
+export type Attachment = typeof attachments.$inferSelect;
+
+/**
  * Relações entre tabelas
  * Define relacionamentos para uso com Drizzle ORM queries
  */

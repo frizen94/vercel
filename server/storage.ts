@@ -36,7 +36,10 @@ import {
   type UserWithBoardRole,
   notifications,
   type Notification,
-  type InsertNotification
+  type InsertNotification,
+  attachments,
+  type Attachment,
+  type InsertAttachment
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -133,6 +136,13 @@ export interface IStorage {
   markAsRead(id: number, userId: number): Promise<boolean>;
   markAllAsRead(userId: number): Promise<number>;
   deleteNotification(id: number, userId: number): Promise<boolean>;
+  
+  // Attachment methods
+  createAttachment(data: InsertAttachment): Promise<Attachment>;
+  getAttachment(id: number): Promise<Attachment | undefined>;
+  getAttachmentsByCard(cardId: number): Promise<Attachment[]>;
+  getAttachmentsByComment(commentId: number): Promise<Attachment[]>;
+  deleteAttachment(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -148,6 +158,7 @@ export class MemStorage implements IStorage {
   private boardMembers: Map<string, BoardMember>;
   private checklists: Map<number, Checklist>;
   private checklistItems: Map<number, ChecklistItem>;
+  private attachments: Map<number, Attachment>;
 
   private userIdCounter: number;
   private boardIdCounter: number;
@@ -158,6 +169,7 @@ export class MemStorage implements IStorage {
   private commentIdCounter: number;
   private checklistIdCounter: number;
   private checklistItemIdCounter: number;
+  private attachmentIdCounter: number;
 
   constructor() {
     const MemoryStore = createMemoryStore(session);
@@ -176,6 +188,7 @@ export class MemStorage implements IStorage {
     this.boardMembers = new Map();
     this.checklists = new Map();
     this.checklistItems = new Map();
+    this.attachments = new Map();
 
     this.userIdCounter = 1;
     this.boardIdCounter = 1;
@@ -186,6 +199,7 @@ export class MemStorage implements IStorage {
     this.commentIdCounter = 1;
     this.checklistIdCounter = 1;
     this.checklistItemIdCounter = 1;
+    this.attachmentIdCounter = 1;
 
     // Criar usuários iniciais para teste
     this.createUser({
@@ -849,6 +863,47 @@ export class MemStorage implements IStorage {
   async deleteNotification(id: number, userId: number): Promise<boolean> {
     // Placeholder implementation
     return false;
+  }
+
+  // Attachment methods
+  async createAttachment(data: InsertAttachment): Promise<Attachment> {
+    const id = this.attachmentIdCounter++;
+    const attachment: Attachment = {
+      id,
+      filename: data.filename,
+      originalName: data.originalName,
+      mimeType: data.mimeType,
+      size: data.size,
+      path: data.path,
+      thumbnailPath: data.thumbnailPath ?? null,
+      url: data.url ?? null,
+      cardId: data.cardId ?? null,
+      commentId: data.commentId ?? null,
+      uploadedBy: data.uploadedBy ?? null,
+      createdAt: new Date()
+    };
+    this.attachments.set(id, attachment);
+    return attachment;
+  }
+
+  async getAttachment(id: number): Promise<Attachment | undefined> {
+    return this.attachments.get(id);
+  }
+
+  async getAttachmentsByCard(cardId: number): Promise<Attachment[]> {
+    return Array.from(this.attachments.values())
+      .filter(att => att.cardId === cardId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getAttachmentsByComment(commentId: number): Promise<Attachment[]> {
+    return Array.from(this.attachments.values())
+      .filter(att => att.commentId === commentId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async deleteAttachment(id: number): Promise<boolean> {
+    return this.attachments.delete(id);
   }
 }
 

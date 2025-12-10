@@ -483,6 +483,36 @@ CREATE INDEX IF NOT EXISTS idx_activities_dashboard ON activities(user_id, board
 CREATE INDEX IF NOT EXISTS idx_activities_board_timeline ON activities(board_id, timestamp DESC);
 
 -- ============================================================================
+-- TABELA DE ANEXOS
+-- ============================================================================
+
+-- Tabela de Anexos
+-- Armazena arquivos anexados a cards e comentários
+CREATE TABLE IF NOT EXISTS attachments (
+    id SERIAL PRIMARY KEY,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    thumbnail_path TEXT,
+    url TEXT,
+    
+    -- Relacionamentos (apenas um deve ser preenchido)
+    card_id INTEGER REFERENCES cards(id) ON DELETE CASCADE,
+    comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+    
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Índices para otimizar consultas de anexos
+CREATE INDEX IF NOT EXISTS idx_attachments_card_id ON attachments(card_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_uploaded_by ON attachments(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_attachments_mime_type ON attachments(mime_type);
+
+-- ============================================================================
 -- VERIFICAÇÃO FINAL
 -- ============================================================================
 
@@ -498,15 +528,15 @@ BEGIN
         'users', 'portfolios', 'boards', 'lists', 'cards', 'labels', 
         'comments', 'checklists', 'checklist_items', 'card_labels', 
         'card_members', 'board_members', 'checklist_item_members', 'session', 'notifications',
-        'audit_logs', 'activities', 'priorities', 'card_priorities'
+        'audit_logs', 'activities', 'priorities', 'card_priorities', 'attachments'
     );
     
-    IF table_count = 19 THEN
-        RAISE NOTICE 'Todas as 19 tabelas foram criadas com sucesso!';
+    IF table_count = 20 THEN
+        RAISE NOTICE 'Todas as 20 tabelas foram criadas com sucesso!';
     ELSE
-        RAISE WARNING 'Apenas % de 19 tabelas foram criadas. Verifique os erros acima.', table_count;
+        RAISE WARNING 'Apenas % de 20 tabelas foram criadas. Verifique os erros acima.', table_count;
     END IF;
 END$$;
 
 -- Mensagem final
-SELECT 'Banco de dados inicializado com sucesso para desenvolvimento local! Todas as tabelas configuradas, incluindo sistema de notificações.' as status;
+SELECT 'Banco de dados inicializado com sucesso para desenvolvimento local! Todas as tabelas configuradas, incluindo sistema de notificações e anexos.' as status;

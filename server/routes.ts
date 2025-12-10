@@ -28,6 +28,7 @@
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 import { storage as appStorage } from "./db-storage";
@@ -45,7 +46,8 @@ import {
   insertCardLabelSchema,
   insertCommentSchema,
   insertCardMemberSchema,
-  insertBoardMemberSchema
+  insertBoardMemberSchema,
+  insertAttachmentSchema
 } from "@shared/schema";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { isAuthenticated, isAdmin, isBoardOwnerOrAdmin, hasCardAccess, changePasswordRateLimit, csrfProtection, sanitizeInput } from "./middlewares";
@@ -205,6 +207,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Aceitar apenas imagens
       if (!file.mimetype.match(/^image\/(jpeg|png|jpg|gif)$/)) {
         return cb(new Error("Apenas imagens são permitidas"));
+      }
+      cb(null, true);
+    },
+  });
+
+  /**
+   * Configuração do middleware de upload para anexos
+   * 
+   * Define:
+   * - Limite de tamanho de arquivo (10MB)
+   * - Filtro de tipos de arquivo permitidos
+   * - Armazenamento personalizado no disco
+   */
+  const attachmentStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      const uploadDir = path.join(process.cwd(), "public/uploads/attachments");
+
+      if (!fs.existsSync(uploadDir)) {
+        try {
+          fs.mkdirSync(uploadDir, { recursive: true });
+          console.log(`Diretório criado: ${uploadDir}`);
+        } catch (err) {
+          console.error(`Erro ao criar diretório de anexos: ${err}`);
+          return cb(new Error("Falha ao configurar armazenamento"), "");
+        }
+      }
+
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname);
+      const sanitized = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+      cb(null, uniqueSuffix + "-" + sanitized);
+    },
+  });
+
+  const uploadAttachment = multer({
+    storage: attachmentStorage,
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+    fileFilter: function (req, file, cb) {
+      // Tipos permitidos: imagens, PDFs, documentos
+      const allowedMimes = [
+        'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/plain'
+      ];
+      
+      if (!allowedMimes.includes(file.mimetype)) {
+        return cb(new Error("Tipo de arquivo não permitido"));
       }
       cb(null, true);
     },
@@ -1421,6 +1479,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Card not found" });
       }
 
+      // Deletar pasta de anexos do card
+      const cardFolder = path.join(process.cwd(), `public/uploads/attachments/card-${id}`);
+      if (fs.existsSync(cardFolder)) {
+        try {
+          fs.rmSync(cardFolder, { recursive: true, force: true });
+          console.log(`🗑️ Deleted card folder: ${cardFolder}`);
+        } catch (error) {
+          console.error('Error deleting card folder:', error);
+        }
+      }
+
       const success = await appStorage.deleteCard(id);
       if (!success) {
         return res.status(500).json({ message: "Failed to delete card" });
@@ -1770,6 +1839,302 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete comment" });
+    }
+  });
+
+  /**
+   * Rotas para gerenciar Anexos
+   */
+  
+  // Upload de anexo em card
+  app.post("/api/cards/:cardId/attachments", uploadAttachment.single('file'), handleMulterError, async (req: Request, res: Response) => {
+    try {
+      console.log('📎 Upload attempt:', {
+        hasFile: !!req.file,
+        contentType: req.headers['content-type'],
+        bodyKeys: Object.keys(req.body),
+        filesKeys: req.files ? Object.keys(req.files) : 'no files object'
+      });
+
+      const cardId = parseInt(req.params.cardId);
+      if (isNaN(cardId)) {
+        return res.status(400).json({ message: "Invalid card ID" });
+      }
+
+      if (!req.file) {
+        console.log('❌ No file in req.file, body:', req.body);
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const file = req.file;
+      const isImage = file.mimetype.startsWith('image/');
+
+      // Criar pasta específica do card
+      const cardFolder = path.join(process.cwd(), `public/uploads/attachments/card-${cardId}`);
+      const cardThumbnailFolder = path.join(cardFolder, 'thumbnails');
+      
+      if (!fs.existsSync(cardFolder)) {
+        fs.mkdirSync(cardFolder, { recursive: true });
+      }
+      if (isImage && !fs.existsSync(cardThumbnailFolder)) {
+        fs.mkdirSync(cardThumbnailFolder, { recursive: true });
+      }
+
+      // Mover arquivo para pasta do card
+      const oldPath = file.path;
+      const newPath = path.join(cardFolder, file.filename);
+      fs.renameSync(oldPath, newPath);
+
+      let thumbnailPath = null;
+
+      // Gerar thumbnail para imagens
+      if (isImage) {
+        const thumbnailFilename = `thumb_${file.filename}`;
+        const thumbnailFullPath = path.join(cardThumbnailFolder, thumbnailFilename);
+
+        try {
+          await sharp(newPath)
+            .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toFile(thumbnailFullPath);
+          
+          thumbnailPath = `/uploads/attachments/card-${cardId}/thumbnails/${thumbnailFilename}`;
+        } catch (err) {
+          console.error('Error generating thumbnail:', err);
+          thumbnailPath = null;
+        }
+      }
+
+      const attachmentData = {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        path: `/uploads/attachments/card-${cardId}/${file.filename}`,
+        thumbnailPath,
+        cardId,
+        uploadedBy: req.user?.id
+      };
+
+      const attachment = await appStorage.createAttachment(attachmentData);
+      
+      // Log de auditoria
+      await AuditService.logAttachmentUpload(req, attachment.id, cardId, file.originalname, file.size);
+
+      res.status(201).json({
+        ...attachment,
+        url: attachment.path,
+        thumbnailUrl: attachment.thumbnailPath,
+        isImage
+      });
+    } catch (error) {
+      console.error("Error uploading attachment:", error);
+      res.status(500).json({ message: "Failed to upload attachment" });
+    }
+  });
+
+  // Upload de anexo em comentário
+  app.post("/api/comments/:commentId/attachments", uploadAttachment.single('file'), handleMulterError, async (req: Request, res: Response) => {
+    try {
+      const commentId = parseInt(req.params.commentId);
+      if (isNaN(commentId)) {
+        return res.status(400).json({ message: "Invalid comment ID" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Buscar o comentário para pegar o cardId
+      const comment = await appStorage.getComment(commentId);
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      const cardId = comment.cardId;
+      const file = req.file;
+      const isImage = file.mimetype.startsWith('image/');
+
+      // Criar pasta específica do card (mesmo para anexos de comentários)
+      const cardFolder = path.join(process.cwd(), `public/uploads/attachments/card-${cardId}`);
+      const cardThumbnailFolder = path.join(cardFolder, 'thumbnails');
+      
+      if (!fs.existsSync(cardFolder)) {
+        fs.mkdirSync(cardFolder, { recursive: true });
+      }
+      if (isImage && !fs.existsSync(cardThumbnailFolder)) {
+        fs.mkdirSync(cardThumbnailFolder, { recursive: true });
+      }
+
+      // Mover arquivo para pasta do card
+      const oldPath = file.path;
+      const newPath = path.join(cardFolder, file.filename);
+      fs.renameSync(oldPath, newPath);
+
+      let thumbnailPath = null;
+
+      // Gerar thumbnail para imagens
+      if (isImage) {
+        const thumbnailFilename = `thumb_${file.filename}`;
+        const thumbnailFullPath = path.join(cardThumbnailFolder, thumbnailFilename);
+
+        try {
+          await sharp(newPath)
+            .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toFile(thumbnailFullPath);
+          
+          thumbnailPath = `/uploads/attachments/card-${cardId}/thumbnails/${thumbnailFilename}`;
+        } catch (err) {
+          console.error('Error generating thumbnail:', err);
+          thumbnailPath = null;
+        }
+      }
+
+      const attachmentData = {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        path: `/uploads/attachments/card-${cardId}/${file.filename}`,
+        thumbnailPath,
+        commentId,
+        uploadedBy: req.user?.id
+      };
+
+      const attachment = await appStorage.createAttachment(attachmentData);
+      
+      // Log de auditoria
+      await AuditService.logAttachmentUpload(req, attachment.id, cardId, file.originalname, file.size);
+
+      res.status(201).json({
+        ...attachment,
+        url: attachment.path,
+        thumbnailUrl: attachment.thumbnailPath,
+        isImage
+      });
+    } catch (error) {
+      console.error("Error uploading attachment:", error);
+      res.status(500).json({ message: "Failed to upload attachment" });
+    }
+  });
+
+  // Listar anexos de um card
+  app.get("/api/cards/:cardId/attachments", async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.cardId);
+      if (isNaN(cardId)) {
+        return res.status(400).json({ message: "Invalid card ID" });
+      }
+
+      const attachments = await appStorage.getAttachmentsByCard(cardId);
+      res.json(attachments.map(att => ({
+        ...att,
+        url: att.path,
+        thumbnailUrl: att.thumbnailPath,
+        isImage: att.mimeType.startsWith('image/')
+      })));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch attachments" });
+    }
+  });
+
+  // Listar anexos de um comentário
+  app.get("/api/comments/:commentId/attachments", async (req: Request, res: Response) => {
+    try {
+      const commentId = parseInt(req.params.commentId);
+      if (isNaN(commentId)) {
+        return res.status(400).json({ message: "Invalid comment ID" });
+      }
+
+      const attachments = await appStorage.getAttachmentsByComment(commentId);
+      res.json(attachments.map(att => ({
+        ...att,
+        url: att.path,
+        thumbnailUrl: att.thumbnailPath,
+        isImage: att.mimeType.startsWith('image/')
+      })));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch attachments" });
+    }
+  });
+
+  // Download de anexo
+  app.get("/api/attachments/:id/download", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid attachment ID" });
+      }
+
+      const attachment = await appStorage.getAttachment(id);
+      if (!attachment) {
+        return res.status(404).json({ message: "Attachment not found" });
+      }
+
+      const filePath = path.join(process.cwd(), "public", attachment.path);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalName}"`);
+      res.setHeader('Content-Type', attachment.mimeType);
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error("Error downloading attachment:", error);
+      res.status(500).json({ message: "Failed to download attachment" });
+    }
+  });
+
+  // Deletar anexo
+  app.delete("/api/attachments/:id", csrfProtection, isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid attachment ID" });
+      }
+
+      console.log('🗑️ Attempting to delete attachment:', id);
+      const attachment = await appStorage.getAttachment(id);
+      console.log('📎 Found attachment:', attachment ? `ID ${attachment.id}` : 'NOT FOUND');
+      
+      if (!attachment) {
+        return res.status(404).json({ message: "Attachment not found" });
+      }
+
+      // Verificar permissão: apenas quem fez upload ou admin
+      if (req.user?.role !== 'admin' && attachment.uploadedBy !== req.user?.id) {
+        return res.status(403).json({ message: "Not authorized to delete this attachment" });
+      }
+
+      // Deletar arquivos do disco
+      const filePath = path.join(process.cwd(), "public", attachment.path);
+      console.log('🗂️ Checking file path:', filePath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('✅ Deleted file:', filePath);
+      }
+
+      if (attachment.thumbnailPath) {
+        const thumbnailPath = path.join(process.cwd(), "public", attachment.thumbnailPath);
+        if (fs.existsSync(thumbnailPath)) {
+          fs.unlinkSync(thumbnailPath);
+          console.log('✅ Deleted thumbnail:', thumbnailPath);
+        }
+      }
+
+      const success = await appStorage.deleteAttachment(id);
+      console.log('🗑️ Database delete result:', success);
+      
+      if (!success) {
+        console.error('❌ Failed to delete attachment from database');
+        return res.status(500).json({ message: "Failed to delete attachment from database" });
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting attachment:", error);
+      res.status(500).json({ message: "Failed to delete attachment" });
     }
   });
 
