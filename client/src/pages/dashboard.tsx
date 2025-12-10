@@ -12,6 +12,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -199,6 +209,7 @@ const UserItem = ({ user, isAdmin = false }: {
 const BoardItem = ({ board }: { board: Board }) => {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { mutate: createBoard } = useMutation({
     mutationFn: async (title: string) => {
       return await apiRequest("POST", "/api/boards", { title });
@@ -257,13 +268,12 @@ const BoardItem = ({ board }: { board: Board }) => {
   
   const handleDeleteBoard = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("Tem certeza que deseja excluir este quadro? Esta ação não pode ser desfeita.")) {
-      deleteBoard(board.id);
-    }
+    setShowDeleteDialog(true);
   };
   
   return (
-    <div 
+    <>
+      <div 
       className="p-4 border rounded-lg cursor-pointer hover:bg-secondary/30 transition-colors relative"
       onClick={handleBoardClick}
     >
@@ -317,6 +327,28 @@ const BoardItem = ({ board }: { board: Board }) => {
         </Button>
       </div>
     </div>
+
+      {/* Delete Board Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Quadro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este quadro? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteBoard(board.id)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 };
 

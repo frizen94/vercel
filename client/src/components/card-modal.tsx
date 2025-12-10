@@ -2,13 +2,13 @@ import { useEffect, useState, FormEvent } from "react";
 import { Card as CardType, List as ListType, Comment as CommentType, User, Attachment } from "@shared/schema";
 import { useBoardContext } from "@/lib/board-context";
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose 
+  DialogClose
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -49,13 +49,13 @@ interface CardModalProps {
 }
 
 export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: CardModalProps) {
-  const { 
-    cards, 
-    lists, 
+  const {
+    cards,
+    lists,
     comments,
     cardLabels,
     cardMembers,
-    updateCard, 
+    updateCard,
     deleteCard,
     createCard,
     fetchComments,
@@ -100,12 +100,14 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
+  const [showDeleteAttachmentDialog, setShowDeleteAttachmentDialog] = useState(false);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [startDate, setStartDate] = useState<string>(''); // String no formato YYYY-MM-DD
   const [endDate, setEndDate] = useState<string>(''); // String no formato YYYY-MM-DD
   const [showDurationDialog, setShowDurationDialog] = useState(false);
   const { checklists, checklistItems } = useBoardContext();
-  
+
   // Attachment state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [commentAttachments, setCommentAttachments] = useState<Record<number, Attachment[]>>({});
@@ -150,7 +152,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
             // Load comments for this card
             loadComments(cardId);
-            
+
             // Load attachments for this card
             loadAttachments(cardId);
 
@@ -183,7 +185,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       // Filter out comments that belong to subtasks
       const cardOnlyComments = loadedComments.filter(comment => !comment.checklistItemId);
       setCardComments(cardOnlyComments);
-      
+
       // Load attachments for each comment
       const attachmentsMap: Record<number, Attachment[]> = {};
       await Promise.all(
@@ -230,7 +232,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
       // Load comments for this card
       loadComments(cardId);
-      
+
       // Load attachments for this card
       loadAttachments(cardId);
     } catch (error) {
@@ -295,10 +297,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
     try {
       await apiRequest("POST", `/api/cards/${card.id}/archive`);
-      
+
       // Recarregar os dados do quadro para remover o card da visualização
       await fetchBoardData(currentBoard.id);
-      
+
       toast({
         title: "Cartão arquivado",
         description: "O cartão foi arquivado com sucesso.",
@@ -324,7 +326,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       // 1. Criar comentário (com texto ou placeholder se só tiver imagem)
       const commentContent = commentText.trim() || `📎 ${pendingCommentAttachments.length} anexo(s)`;
       const newComment = await createComment(commentContent, card.id, commentUserName);
-      
+
       // 2. Upload de todos os anexos pendentes
       if (pendingCommentAttachments.length > 0) {
         await Promise.all(
@@ -339,13 +341,13 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       // 3. Limpar estados
       setCommentText("");
       setPendingCommentAttachments([]);
-      
+
       // 4. Recarregar comentários
       await loadComments(card.id);
 
       toast({
         title: "Comentário enviado",
-        description: pendingCommentAttachments.length > 0 
+        description: pendingCommentAttachments.length > 0
           ? `Comentário com ${pendingCommentAttachments.length} anexo(s) enviado com sucesso.`
           : "Comentário enviado com sucesso.",
       });
@@ -368,18 +370,18 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
         e.preventDefault(); // Prevent default paste behavior
-        
+
         const file = item.getAsFile();
         if (!file) continue;
 
         // Adicionar ao estado de anexos pendentes
         setPendingCommentAttachments(prev => [...prev, file]);
-        
+
         toast({
           title: "Imagem adicionada",
           description: "Imagem pronta para ser enviada. Clique em 'Enviar' para publicar o comentário.",
         });
-        
+
         break; // Only handle first image
       }
     }
@@ -503,8 +505,8 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
 
     // Remove a parte de tempo para comparar apenas as datas
     const dueDateTime = new Date(
-      dueDateObj.getFullYear(), 
-      dueDateObj.getMonth(), 
+      dueDateObj.getFullYear(),
+      dueDateObj.getMonth(),
       dueDateObj.getDate()
     ).getTime();
 
@@ -520,12 +522,12 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   // Função para formatar a data sem o problema de fuso horário
   const formatDateBR = (date: string | Date): string => {
     if (!date) return '';
-    
+
     const dateObj = new Date(date);
     const day = dateObj.getDate().toString().padStart(2, '0');
     const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
     const year = dateObj.getFullYear();
-    
+
     return `${day}/${month}/${year}`;
   };
 
@@ -540,10 +542,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
         `/api/cards/${card.id}/complete`,
         { completed: newCompletedStatus }
       );
-      
+
       // Atualizar o estado local através do contexto
       await updateCard(card.id, { completed: newCompletedStatus });
-      
+
       toast({
         title: newCompletedStatus ? "Cartão marcado como concluído" : "Cartão marcado como não concluído",
         description: "O status do cartão foi atualizado com sucesso.",
@@ -655,7 +657,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
     } catch (error) {
       console.error("Error updating end date:", error);
       toast({
-        title: "Erro", 
+        title: "Erro",
         description: "Erro ao atualizar data de término",
         variant: "destructive",
       });
@@ -665,7 +667,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   // Calcular duração entre as datas
   const calculateDuration = (): string => {
     if (!startDate && !endDate) return '';
-    
+
     const today = new Date();
     const startDateObj = startDate ? new Date(startDate) : null;
     const endDateObj = endDate ? new Date(endDate) : null;
@@ -681,7 +683,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return `${diffDays} dia${diffDays !== 1 ? 's' : ''} (ativo)`;
     }
-    
+
     return '';
   };
 
@@ -719,8 +721,8 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                         autoFocus
                       />
                     ) : (
-                      <DialogTitle 
-                        className="text-xl font-semibold cursor-pointer" 
+                      <DialogTitle
+                        className="text-xl font-semibold cursor-pointer"
                         onClick={() => setIsEditingTitle(true)}
                       >
                         {card.title}
@@ -764,7 +766,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                       </Avatar>
                     </div>
                   ))}
-                  <button 
+                  <button
                     className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
                     onClick={() => setIsMemberManagerOpen(true)}
                   >
@@ -792,7 +794,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                         </span>
                       ) : null}
 
-                      <button 
+                      <button
                         className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
                         onClick={() => setIsPriorityManagerOpen(true)}
                       >
@@ -812,15 +814,15 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {cardLabels[card.id]?.map(label => (
-                    <span 
-                      key={label.id} 
+                    <span
+                      key={label.id}
                       className="px-3 py-1 rounded text-white text-xs"
                       style={{ backgroundColor: label.color }}
                     >
                       {label.name}
                     </span>
                   ))}
-                  <button 
+                  <button
                     className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
                     onClick={() => setIsLabelManagerOpen(true)}
                   >
@@ -841,7 +843,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {calculateDuration() ? (
-                      <button 
+                      <button
                         className="px-3 py-1 rounded bg-primary/10 border border-primary/30 text-primary-foreground text-xs flex items-center gap-1"
                         onClick={() => setShowDurationDialog(true)}
                       >
@@ -852,7 +854,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                         {calculateDuration()}
                       </button>
                     ) : (
-                      <button 
+                      <button
                         className="px-3 py-1 rounded bg-[#091E420A] text-[#5E6C84] text-xs"
                         onClick={() => setShowDurationDialog(true)}
                       >
@@ -875,7 +877,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     <h3>Descrição</h3>
                   </div>
                   {!isEditingDescription && (
-                    <button 
+                    <button
                       className="px-2 py-1 rounded bg-[#091E420A] text-xs"
                       onClick={() => setIsEditingDescription(true)}
                     >
@@ -899,7 +901,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     rows={6}
                   />
                 ) : (
-                  <div 
+                  <div
                     className="bg-white p-3 rounded border border-gray-200 cursor-pointer"
                     onClick={() => setIsEditingDescription(true)}
                   >
@@ -932,7 +934,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                         onUpload={async (file) => {
                           const formData = new FormData();
                           formData.append('file', file);
-                          
+
                           try {
                             await apiRequest("POST", `/api/cards/${cardId}/attachments`, formData, {}, true);
                             toast({
@@ -961,7 +963,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                       {attachments.map((attachment) => {
                         const isImage = attachment.mimeType?.startsWith('image/');
                         const fileIcon = isImage ? null : <FileText className="h-8 w-8 text-gray-400" />;
-                        
+
                         return (
                           <div key={attachment.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                             {/* Thumbnail or icon */}
@@ -1011,23 +1013,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                 </a>
                                 {user && (user.id === attachment.uploadedBy || user.role === 'admin') && (
                                   <button
-                                    onClick={async () => {
-                                      if (confirm('Deseja realmente excluir este anexo?')) {
-                                        try {
-                                          await apiRequest("DELETE", `/api/attachments/${attachment.id}`);
-                                          toast({
-                                            title: "Anexo removido",
-                                            description: "O arquivo foi removido com sucesso.",
-                                          });
-                                          loadAttachments(cardId);
-                                        } catch (error: any) {
-                                          toast({
-                                            title: "Erro ao remover anexo",
-                                            description: error.message || "Não foi possível remover o anexo.",
-                                            variant: "destructive",
-                                          });
-                                        }
-                                      }
+                                    onClick={() => {
+                                      setAttachmentToDelete(attachment.id);
+                                      setShowDeleteAttachmentDialog(true);
                                     }}
                                     className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
                                   >
@@ -1087,7 +1075,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                           className="min-h-[80px]"
                           disabled={isSubmittingComment}
                         />
-                        
+
                         {/* Preview de anexos pendentes */}
                         {pendingCommentAttachments.length > 0 && (
                           <div className="mt-2 space-y-2">
@@ -1114,7 +1102,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setPendingCommentAttachments(prev => 
+                                    setPendingCommentAttachments(prev =>
                                       prev.filter((_, i) => i !== index)
                                     );
                                   }}
@@ -1128,9 +1116,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                           </div>
                         )}
                       </div>
-                      <Button 
-                        type="submit" 
-                        className="bg-[#0079BF] hover:bg-[#026AA7]"
+                      <Button
+                        type="submit"
+                        className="bg-primary hover:bg-primary/90"
                         disabled={isSubmittingComment || (!commentText.trim() && pendingCommentAttachments.length === 0)}
                       >
                         {isSubmittingComment ? "Enviando..." : "Enviar"}
@@ -1172,7 +1160,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                               </button>
                             </div>
                             <p className="mt-2 text-sm whitespace-pre-wrap">{comment.content}</p>
-                            
+
                             {/* Comment attachments */}
                             {commentAttachs.length > 0 && (
                               <div className="mt-3 space-y-2">
@@ -1228,20 +1216,9 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                           <Download className="w-4 h-4" />
                                         </button>
                                         <button
-                                          onClick={async () => {
-                                            if (confirm('Tem certeza que deseja excluir este anexo?')) {
-                                              try {
-                                                await apiRequest("DELETE", `/api/attachments/${attachment.id}`);
-                                                toast({ title: "Anexo excluído" });
-                                                await loadComments(card!.id);
-                                              } catch (error: any) {
-                                                toast({
-                                                  title: "Erro ao excluir anexo",
-                                                  description: error.message,
-                                                  variant: "destructive",
-                                                });
-                                              }
-                                            }
+                                          onClick={() => {
+                                            setAttachmentToDelete(attachment.id);
+                                            setShowDeleteAttachmentDialog(true);
                                           }}
                                           className="p-1 text-red-600 hover:text-red-800"
                                           title="Excluir"
@@ -1271,7 +1248,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
             <div className="w-full md:w-48">
               <h3 className="text-xs font-medium text-[#5E6C84] mb-2">Adicionar ao cartão</h3>
               <div className="space-y-1.5 mb-6">
-                <button 
+                <button
                   className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={() => setIsMemberManagerOpen(true)}
                 >
@@ -1283,7 +1260,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   </svg>
                   <span>Membros</span>
                 </button>
-                <button 
+                <button
                   className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={() => setIsLabelManagerOpen(true)}
                 >
@@ -1293,7 +1270,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   </svg>
                   <span>Etiquetas</span>
                 </button>
-                <button 
+                <button
                   className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={() => setIsChecklistManagerOpen(true)}
                   aria-label="Abrir checklist"
@@ -1325,7 +1302,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     </button>
                   );
                 })()}
-                <button 
+                <button
                   className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${card.dueDate ? 'bg-primary/10 text-primary' : 'text-[#172B4D] hover:bg-[#091E420A]'}`}
                   onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
                 >
@@ -1336,7 +1313,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
                   <span className={isCardOverdue(card.dueDate) ? "text-red-600 font-medium" : ""}>
-                    {card.dueDate 
+                    {card.dueDate
                       ? `Prazo: ${formatDateBR(card.dueDate)}${isCardOverdue(card.dueDate) ? " (Atrasado)" : ""}`
                       : "Definir prazo"}
                   </span>
@@ -1404,17 +1381,17 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
               <div className="space-y-1.5 mb-6">
                 {isArchivedView ? (
                   /* Botão para desarquivar - apenas para cards arquivados */
-                  <button 
+                  <button
                     className="w-full text-left py-1.5 px-3 text-primary text-sm rounded hover:bg-primary/10 flex items-center"
                     onClick={async () => {
                       try {
                         await apiRequest("POST", `/api/cards/${card.id}/unarchive`);
-                        
+
                         // Recarregar os dados do board para mostrar o card na visualização principal
                         if (currentBoard) {
                           await fetchBoardData(currentBoard.id);
                         }
-                        
+
                         toast({
                           title: "Cartão desarquivado",
                           description: "O cartão foi desarquivado com sucesso.",
@@ -1440,10 +1417,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                 ) : (
                   /* Botões normais para cards ativos */
                   <>
-                    <button 
+                    <button
                       className={`w-full text-left py-1.5 px-3 text-sm rounded flex items-center ${
-                        card.completed 
-                          ? 'bg-red-50 text-red-600 hover:bg-red-100' 
+                        card.completed
+                          ? 'bg-red-50 text-red-600 hover:bg-red-100'
                           : 'bg-green-50 text-green-600 hover:bg-green-100'
                       }`}
                       onClick={handleToggleCompleted}
@@ -1493,7 +1470,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <button 
+                <button
                   className="w-full text-left py-1.5 px-3 text-[#172B4D] text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={() => {
                     // Criar uma cópia completa do cartão (exceto anexos e comentários)
@@ -1506,7 +1483,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   </svg>
                   <span>Copiar</span>
                 </button>
-                <button 
+                <button
                   className="w-full text-left py-1.5 px-3 text-gray-700 text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={handleArchiveCard}
                 >
@@ -1518,7 +1495,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                   <span>Arquivar</span>
                 </button>
                 <div className="border-b border-gray-200 my-1"></div>
-                <button 
+                <button
                   className="w-full text-left py-1.5 px-3 text-red-600 text-sm rounded hover:bg-[#091E420A] flex items-center"
                   onClick={handleDeleteCard}
                 >
@@ -1608,8 +1585,8 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDeleteCard} 
+            <AlertDialogAction
+              onClick={confirmDeleteCard}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir cartão
@@ -1639,8 +1616,8 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDeleteComment} 
+            <AlertDialogAction
+              onClick={confirmDeleteComment}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir comentário
@@ -1739,6 +1716,48 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
               }
             }}>
               Aplicar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Attachment Dialog */}
+      <AlertDialog open={showDeleteAttachmentDialog} onOpenChange={setShowDeleteAttachmentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Anexo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir este anexo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (attachmentToDelete) {
+                  try {
+                    await apiRequest("DELETE", `/api/attachments/${attachmentToDelete}`);
+                    toast({
+                      title: "Anexo removido",
+                      description: "O arquivo foi removido com sucesso.",
+                    });
+                    if (card) {
+                      loadAttachments(card.id);
+                      await loadComments(card.id);
+                    }
+                  } catch (error: any) {
+                    toast({
+                      title: "Erro ao remover anexo",
+                      description: error.message || "Não foi possível remover o anexo.",
+                      variant: "destructive",
+                    });
+                  }
+                  setAttachmentToDelete(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

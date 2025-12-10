@@ -80,6 +80,8 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
   const [subtaskMembers, setSubtaskMembers] = useState<User[]>([]);
   const [subtaskComments, setSubtaskComments] = useState<any[]>([]);
   const [cardMembers, setCardMembers] = useState<User[]>([]);
+  const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
 
 
 
@@ -1098,18 +1100,9 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
                                     </p>
                                   </div>
                                   <button
-                                    onClick={async () => {
-                                      if (!window.confirm("Tem certeza que deseja excluir este comentário?")) return;
-                                      try {
-                                        await deleteComment(comment.id, cardId);
-                                        // Atualizar lista de comentários
-                                        if (subtaskModalData) {
-                                          const updatedComments = await fetchComments(cardId, subtaskModalData.id);
-                                          setSubtaskComments(updatedComments);
-                                        }
-                                      } catch (err) {
-                                        console.error('Erro ao excluir comentário:', err);
-                                      }
+                                    onClick={() => {
+                                      setCommentToDelete(comment.id);
+                                      setShowDeleteCommentDialog(true);
                                     }}
                                     className="text-gray-400 hover:text-red-500"
                                   >
@@ -1261,6 +1254,41 @@ export function ChecklistManager({ cardId }: ChecklistManagerProps) {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Delete Comment Dialog */}
+      <AlertDialog open={showDeleteCommentDialog} onOpenChange={setShowDeleteCommentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Comentário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este comentário? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (commentToDelete) {
+                  try {
+                    await deleteComment(commentToDelete, cardId);
+                    // Atualizar lista de comentários
+                    if (subtaskModalData) {
+                      const updatedComments = await fetchComments(cardId, subtaskModalData.id);
+                      setSubtaskComments(updatedComments);
+                    }
+                  } catch (err) {
+                    console.error('Erro ao excluir comentário:', err);
+                  }
+                  setCommentToDelete(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

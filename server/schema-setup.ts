@@ -31,10 +31,17 @@ async function runMigrationFiles() {
         // Remove SQL code fences if present
         let cleaned = content.replace(/```sql/g, '').replace(/```/g, '');
         
-        // Remove BEGIN/COMMIT statements as sql.unsafe handles transactions
-        // This prevents nested transaction errors
-        cleaned = cleaned.replace(/^\s*BEGIN\s*;?\s*$/gmi, '');
-        cleaned = cleaned.replace(/^\s*COMMIT\s*;?\s*$/gmi, '');
+        // Check if file contains PL/pgSQL blocks (DO $$) or transaction control
+        const hasPlPgSqlBlocks = /DO\s+\$\$/i.test(cleaned);
+        const hasTransactionControl = /^\s*(BEGIN|COMMIT|ROLLBACK)\s*;?\s*$/mi.test(cleaned);
+        
+        // If file has PL/pgSQL blocks or explicit transaction control, keep as-is
+        // Otherwise, remove BEGIN/COMMIT to let sql.unsafe handle transactions
+        if (!hasPlPgSqlBlocks && hasTransactionControl) {
+          cleaned = cleaned.replace(/^\s*BEGIN\s*;?\s*$/gmi, '');
+          cleaned = cleaned.replace(/^\s*COMMIT\s*;?\s*$/gmi, '');
+        }
+        
         cleaned = cleaned.trim();
         
         // Skip empty files
@@ -43,7 +50,7 @@ async function runMigrationFiles() {
           continue;
         }
         
-        // Execute migration with max: 1 to avoid unsafe transaction warnings
+        // Execute migration
         await (sql as any).unsafe(cleaned, [], { prepare: false });
         console.log(`  ✅ ${file} completed`);
       } catch (err: any) {

@@ -68,6 +68,8 @@ export default function PortfolioDetail() {
   const [isCreateBoardModalOpen, setIsCreateBoardModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [boardToArchive, setBoardToArchive] = useState<Board | null>(null);
   const [boardFormData, setBoardFormData] = useState({
     title: "",
     description: "",
@@ -211,9 +213,8 @@ export default function PortfolioDetail() {
   });
 
   const handleArchiveBoard = (board: Board) => {
-    if (confirm(`Tem certeza que deseja arquivar o projeto "${board.title}"?`)) {
-      archiveBoardMutation.mutate(board.id);
-    }
+    setBoardToArchive(board);
+    setShowArchiveDialog(true);
   };
 
   if (isNaN(portfolioId)) {
@@ -473,6 +474,32 @@ export default function PortfolioDetail() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir projeto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de confirmação para arquivar projeto */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar Projeto</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja arquivar o projeto "{boardToArchive?.title}"? Você poderá restaurá-lo depois.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (boardToArchive) {
+                  archiveBoardMutation.mutate(boardToArchive.id);
+                  setBoardToArchive(null);
+                }
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Arquivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

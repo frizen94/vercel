@@ -152,10 +152,10 @@ export default function BoardPage() {
 function LoadingState() {
   return (
     <>
-      <div className="bg-[#0079BF]/90 text-white py-2">
+      <div className="bg-white border-b border-gray-100 text-gray-900 py-2">
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap items-center justify-between">
-            <Skeleton className="h-8 w-48 bg-white/20" />
+            <Skeleton className="h-8 w-48 bg-gray-200" />
           </div>
         </div>
       </div>
