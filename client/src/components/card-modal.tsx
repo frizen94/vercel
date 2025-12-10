@@ -110,7 +110,13 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [commentAttachments, setCommentAttachments] = useState<Record<number, Attachment[]>>({});
   const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
-  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxImages, setLightboxImages] = useState<Array<{
+    id: number;
+    url: string;
+    originalName: string;
+    size: number;
+    createdAt: string;
+  }>>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
 
@@ -969,7 +975,13 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                     if (isImage) {
                                       const imageAttachments = attachments.filter(a => a.mimeType?.startsWith('image/'));
                                       const imageIndex = imageAttachments.findIndex(a => a.id === attachment.id);
-                                      setLightboxImages(imageAttachments.map(a => a.path?.startsWith('/') ? a.path : `/${a.path}` || ''));
+                                      setLightboxImages(imageAttachments.map(a => ({
+                                        id: a.id,
+                                        url: a.path?.startsWith('/') ? a.path : `/${a.path}`,
+                                        originalName: a.originalName || '',
+                                        size: a.size || 0,
+                                        createdAt: a.createdAt ? (typeof a.createdAt === 'string' ? a.createdAt : new Date(a.createdAt).toISOString()) : new Date().toISOString()
+                                      })));
                                       setLightboxIndex(imageIndex);
                                       setShowLightbox(true);
                                     }
@@ -997,7 +1009,7 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                   <Download className="h-3 w-3" />
                                   Baixar
                                 </a>
-                                {user && (user.id === attachment.uploadedBy || user.isAdmin) && (
+                                {user && (user.id === attachment.uploadedBy || user.role === 'admin') && (
                                   <button
                                     onClick={async () => {
                                       if (confirm('Deseja realmente excluir este anexo?')) {
@@ -1178,9 +1190,15 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
                                           onClick={() => {
                                             const images = commentAttachs
                                               .filter(a => a.mimeType.startsWith('image/'))
-                                              .map(a => a.path?.startsWith('/') ? a.path : `/${a.path}`);
+                                              .map(a => ({
+                                                id: a.id,
+                                                url: a.path?.startsWith('/') ? a.path : `/${a.path}`,
+                                                originalName: a.originalName || '',
+                                                size: a.size || 0,
+                                                createdAt: a.createdAt ? (typeof a.createdAt === 'string' ? a.createdAt : new Date(a.createdAt).toISOString()) : new Date().toISOString()
+                                              }));
                                             const imgPath = attachment.path?.startsWith('/') ? attachment.path : `/${attachment.path}`;
-                                            const index = images.indexOf(imgPath);
+                                            const index = images.findIndex(img => img.url === imgPath);
                                             setLightboxImages(images);
                                             setLightboxIndex(index);
                                             setShowLightbox(true);

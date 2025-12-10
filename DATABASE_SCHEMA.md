@@ -5,13 +5,19 @@ Este documento descreve a estrutura completa do banco de dados PostgreSQL utiliz
 
 ## 📊 Visão Geral
 
-O banco de dados é estruturado em 11 tabelas principais que implementam a funcionalidade completa de um sistema de gerenciamento de tarefas colaborativo:
+O banco de dados é estruturado em 20 tabelas principais que implementam a funcionalidade completa de um sistema de gerenciamento de tarefas colaborativo:
 
 - **Gestão de Usuários**: `users`
+- **Gestão de Portfólios**: `portfolios`, `portfolio_members`
 - **Gestão de Quadros**: `boards`, `board_members`
 - **Gestão de Conteúdo**: `lists`, `cards`, `labels`, `card_labels`
 - **Colaboração**: `comments`, `card_members`
-- **Checklists**: `checklists`, `checklist_items`
+- **Checklists**: `checklists`, `checklist_items`, `checklist_item_members`
+- **Prioridades**: `priorities`, `card_priorities`
+- **Anexos**: `attachments`
+- **Notificações**: `notifications`
+- **Auditoria**: `audit_logs`, `activities`
+- **Sessão**: `session`
 
 ## 🗄️ Tabelas
 
@@ -423,6 +429,56 @@ WHERE c.due_date < NOW()
 ORDER BY c.due_date ASC;
 ```
 
+---
+
+### 20. attachments - Anexos de Cards e Comentários
+
+Armazena arquivos anexados a cards e comentários.
+
+```sql
+CREATE TABLE IF NOT EXISTS attachments (
+    id SERIAL PRIMARY KEY,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    thumbnail_path TEXT,
+    url TEXT,
+    card_id INTEGER REFERENCES cards(id) ON DELETE CASCADE,
+    comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+#### Campos
+- `id`: Identificador único do anexo
+- `filename`: Nome do arquivo no servidor
+- `original_name`: Nome original do arquivo
+- `mime_type`: Tipo MIME do arquivo (image/png, application/pdf, etc)
+- `size`: Tamanho do arquivo em bytes
+- `path`: Caminho do arquivo no servidor
+- `thumbnail_path`: Caminho da miniatura (para imagens)
+- `url`: URL pública do arquivo (opcional)
+- `card_id`: Referência ao card (se anexado a um card)
+- `comment_id`: Referência ao comentário (se anexado a um comentário)
+- `uploaded_by`: Usuário que fez o upload
+- `created_at`: Data/hora do upload
+
+#### Índices
+- `idx_attachments_card_id`: Otimiza busca por card
+- `idx_attachments_comment_id`: Otimiza busca por comentário
+- `idx_attachments_uploaded_by`: Otimiza busca por usuário
+- `idx_attachments_mime_type`: Otimiza busca por tipo de arquivo
+
+#### Relacionamentos
+- Pertence a um `card` (opcional, ON DELETE CASCADE)
+- Pertence a um `comment` (opcional, ON DELETE CASCADE)
+- Criado por um `user` (SET NULL se usuário deletado)
+
+---
+
 ## 🚀 Migrações e Evolução
 
 ### Versioning do Schema
@@ -450,6 +506,7 @@ psql $DATABASE_URL < backup.sql
 
 ---
 
-**Última atualização**: 31 de Janeiro de 2024  
-**Versão do Schema**: 1.0.0  
-**Compatibilidade**: PostgreSQL 12+
+**Última atualização**: 10 de Dezembro de 2025  
+**Versão do Schema**: 2.0.0  
+**Compatibilidade**: PostgreSQL 12+  
+**Tabelas**: 20 (incluindo sistema de anexos, notificações e auditoria)

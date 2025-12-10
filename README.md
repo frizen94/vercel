@@ -22,6 +22,7 @@ O sistema foi estruturado com uma arquitetura de código limpo e modular, seguin
 
 ### 🚀 Destaques das Funcionalidades Recentes
 
+- **Sistema de Anexos**: Upload de arquivos em cards e comentários com miniaturas e lightbox
 - **Sistema de Portfólios**: Organize múltiplos quadros em portfólios com membros e permissões dedicadas
 - **Mini-Dashboards**: Visualize estatísticas e métricas específicas de cada portfólio
 - **Notificações em Tempo Real**: Sistema completo de notificações para atribuições, comentários e prazos
@@ -67,11 +68,11 @@ NexusTasks/
 │   └── vite.config.ts       # Configuração do Vite
 ├── public/                   # Diretório público para arquivos estáticos
 │   └── uploads/             # Diretório para arquivos de upload
-│       └── profile_pictures/ # Imagens de perfil dos usuários
-│   └── vite.config.ts       # Configuração do Vite
-├── public/                   # Diretório público para arquivos estáticos
-│   └── uploads/             # Diretório para arquivos de upload
-│       └── profile_pictures/ # Imagens de perfil dos usuários
+│       ├── profile_pictures/ # Imagens de perfil dos usuários
+│       └── attachments/     # Anexos de cards e comentários
+│           └── card-{id}/   # Pasta específica por card
+│               ├── {arquivo} # Arquivos originais
+│               └── thumbnails/ # Miniaturas de imagens
 ├── scripts/                  # Scripts utilitários
 │   ├── run-security-tests.sh # Script de testes de segurança
 │   └── validate-environment.js # Script de validação de ambiente
@@ -97,6 +98,7 @@ NexusTasks/
 │   │   ├── 20250131_add_portfolios.sql
 │   │   ├── 20250201_add_archived_to_cards.sql
 │   │   ├── 20250917_add_board_color.sql
+│   │   ├── 20251209_add_attachments_table.sql
 │   │   └── ... (outras migrações)
 │   ├── scripts/             # Scripts auxiliares do servidor
 │   │   └── fix-label-duplicates.ts
@@ -270,10 +272,17 @@ NexusTasks/
 
 ### Upload e Arquivos
 - Upload de imagens de perfil
+- **Sistema de anexos para cards e comentários**
+- **Suporte a múltiplos tipos de arquivo** (imagens, PDFs, documentos)
+- **Geração automática de miniaturas** para imagens
+- **Visualizador de imagens com lightbox**
+- **Organização por pastas** (separado por card)
+- **Exclusão automática** de arquivos ao deletar cards
 - Armazenamento seguro de arquivos
-- Formatos suportados: JPG, PNG, GIF
-- Limites de tamanho configuráveis
+- Limites de tamanho configuráveis (10MB padrão)
 - Processamento de imagens para otimização
+- Upload via botão ou Ctrl+V para colar imagens
+- Preview de imagens antes de enviar em comentários
 
 ## Tecnologias Utilizadas
 
