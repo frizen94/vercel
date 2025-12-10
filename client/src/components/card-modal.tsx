@@ -1552,6 +1552,10 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
       {card && (
         <Dialog open={isChecklistManagerOpen} onOpenChange={() => setIsChecklistManagerOpen(false)}>
           <DialogContent className="bg-[#F9FAFC] max-w-3xl max-h-[80vh] overflow-y-auto p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Checklists</DialogTitle>
+              <DialogDescription>Gerenciar checklists do cartão</DialogDescription>
+            </DialogHeader>
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium">Checklists</h3>
@@ -1570,15 +1574,17 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <div>
-                Você tem certeza que deseja excluir o cartão <strong>{card?.title}</strong>?
-              </div>
-              <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
-                <span className="text-sm">
-                  Esta ação não pode ser desfeita. O cartão e todos os dados associados serão removidos permanentemente.
-                </span>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div>
+                  Você tem certeza que deseja excluir o cartão <strong>{card?.title}</strong>?
+                </div>
+                <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
+                  <span className="text-sm">
+                    Esta ação não pode ser desfeita. O cartão e todos os dados associados serão removidos permanentemente.
+                  </span>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1599,15 +1605,17 @@ export function CardModal({ cardId, isOpen, onClose, isArchivedView = false }: C
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <div>
-                Você tem certeza que deseja excluir este comentário?
-              </div>
-              <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
-                <span className="text-sm">
-                  Esta ação não pode ser desfeita. O comentário será removido permanentemente.
-                </span>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div>
+                  Você tem certeza que deseja excluir este comentário?
+                </div>
+                <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" />
+                  <span className="text-sm">
+                    Esta ação não pode ser desfeita. O comentário será removido permanentemente.
+                  </span>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

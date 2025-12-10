@@ -120,5 +120,3 @@ DOMPurify.setConfig({
   FORBID_ATTR: ['onerror', 'onload', 'onclick'], // Proibir handlers de evento
   FORBID_TAGS: ['script', 'object', 'embed', 'iframe', 'frame'] // Proibir tags perigosas
 });
-
-console.log('✅ Sistema de sanitização XSS inicializado');

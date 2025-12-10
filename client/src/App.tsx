@@ -294,8 +294,8 @@ function Router() {
 function App() {
   // Inicializar CSRF ao carregar a aplicação
   useEffect(() => {
-    initializeCsrf().catch(err => {
-      console.warn('CSRF initialization failed:', err);
+    initializeCsrf().catch(() => {
+      // CSRF initialization failed - continuando sem proteção
     });
   }, []);
 

@@ -129,14 +129,9 @@ export function PortfolioMemberManager({ portfolioId }: PortfolioMemberManagerPr
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
-      const res = await apiRequest("PUT", `/api/portfolios/${portfolioId}/members/${userId}`, {
+      return await apiRequest("PUT", `/api/portfolios/${portfolioId}/members/${userId}`, {
         role,
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Falha ao atualizar papel");
-      }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/portfolios/${portfolioId}/members`] });

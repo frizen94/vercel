@@ -21,7 +21,6 @@ export async function fetchCsrfToken(): Promise<string> {
     csrfToken = data.csrfToken;
     return csrfToken!;
   } catch (error) {
-    console.error('Erro ao obter token CSRF:', error);
     throw error;
   }
 }
@@ -60,7 +59,6 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
         };
       }
     } catch (error) {
-      console.warn('⚠️ CSRF token indisponível, continuando sem proteção CSRF:', error);
       // Continuar sem token CSRF - o servidor decidirá se aceita ou não
     }
   }
@@ -75,7 +73,6 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
   if (response.status === 403 && mutatingMethods.includes(method)) {
     const errorText = await response.text();
     if (errorText.includes('csrf token') || errorText.includes('invalid csrf')) {
-      console.log('🔄 Token CSRF expirado, renovando...');
       try {
         // Renovar token CSRF
         await fetchCsrfToken();
@@ -99,11 +96,10 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
         });
         
         if (retryResponse.ok) {
-          console.log('✅ Requisição repetida com sucesso após renovar token CSRF');
           return retryResponse;
         }
       } catch (retryError) {
-        console.error('❌ Falha ao renovar token CSRF:', retryError);
+        // Falha ao renovar token CSRF
       }
     }
   }
@@ -117,9 +113,7 @@ export async function csrfFetch(url: string, options: RequestInit = {}): Promise
 export async function initializeCsrf(): Promise<void> {
   try {
     await fetchCsrfToken();
-    console.log('✅ Sistema CSRF inicializado');
   } catch (error) {
-    console.warn('⚠️ CSRF não disponível - continuando sem proteção CSRF');
     // Não propagar o erro - deixar a aplicação funcionar
   }
 }

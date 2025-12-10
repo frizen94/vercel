@@ -89,12 +89,10 @@ export default function PortfolioDetail() {
   // Mutation para criar projeto no portfólio
   const { mutate: createBoard, isPending: isCreatingBoard } = useMutation({
     mutationFn: async (data: typeof boardFormData) => {
-      console.log('📝 Enviando dados para criação:', { ...data, portfolioId });
       const result = await apiRequest("POST", "/api/boards", {
         ...data,
         portfolioId
       });
-      console.log('📋 Dados retornados:', result);
       return result;
     },
     onSuccess: (newBoard: Board) => {

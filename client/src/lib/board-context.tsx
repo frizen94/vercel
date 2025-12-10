@@ -192,7 +192,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
           setCardLabels(map as any);
         }
       } catch (err) {
-        console.warn('Failed to fetch board card labels during board load', err);
+        // Failed to fetch board card labels
       }
       // Inicializar visibleCards com os mesmos cards carregados
       setVisibleCards(cardsMap);
@@ -223,7 +223,7 @@ export function BoardProvider({ children }: BoardProviderProps) {
           setPriorities(boardPriorities);
         }
       } catch (err) {
-        console.warn('Failed to fetch priorities during board load', err);
+        // Failed to fetch priorities
       }
 
       // Fetch card priorities mapping for the board (single request)

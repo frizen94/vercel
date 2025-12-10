@@ -204,8 +204,7 @@ export function AppSidebar() {
     updateBoard = ctx.updateBoard;
   } catch (err) {
     // Falha ao acessar o contexto: provavelmente estamos fora do BoardProvider
-    // (por exemplo HMR overlay). Apenas logamos em dev e continuamos com fallback.
-    if (process.env.NODE_ENV === 'development') console.warn('AppSidebar: Board context not available, using fallback.', err);
+    // (por exemplo HMR overlay). Continuamos com fallback.
   }
 
   // Portfolio management states
