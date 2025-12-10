@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 // Small startup script to run programmatic migrations then start the server.
-// This file is plain JS to avoid requiring ts-node in production.
-const { spawnSync } = require('child_process');
-const path = require('path');
+// This file is ESM to match package.json "type": "module"
+import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function runCommand(cmd, args, options = {}) {
   const res = spawnSync(cmd, args, { stdio: 'inherit', ...options });
@@ -17,13 +22,13 @@ async function main() {
     console.log('🔄 Running programmatic DB migrations (schema-setup)...');
 
     // Prefer running compiled JS if available
-    const schemaSetupPathJS = path.join(__dirname, 'schema-setup.js');
-    const schemaSetupPathTS = path.join(__dirname, 'schema-setup.ts');
+    const schemaSetupPathJS = join(__dirname, 'schema-setup.js');
+    const schemaSetupPathTS = join(__dirname, 'schema-setup.ts');
 
-    if (require('fs').existsSync(schemaSetupPathJS)) {
+    if (existsSync(schemaSetupPathJS)) {
       // Run with node
       runCommand('node', [schemaSetupPathJS]);
-    } else if (require('fs').existsSync(schemaSetupPathTS)) {
+    } else if (existsSync(schemaSetupPathTS)) {
       // If TS source exists in production, attempt to run with tsx (if installed)
       runCommand('npx', ['tsx', schemaSetupPathTS]);
     } else {
@@ -34,12 +39,12 @@ async function main() {
 
     // Finally start the server
     // If dist/index.js exists (built app), start it. Otherwise try src/index.ts via tsx.
-    const distIndex = path.join(__dirname, '..', 'dist', 'index.js');
-    if (require('fs').existsSync(distIndex)) {
+    const distIndex = join(__dirname, '..', 'dist', 'index.js');
+    if (existsSync(distIndex)) {
       runCommand('node', [distIndex]);
     } else {
       // fallback to tsx start
-      runCommand('npx', ['tsx', path.join(__dirname, '..', 'server', 'index.ts')]);
+      runCommand('npx', ['tsx', join(__dirname, '..', 'server', 'index.ts')]);
     }
 
   } catch (err) {
