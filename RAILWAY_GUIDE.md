@@ -2,7 +2,7 @@
 
 ## 📋 Índice
 1. [Variáveis de Ambiente](#variáveis-de-ambiente)
-2. [Configuração Inicial](#configuração-inicial)
+2 [Configuração Inicial](#configuração-inicial)
 3. [Migrações de Banco de Dados](#migrações-de-banco-de-dados)
 4. [Troubleshooting](#troubleshooting)
 5. [Monitoramento](#monitoramento)
