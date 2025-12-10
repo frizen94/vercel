@@ -29,10 +29,22 @@ async function runMigrationFiles() {
         const content = await fs.readFile(filePath, 'utf8');
         
         // Remove SQL code fences if present
-        const cleaned = content.replace(/```sql/g, '').replace(/```/g, '');
+        let cleaned = content.replace(/```sql/g, '').replace(/```/g, '');
         
-        // Execute migration
-        await (sql as any).unsafe(cleaned);
+        // Remove BEGIN/COMMIT statements as sql.unsafe handles transactions
+        // This prevents nested transaction errors
+        cleaned = cleaned.replace(/^\s*BEGIN\s*;?\s*$/gmi, '');
+        cleaned = cleaned.replace(/^\s*COMMIT\s*;?\s*$/gmi, '');
+        cleaned = cleaned.trim();
+        
+        // Skip empty files
+        if (!cleaned) {
+          console.log(`  ⏭️  ${file} skipped (empty)`);
+          continue;
+        }
+        
+        // Execute migration with max: 1 to avoid unsafe transaction warnings
+        await (sql as any).unsafe(cleaned, [], { prepare: false });
         console.log(`  ✅ ${file} completed`);
       } catch (err: any) {
         // Ignore errors for already existing tables/columns (IF NOT EXISTS)
